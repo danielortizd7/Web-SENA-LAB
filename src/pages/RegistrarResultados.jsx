@@ -14,17 +14,23 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const initialResultados = {
-  pH: { valor: 0 },
-  turbidez: { valor: 0 },
-  oxigenoDisuelto: { valor: 0 },
-  nitratos: { valor: 0 },
-  solidosSuspendidos: { valor: 0 },
-  fosfatos: { valor: 0 }
+  pH: { valor: '', unidad: 'mv' },
+  turbidez: { valor: '', unidad: 'NTU' },
+  oxigenoDisuelto: { valor: '', unidad: 'mg/L' },
+  nitratos: { valor: '', unidad: 'mg/L' },
+  solidosSuspendidos: { valor: '', unidad: 'mg/L' },
+  fosfatos: { valor: '', unidad: 'mg/k' },
+  observaciones: ''
 };
 
 const RegistrarResultados = () => {
@@ -154,28 +160,46 @@ const RegistrarResultados = () => {
       }
 
       const formData = {
-        ...resultados,
         idMuestra: idMuestra,
-        fechaHora: new Date().toISOString()
+        analisis: {
+          pH: resultados.pH.valor ? {
+            mediciones: {
+              M1: resultados.pH.valor.toString(),
+              M2: resultados.pH.valor.toString()
+            }
+          } : undefined,
+          turbidez: resultados.turbidez.valor ? {
+            mediciones: {
+              M1: resultados.turbidez.valor.toString(),
+              M2: resultados.turbidez.valor.toString()
+            }
+          } : undefined,
+          conductividad: resultados.conductividad?.valor ? {
+            mediciones: {
+              M1: resultados.conductividad.valor.toString(),
+              M2: resultados.conductividad.valor.toString(),
+              unidad: 'µS/cm'
+            }
+          } : undefined
+        },
+        observaciones: resultados.observaciones || ''
       };
 
       let response;
       if (isEditing) {
         response = await axios.put(
-          `http://localhost:5000/api/muestras/${idMuestra}`,
-          {
-            ...formData,
-          },
+          `http://localhost:5000/api/ingreso-resultados/resultados/${idMuestra}`,
+          formData,
           {
             headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
+              'Content-Type': 'application/json'
+            }
           }
         );
       } else {
         response = await axios.post(
-          `http://localhost:5000/api/muestras/${idMuestra}/resultados`,
+          `http://localhost:5000/api/ingreso-resultados/registrar/${idMuestra}`,
           formData,
           {
             headers: {
@@ -204,156 +228,194 @@ const RegistrarResultados = () => {
   };
 
   return (
-    <Paper sx={{ padding: 3, maxWidth: 800, margin: "auto", marginTop: 3 }}>
-      <Typography variant="h5" gutterBottom align="center">
-        {isEditing ? 'Editar Resultados' : 'Registrar Resultados'}
-      </Typography>
-      <Typography variant="subtitle1" gutterBottom align="center" color="primary">
-        Muestra: {idMuestra}
-      </Typography>
+    <Dialog
+      open={true}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: { maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6">
+          Detalles de la Muestra - {idMuestra}
+        </Typography>
+        <Button onClick={() => navigate('/resultados')} color="inherit">
+          ×
+        </Button>
+      </DialogTitle>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      {detallesMuestra && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Detalles de la Muestra
-          </Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Campo</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Valor</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell>Documento</TableCell>
-                  <TableCell>{detallesMuestra.documento}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Tipo de Muestra</TableCell>
-                  <TableCell>{detallesMuestra.tipoMuestra}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Tipo de Muestreo</TableCell>
-                  <TableCell>{detallesMuestra.tipoMuestreo}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Fecha y Hora</TableCell>
-                  <TableCell>{new Date(detallesMuestra.fechaHora).toLocaleString()}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>{detallesMuestra.estado}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Lugar de Muestreo</TableCell>
-                  <TableCell>{detallesMuestra.lugarMuestreo}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Tipo de Agua</TableCell>
-                  <TableCell>
-                    {detallesMuestra.tipoDeAgua?.tipo}
-                    {detallesMuestra.tipoDeAgua?.descripcion && ` - ${detallesMuestra.tipoDeAgua.descripcion}`}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Análisis Seleccionados</TableCell>
-                  <TableCell>{detallesMuestra.analisisSeleccionados.join(", ")}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
+      <DialogContent>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+        
+        {detallesMuestra && (
+          <Box>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary">Documento</Typography>
+                <Typography variant="body1">{detallesMuestra.documento}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary">Tipo de Muestra</Typography>
+                <Typography variant="body1">{detallesMuestra.tipoMuestra}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary">Tipo de Muestreo</Typography>
+                <Typography variant="body1">{detallesMuestra.tipoMuestreo}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary">Fecha y Hora</Typography>
+                <Typography variant="body1">{new Date(detallesMuestra.fechaHora).toLocaleString()}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" color="textSecondary">Estado</Typography>
+                <Chip
+                  label={detallesMuestra.estado}
+                  color={detallesMuestra.estado === 'En análisis' ? 'warning' : 'success'}
+                  sx={{ 
+                    backgroundColor: detallesMuestra.estado === 'En análisis' ? '#FFA500' : '#39A900',
+                    color: 'white'
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="textSecondary">Análisis Seleccionados</Typography>
+                <Typography variant="body1">{detallesMuestra.analisisSeleccionados.join(", ")}</Typography>
+              </Grid>
+            </Grid>
 
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="pH"
-              type="number"
-              value={resultados.pH.valor}
-              onChange={(e) => handleChange('pH', e.target.value)}
-              inputProps={{ step: "0.01", min: "0", max: "14" }}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Turbidez"
-              type="number"
-              value={resultados.turbidez.valor}
-              onChange={(e) => handleChange('turbidez', e.target.value)}
-              inputProps={{ step: "0.01", min: "0" }}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Oxígeno Disuelto"
-              type="number"
-              value={resultados.oxigenoDisuelto.valor}
-              onChange={(e) => handleChange('oxigenoDisuelto', e.target.value)}
-              inputProps={{ step: "0.01", min: "0" }}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Nitratos"
-              type="number"
-              value={resultados.nitratos.valor}
-              onChange={(e) => handleChange('nitratos', e.target.value)}
-              inputProps={{ step: "0.01", min: "0" }}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Sólidos Suspendidos"
-              type="number"
-              value={resultados.solidosSuspendidos.valor}
-              onChange={(e) => handleChange('solidosSuspendidos', e.target.value)}
-              inputProps={{ step: "0.1", min: "0" }}
-              required
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Fosfatos"
-              type="number"
-              value={resultados.fosfatos.valor}
-              onChange={(e) => handleChange('fosfatos', e.target.value)}
-              inputProps={{ step: "0.01", min: "0" }}
-              required
-            />
-          </Grid>
-        </Grid>
+            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+              Resultados de Análisis
+            </Typography>
 
-        <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : (isEditing ? 'Actualizar Resultados' : 'Registrar Resultados')}
-          </Button>
-        </Box>
-      </form>
-    </Paper>
+            <form onSubmit={handleSubmit}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Parámetro</TableCell>
+                      <TableCell>Valor</TableCell>
+                      <TableCell>Unidad</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>pH</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.pH.valor}
+                          onChange={(e) => handleChange('pH', e.target.value)}
+                          inputProps={{ step: "0.01", min: "0", max: "14" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>mV</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Turbidez</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.turbidez.valor}
+                          onChange={(e) => handleChange('turbidez', e.target.value)}
+                          inputProps={{ step: "0.01", min: "0" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>NTU</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Oxígeno Disuelto</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.oxigenoDisuelto.valor}
+                          onChange={(e) => handleChange('oxigenoDisuelto', e.target.value)}
+                          inputProps={{ step: "0.01", min: "0" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>mg/L</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Nitratos</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.nitratos.valor}
+                          onChange={(e) => handleChange('nitratos', e.target.value)}
+                          inputProps={{ step: "0.01", min: "0" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>mg/L</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Sólidos Suspendidos</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.solidosSuspendidos.valor}
+                          onChange={(e) => handleChange('solidosSuspendidos', e.target.value)}
+                          inputProps={{ step: "0.1", min: "0" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>mg/L</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Fosfatos</TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={resultados.fosfatos.valor}
+                          onChange={(e) => handleChange('fosfatos', e.target.value)}
+                          inputProps={{ step: "0.01", min: "0" }}
+                          required
+                        />
+                      </TableCell>
+                      <TableCell>mg/L</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <DialogActions sx={{ mt: 3 }}>
+                <Button
+                  onClick={() => navigate('/lista-resultados')}
+                  color="inherit"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    backgroundColor: '#39A900',
+                    '&:hover': { backgroundColor: '#2d8000' }
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <CircularProgress size={24} /> : (isEditing ? 'Actualizar Resultados' : 'Registrar Resultados')}
+                </Button>
+              </DialogActions>
+            </form>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };
 
-export default RegistrarResultados; 
+export default RegistrarResultados;

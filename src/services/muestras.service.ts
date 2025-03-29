@@ -115,6 +115,11 @@ class MuestrasService {
         muestra,
         { headers: this.getHeaders() }
       );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al actualizar la muestra');
+      }
+
       return response.data;
     } catch (error: any) {
       console.error('Error al actualizar muestra:', error.response || error);

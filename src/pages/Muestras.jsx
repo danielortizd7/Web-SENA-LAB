@@ -285,23 +285,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
           autoComplete="off"
           sx={{ "& .MuiTextField-root": { mb: 2 } }}
         >
-          {/* Tipo de Muestra */}
-          <Typography variant="subtitle2">Tipo de Muestra</Typography>
-          <Select
-            fullWidth
-            value={editingMuestra.tipoMuestra || ""}
-            onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                tipoMuestra: e.target.value,
-                analisisSeleccionados: [],
-              })
-            }
-          >
-            <MenuItem value="">Seleccione</MenuItem>
-            <MenuItem value="Agua">Agua</MenuItem>
-            <MenuItem value="Suelo">Suelo</MenuItem>
-          </Select>
           {/* Tipo de Muestreo */}
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
@@ -314,84 +297,51 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               })
             }
           >
-            <MenuItem value="">Seleccione</MenuItem>
             <MenuItem value="Simple">Simple</MenuItem>
-            <MenuItem value="Completo">Completo</MenuItem>
-            <MenuItem value="Otro">Otro</MenuItem>
+            <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
-          {editingMuestra.tipoMuestreo === "Otro" && (
-            <TextField
-              fullWidth
-              label="Especificar tipo de muestreo"
-              value={editingMuestra.tipoMuestreoOtro || ""}
-              onChange={(e) =>
-                setEditingMuestra({
-                  ...editingMuestra,
-                  tipoMuestreoOtro: e.target.value,
-                })
-              }
-            />
-          )}
-          {/* Campo Documento */}
+
+          {/* Lugar de Muestreo */}
           <TextField
             fullWidth
-            label="Documento"
-            value={editingMuestra.documento || ""}
+            label="Lugar de Muestreo"
+            value={editingMuestra.lugarMuestreo || ""}
             onChange={(e) =>
               setEditingMuestra({
                 ...editingMuestra,
-                documento: e.target.value,
+                lugarMuestreo: e.target.value,
               })
             }
           />
-          {/* Fecha y Hora */}
+
+          {/* Preservación de Muestra */}
           <TextField
             fullWidth
-            label="Fecha y Hora"
-            type="datetime-local"
-            InputLabelProps={{ shrink: true }}
-            value={editingMuestra.fechaHora || ""}
+            label="Preservación de Muestra"
+            value={editingMuestra.preservacionMuestra || ""}
             onChange={(e) =>
               setEditingMuestra({
                 ...editingMuestra,
-                fechaHora: e.target.value,
+                preservacionMuestra: e.target.value,
               })
             }
           />
-          {/* Campos específicos para Muestra de tipo Agua */}
-          {editingMuestra.tipoMuestra === "Agua" && (
-            <>
-              <Typography variant="subtitle2">Tipo de Agua</Typography>
-              <Select
-                fullWidth
-                value={editingMuestra.tipoAgua || ""}
-                onChange={(e) =>
-                  setEditingMuestra({
-                    ...editingMuestra,
-                    tipoAgua: e.target.value,
-                  })
-                }
-              >
-                <MenuItem value="">Seleccione</MenuItem>
-                <MenuItem value="Potable">Potable</MenuItem>
-                <MenuItem value="No Potable">No Potable</MenuItem>
-                <MenuItem value="Otro">Otro</MenuItem>
-              </Select>
-              {editingMuestra.tipoAgua === "Otro" && (
-                <TextField
-                  fullWidth
-                  label="Especificar tipo de agua"
-                  value={editingMuestra.otroTipoAgua || ""}
-                  onChange={(e) =>
-                    setEditingMuestra({
-                      ...editingMuestra,
-                      otroTipoAgua: e.target.value,
-                    })
-                  }
-                />
-              )}
-            </>
-          )}
+
+          {/* Observaciones */}
+          <TextField
+            fullWidth
+            label="Observaciones"
+            multiline
+            rows={4}
+            value={editingMuestra.observaciones || ""}
+            onChange={(e) =>
+              setEditingMuestra({
+                ...editingMuestra,
+                observaciones: e.target.value,
+              })
+            }
+          />
+
           {/* Sección de Análisis */}
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
             Análisis a Realizar
@@ -411,9 +361,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
                       control={
                         <Checkbox
                           value={analisis}
-                          checked={
-                            editingMuestra.analisisSeleccionados?.includes(analisis)
-                          }
+                          checked={editingMuestra.analisisSeleccionados?.includes(analisis)}
                           onChange={(e) => {
                             const { value, checked } = e.target;
                             setEditingMuestra((prev) => ({
@@ -433,43 +381,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
                 </AccordionDetails>
               </Accordion>
             ))}
-          {editingMuestra.tipoMuestreo === "Suelo" &&
-            ANALISIS_SUELO.map((categoria, index) => (
-              <Accordion key={index} sx={{ mb: 1 }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                    {categoria.categoria}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {categoria.analisis.map((analisis, idx) => (
-                    <FormControlLabel
-                      key={idx}
-                      control={
-                        <Checkbox
-                          value={analisis}
-                          checked={
-                            editingMuestra.analisisSeleccionados?.includes(analisis)
-                          }
-                          onChange={(e) => {
-                            const { value, checked } = e.target;
-                            setEditingMuestra((prev) => ({
-                              ...prev,
-                              analisisSeleccionados: checked
-                                ? [...(prev.analisisSeleccionados || []), value]
-                                : (prev.analisisSeleccionados || []).filter(
-                                    (item) => item !== value
-                                  ),
-                            }));
-                          }}
-                        />
-                      }
-                      label={analisis}
-                    />
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            ))}
+
           <Button
             variant="contained"
             color="primary"
@@ -816,9 +728,17 @@ const Muestras = () => {
 
   const handleSaveEdit = async () => {
     try {
+      const updateData = {
+        tipoMuestreo: editingMuestra.tipoMuestreo,
+        preservacionMuestra: editingMuestra.preservacionMuestra,
+        lugarMuestreo: editingMuestra.lugarMuestreo,
+        analisisSeleccionados: editingMuestra.analisisSeleccionados,
+        observaciones: editingMuestra.observaciones
+      };
+
       await axios.put(
         `http://localhost:5000/api/muestras/${editingMuestra.id_muestra}`,
-        editingMuestra,
+        updateData,
         {
           headers: {
             "Content-Type": "application/json",
@@ -826,14 +746,24 @@ const Muestras = () => {
           },
         }
       );
+
+      // Actualizar la lista de muestras
       const updatedMuestras = muestras.map((m) =>
-        m.id_muestra === editingMuestra.id_muestra ? editingMuestra : m
+        m.id_muestra === editingMuestra.id_muestra 
+          ? { ...m, ...updateData }
+          : m
       );
+
       setMuestras(updatedMuestras);
       setFilteredMuestras(updatedMuestras);
       setEditingMuestra(null);
+      
+      setSnackbarMessage("Muestra actualizada exitosamente");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
     } catch (error) {
-      setSnackbarMessage("Error al actualizar la muestra.");
+      console.error("Error al actualizar la muestra:", error);
+      setSnackbarMessage("Error al actualizar la muestra: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }

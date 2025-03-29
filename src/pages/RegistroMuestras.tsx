@@ -250,6 +250,8 @@ const RegistroMuestras: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [mostrarFirmas, setMostrarFirmas] = useState(false);
   const [firmasCompletas, setFirmasCompletas] = useState<boolean>(false);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [muestraId, setMuestraId] = useState<string | null>(null);
 
   // Estados para el modal de registro de cliente
   const [openModal, setOpenModal] = useState<boolean>(false);
@@ -552,7 +554,54 @@ const RegistroMuestras: React.FC = () => {
     return true;
   };
 
-  // Función actualizada handleSubmit
+  // Función para cargar los datos de una muestra existente
+  const cargarMuestraExistente = async (id: string) => {
+    try {
+      const response = await muestrasService.obtenerMuestra(id);
+      if (response.data && response.data.muestra) {
+        const muestra = response.data.muestra;
+        setFormData({
+          documento: muestra.documento,
+          tipoMuestra: muestra.tipoMuestra,
+          tipoMuestreo: muestra.tipoMuestreo,
+          fechaHora: muestra.fechaHora,
+          lugarMuestreo: muestra.lugarMuestreo,
+          planMuestreo: muestra.planMuestreo,
+          condicionesAmbientales: muestra.condicionesAmbientales,
+          preservacionMuestra: muestra.preservacionMuestra,
+          identificacionMuestra: muestra.identificacionMuestra,
+          analisisSeleccionados: muestra.analisisSeleccionados || [],
+          tipoDeAgua: muestra.tipoDeAgua || { tipo: '', tipoPersonalizado: '', descripcion: '' },
+          firmas: muestra.firmas || {
+            firmaAdministrador: { firma: '' },
+            firmaCliente: { firma: '' }
+          }
+        });
+        setMuestraId(id);
+        setIsUpdating(true);
+        
+        // Validar el cliente automáticamente
+        if (muestra.documento) {
+          setFormData(prev => ({ ...prev, documento: muestra.documento }));
+          await handleValidateUser();
+        }
+      }
+    } catch (error: any) {
+      console.error('Error al cargar la muestra:', error);
+      setError(error.message || 'Error al cargar la muestra');
+    }
+  };
+
+  // Efecto para cargar la muestra si hay un ID en la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      cargarMuestraExistente(id);
+    }
+  }, []);
+
+  // Modificar handleSubmit para manejar actualizaciones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -563,16 +612,13 @@ const RegistroMuestras: React.FC = () => {
         throw new Error('No se encontraron datos del administrador');
       }
 
-      // Validar que el cliente esté validado
       if (!clienteEncontrado) {
         setError('Debe validar el cliente antes de continuar');
         setLoading(false);
         return;
       }
 
-      // Si el formulario es válido y no se muestran las firmas, mostrarlas
       if (!mostrarFirmas) {
-        // Validaciones básicas...
         if (!formData.tipoMuestra || !formData.tipoMuestreo || !formData.lugarMuestreo || 
             !formData.fechaHora || formData.analisisSeleccionados.length === 0) {
           setError('Por favor complete todos los campos requeridos');
@@ -585,13 +631,11 @@ const RegistroMuestras: React.FC = () => {
         return;
       }
 
-      // Validar firmas antes de enviar
       if (!validarFirmas()) {
         setLoading(false);
         return;
       }
 
-      // Preparar los datos exactamente como los espera el backend
       const muestraData: MuestraFormData = {
         ...formData,
         documento: clienteEncontrado.documento,
@@ -601,26 +645,34 @@ const RegistroMuestras: React.FC = () => {
         }
       };
 
-      // Registrar muestra
-      const response = await muestrasService.registrarMuestra(muestraData);
+      let response;
+      if (isUpdating && muestraId) {
+        // Actualizar muestra existente
+        response = await muestrasService.actualizarMuestra(muestraId, muestraData);
+        setSuccess('✔ Muestra actualizada exitosamente');
+      } else {
+        // Registrar nueva muestra
+        response = await muestrasService.registrarMuestra(muestraData);
+        setSuccess('✔ Muestra registrada exitosamente');
+      }
       
-      setSuccess('✔ Muestra registrada exitosamente');
       limpiarEstado();
       
     } catch (error: any) {
       console.error('Error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Error al registrar la muestra';
-        setError(errorMessage);
+      const errorMessage = error.response?.data?.message || error.message || 
+        isUpdating ? 'Error al actualizar la muestra' : 'Error al registrar la muestra';
+      setError(errorMessage);
         
       if (errorMessage.toLowerCase().includes('sesión') || 
           errorMessage.toLowerCase().includes('token')) {
-            setTimeout(() => {
-                localStorage.clear();
-                navigate('/login');
-            }, 2000);
-        }
+        setTimeout(() => {
+          localStorage.clear();
+          navigate('/login');
+        }, 2000);
+      }
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -780,12 +832,14 @@ const RegistroMuestras: React.FC = () => {
     setMostrarFirmas(false);
     setError(null);
     setSuccess(null);
+    setIsUpdating(false);
+    setMuestraId(null);
   };
 
   return (
     <Paper sx={{ padding: 3, maxWidth: 800, margin: "auto", marginTop: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Registro de Muestra
+        {isUpdating ? 'Actualizar Muestra' : 'Registro de Muestra'}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -1104,11 +1158,11 @@ const RegistroMuestras: React.FC = () => {
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CircularProgress size={24} color="inherit" />
-              <span>Registrando muestra...</span>
+              <span>{isUpdating ? 'Actualizando muestra...' : 'Registrando muestra...'}</span>
             </Box>
           ) : mostrarFirmas ? (
             formData.firmas.firmaAdministrador.firma && formData.firmas.firmaCliente.firma
-              ? "Registrar Muestra"
+              ? isUpdating ? "Actualizar Muestra" : "Registrar Muestra"
               : "Se requieren ambas firmas para continuar"
           ) : (
             "Continuar con las Firmas"
