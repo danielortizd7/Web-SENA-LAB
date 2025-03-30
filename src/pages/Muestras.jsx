@@ -447,7 +447,7 @@ const Muestras = () => {
           return;
         }
         const muestrasResponse = await axios.get(
-          "http://localhost:5000/api/muestras",
+          "https://daniel-back-dom.onrender.com/api/muestras",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -532,7 +532,7 @@ const Muestras = () => {
       const token = localStorage.getItem("token");
 
       const muestrasResponse = await axios.get(
-        "http://localhost:5000/api/muestras",
+        "https://daniel-back-dom.onrender.com/api/muestras",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -737,7 +737,7 @@ const Muestras = () => {
       };
 
       await axios.put(
-        `http://localhost:5000/api/muestras/${editingMuestra.id_muestra}`,
+        `https://daniel-back-dom.onrender.com/api/muestras/${editingMuestra.id_muestra}`,
         updateData,
         {
           headers: {

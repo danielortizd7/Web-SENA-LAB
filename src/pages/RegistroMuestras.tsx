@@ -33,7 +33,7 @@ import { muestrasService } from '../services/muestras.service';
 // URLs base
 const BASE_URLS = {
   USUARIOS: 'https://back-usuarios-f.onrender.com/api',
-  MUESTRAS: 'http://localhost:5000/api'
+  MUESTRAS: 'https://daniel-back-dom.onrender.com/api'
 };
 
 // URLs específicas
@@ -753,14 +753,14 @@ const RegistroMuestras: React.FC = () => {
       .map(([, label]) => label);
 
     if (camposFaltantes.length > 0) {
-      setRegistroError(`⚠ Los siguientes campos son obligatorios: ${camposFaltantes.join(', ')}`);
+      setRegistroError(`Los siguientes campos son obligatorios: ${camposFaltantes.join(', ')}`);
       return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(clienteData.email)) {
-      setRegistroError("⚠ El formato del correo electrónico no es válido");
+      setRegistroError("El formato del correo electrónico no es válido");
       return;
     }
 
@@ -782,7 +782,7 @@ const RegistroMuestras: React.FC = () => {
       };
       
       if (userRole === "administrador" && newClienteData.tipo !== "cliente" && newClienteData.tipo !== "laboratorista") {
-        setRegistroError("⚠ Un administrador solo puede registrar clientes o laboratoristas.");
+        setRegistroError("Un administrador solo puede registrar clientes o laboratoristas.");
         return;
       }
       
@@ -798,7 +798,7 @@ const RegistroMuestras: React.FC = () => {
       );
       
       console.log("Cliente registrado con éxito:", response.data);
-      setRegistroExito("✔ Cliente registrado correctamente.");
+      setRegistroExito("Cliente registrado correctamente.");
       
       // Actualizar el documento en el formulario principal
       setFormData(prev => ({ ...prev, documento: newClienteData.documento }));

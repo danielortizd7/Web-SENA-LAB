@@ -1,420 +1,360 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box,
+  Paper,
   Typography,
   TextField,
   Button,
-  Paper,
+  Box,
   Grid,
+  Snackbar,
   Alert,
   CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
-  Chip,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
-import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const initialResultados = {
-  pH: { valor: '', unidad: 'mv' },
-  turbidez: { valor: '', unidad: 'NTU' },
-  oxigenoDisuelto: { valor: '', unidad: 'mg/L' },
-  nitratos: { valor: '', unidad: 'mg/L' },
-  solidosSuspendidos: { valor: '', unidad: 'mg/L' },
-  fosfatos: { valor: '', unidad: 'mg/k' },
-  observaciones: ''
-};
-
 const RegistrarResultados = () => {
-  const navigate = useNavigate();
-  const [resultados, setResultados] = useState(initialResultados);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const { idMuestra } = useParams();
-  const [isEditing, setIsEditing] = useState(false);
-  const [detallesMuestra, setDetallesMuestra] = useState(null);
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [resultadoExistente, setResultadoExistente] = useState(null);
+  const [muestraInfo, setMuestraInfo] = useState(null);
+  const [historialCambios, setHistorialCambios] = useState([]);
+  const [openConfirm, setOpenConfirm] = useState(false);
+
+  const [resultados, setResultados] = useState({
+    pH: '',
+    turbidez: '',
+    oxigenoDisuelto: '',
+    nitratos: '',
+    solidosSuspendidos: '',
+    fosfatos: '',
+    observaciones: ''
+  });
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
 
   useEffect(() => {
-    const cargarResultados = async () => {
+    const verificarMuestra = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          setError('No hay token de autorización');
-          navigate('/login');
-          return;
-        }
-
-        // Obtener los detalles de la muestra con la URL correcta
-        const response = await axios.get(
-          `http://localhost:5000/api/muestras/${idMuestra}`,
+        
+        // Obtener información de la muestra
+        const muestraResponse = await axios.get(
+          `https://daniel-back-dom.onrender.com/api/muestras/${idMuestra}`,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            }
+            headers: { Authorization: `Bearer ${token}` }
           }
         );
-        
-        console.log('Respuesta del servidor:', response.data);
-        
-        if (response.data && response.data.success && response.data.data.muestra) {
-          const muestra = response.data.data.muestra;
 
-          // Verificar el estado de la muestra
-          if (muestra.estado !== 'Recibida' && muestra.estado !== 'En análisis') {
-            setError('Solo se pueden registrar o actualizar resultados de muestras en estado "Recibida" o "En análisis"');
-            return;
-          }
+        if (!muestraResponse.data?.data) {
+          throw new Error('No se encontró la muestra');
+        }
 
-          setDetallesMuestra({
-            documento: muestra.documento,
-            tipoMuestra: muestra.tipoMuestra,
-            tipoMuestreo: muestra.tipoMuestreo,
-            fechaHora: muestra.fechaHora,
-            estado: muestra.estado,
-            lugarMuestreo: muestra.lugarMuestreo,
-            tipoDeAgua: muestra.tipoDeAgua,
-            analisisSeleccionados: muestra.analisisSeleccionados || []
-          });
+        setMuestraInfo(muestraResponse.data.data);
 
-          // Inicializar valores solo para los análisis seleccionados
-          const valoresIniciales = { ...initialResultados };
-          if (muestra.analisisSeleccionados) {
-            muestra.analisisSeleccionados.forEach(analisis => {
-              switch(analisis.toLowerCase()) {
-                case 'ph':
-                  valoresIniciales.pH = { valor: 0 };
-                  break;
-                case 'turbidez':
-                  valoresIniciales.turbidez = { valor: 0 };
-                  break;
-                case 'oxigenodisuelto':
-                  valoresIniciales.oxigenoDisuelto = { valor: 0 };
-                  break;
-                case 'nitratos':
-                  valoresIniciales.nitratos = { valor: 0 };
-                  break;
-                case 'solidossuspendidos':
-                  valoresIniciales.solidosSuspendidos = { valor: 0 };
-                  break;
-                case 'fosfatos':
-                  valoresIniciales.fosfatos = { valor: 0 };
-                  break;
-              }
+        try {
+          const resultadosResponse = await axios.get(
+            `https://daniel-back-dom.onrender.com/api/ingreso-resultados/muestra/${idMuestra}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          
+          if (resultadosResponse.data?.success && resultadosResponse.data?.data?.resultado) {
+            const resultado = resultadosResponse.data.data.resultado;
+            setResultadoExistente(resultado);
+            setHistorialCambios(resultado.historialCambios || []);
+
+            // Formatear valores existentes
+            setResultados({
+              pH: resultado.pH ? `${resultado.pH.valor}${resultado.pH.unidad}` : '',
+              turbidez: resultado.turbidez ? `${resultado.turbidez.valor}${resultado.turbidez.unidad}` : '',
+              oxigenoDisuelto: resultado.oxigenoDisuelto ? `${resultado.oxigenoDisuelto.valor}${resultado.oxigenoDisuelto.unidad}` : '',
+              nitratos: resultado.nitratos ? `${resultado.nitratos.valor}${resultado.nitratos.unidad}` : '',
+              solidosSuspendidos: resultado.solidosSuspendidos ? `${resultado.solidosSuspendidos.valor}${resultado.solidosSuspendidos.unidad}` : '',
+              fosfatos: resultado.fosfatos ? `${resultado.fosfatos.valor}${resultado.fosfatos.unidad}` : '',
+              observaciones: resultado.observaciones || ''
             });
           }
-          
-          setResultados(valoresIniciales);
-          setIsEditing(muestra.estado === 'En análisis');
+        } catch (error) {
+          setLoading(false); // Asegurar que loading se desactive incluso si no hay resultados
+          setSnackbar({
+            open: true,
+            message: 'No hay resultados previos para esta muestra',
+            severity: 'info'
+          });
         }
       } catch (error) {
-        console.error('Error al cargar muestra:', error);
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          setError('No tienes autorización para acceder a estos datos');
-          localStorage.removeItem('token');
-          navigate('/login');
-        } else {
-          setError('Error al cargar los datos de la muestra');
-        }
+        setSnackbar({
+          open: true,
+          message: 'Error al cargar la información de la muestra',
+          severity: 'error'
+        });
+      } finally {
+        setLoading(false); // Asegurar que loading siempre se desactive
       }
     };
 
-    if (idMuestra) {
-      cargarResultados();
-    }
+    verificarMuestra();
   }, [idMuestra, navigate]);
-
-  const handleChange = (parametro, valor) => {
-    setResultados(prev => ({
-      ...prev,
-      [parametro]: { valor: parseFloat(valor) || 0 }
-    }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+    setOpenConfirm(true);
+  };
 
+  const handleConfirmSubmit = async () => {
+    setOpenConfirm(false);
+    setLoading(true);
+    
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No hay token de autorización');
-        navigate('/login');
-        return;
-      }
-
-      // Verificar el estado de la muestra antes de enviar
-      if (detallesMuestra && detallesMuestra.estado !== 'Recibida' && detallesMuestra.estado !== 'En análisis') {
-        setError('Solo se pueden registrar o actualizar resultados de muestras en estado "Recibida" o "En análisis"');
-        setLoading(false);
-        return;
-      }
-
-      const formData = {
-        idMuestra: idMuestra,
-        analisis: {
-          pH: resultados.pH.valor ? {
-            mediciones: {
-              M1: resultados.pH.valor.toString(),
-              M2: resultados.pH.valor.toString()
-            }
-          } : undefined,
-          turbidez: resultados.turbidez.valor ? {
-            mediciones: {
-              M1: resultados.turbidez.valor.toString(),
-              M2: resultados.turbidez.valor.toString()
-            }
-          } : undefined,
-          conductividad: resultados.conductividad?.valor ? {
-            mediciones: {
-              M1: resultados.conductividad.valor.toString(),
-              M2: resultados.conductividad.valor.toString(),
-              unidad: 'µS/cm'
-            }
-          } : undefined
-        },
-        observaciones: resultados.observaciones || ''
-      };
-
-      let response;
-      if (isEditing) {
-        response = await axios.put(
-          `http://localhost:5000/api/ingreso-resultados/resultados/${idMuestra}`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      } else {
-        response = await axios.post(
-          `http://localhost:5000/api/ingreso-resultados/registrar/${idMuestra}`,
-          formData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-
-      setSuccess('✔ Resultados guardados exitosamente');
-      setTimeout(() => {
-        navigate('/lista-resultados');
-      }, 2000);
-    } catch (error) {
-      console.error('Error:', error);
-      setError(error.response?.data?.message || 'Error al guardar los resultados');
       
-      if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        navigate('/login');
+      // Determinar si es nuevo registro o actualización basado en resultadoExistente
+      const endpoint = resultadoExistente
+        ? `https://daniel-back-dom.onrender.com/ingreso-resultados/editar/${idMuestra}`
+        : `https://daniel-back-dom.onrender.com/api/ingreso-resultados/registrar/${idMuestra}`;
+      
+      const method = resultadoExistente ? 'put' : 'post';
+      
+      const response = await axios[method](
+        endpoint,
+        resultados,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data?.success) {
+        // Actualizar estado local con la respuesta
+        if (response.data.data?.resultado) {
+          setResultadoExistente(response.data.data.resultado);
+          setHistorialCambios(response.data.data.resultado.historialCambios || []);
+        }
+
+        setSnackbar({
+          open: true,
+          message: resultadoExistente ? 'Resultados actualizados correctamente' : 'Resultados registrados correctamente',
+          severity: 'success'
+        });
       }
+
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: `Error: ${error.response?.data?.message || 'Error al procesar la solicitud'}`,
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setResultados(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   return (
-    <Dialog
-      open={true}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: { maxHeight: '90vh' }
-      }}
-    >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6">
-          Detalles de la Muestra - {idMuestra}
-        </Typography>
-        <Button onClick={() => navigate('/resultados')} color="inherit">
-          ×
-        </Button>
-      </DialogTitle>
+    <Paper sx={{ p: 4, margin: 'auto', maxWidth: 800, mt: 4 }}>
+      <Typography variant="h4" align="center" gutterBottom>
+        {resultadoExistente ? 'Editar Resultados' : 'Registrar Resultados'}
+      </Typography>
+      <Typography variant="h6" gutterBottom>
+        Muestra: {idMuestra}
+      </Typography>
+      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+        Estado: {muestraInfo?.estado || 'Cargando...'}
+      </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      <form onSubmit={handleSubmit}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="pH"
+              label="pH (mv)"
+              value={resultados.pH}
+              onChange={handleChange}
+              placeholder="Ej: 6.6mv"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="turbidez"
+              label="Turbidez (NTU)"
+              value={resultados.turbidez}
+              onChange={handleChange}
+              placeholder="Ej: 1.6 NTU"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="oxigenoDisuelto"
+              label="Oxígeno Disuelto (mg/L)"
+              value={resultados.oxigenoDisuelto}
+              onChange={handleChange}
+              placeholder="Ej: 9.1mg/L"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="nitratos"
+              label="Nitratos (mg/L)"
+              value={resultados.nitratos}
+              onChange={handleChange}
+              placeholder="Ej: 6.8 mg/L"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="solidosSuspendidos"
+              label="Sólidos Suspendidos (mg/L)"
+              value={resultados.solidosSuspendidos}
+              onChange={handleChange}
+              placeholder="Ej: 6.8 mg/L"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              name="fosfatos"
+              label="Fosfatos (mg/k)"
+              value={resultados.fosfatos}
+              onChange={handleChange}
+              placeholder="Ej: 3.9 mg/k"
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              name="observaciones"
+              label="Observaciones"
+              value={resultados.observaciones}
+              onChange={handleChange}
+            />
+          </Grid>
 
-      <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-        
-        {detallesMuestra && (
-          <Box>
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary">Documento</Typography>
-                <Typography variant="body1">{detallesMuestra.documento}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary">Tipo de Muestra</Typography>
-                <Typography variant="body1">{detallesMuestra.tipoMuestra}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary">Tipo de Muestreo</Typography>
-                <Typography variant="body1">{detallesMuestra.tipoMuestreo}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary">Fecha y Hora</Typography>
-                <Typography variant="body1">{new Date(detallesMuestra.fechaHora).toLocaleString()}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary">Estado</Typography>
-                <Chip
-                  label={detallesMuestra.estado}
-                  color={detallesMuestra.estado === 'En análisis' ? 'warning' : 'success'}
-                  sx={{ 
-                    backgroundColor: detallesMuestra.estado === 'En análisis' ? '#FFA500' : '#39A900',
-                    color: 'white'
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary">Análisis Seleccionados</Typography>
-                <Typography variant="body1">{detallesMuestra.analisisSeleccionados.join(", ")}</Typography>
-              </Grid>
-            </Grid>
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => navigate('/muestras')}
+              >
+                Volver
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Guardar Cambios'}
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
 
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-              Resultados de Análisis
+        {/* Historial de cambios - Solo mostrar si hay resultadoExistente */}
+        {resultadoExistente && historialCambios.length > 0 && (
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Historial de Cambios
             </Typography>
-
-            <form onSubmit={handleSubmit}>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Parámetro</TableCell>
-                      <TableCell>Valor</TableCell>
-                      <TableCell>Unidad</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>pH</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.pH.valor}
-                          onChange={(e) => handleChange('pH', e.target.value)}
-                          inputProps={{ step: "0.01", min: "0", max: "14" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>mV</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Turbidez</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.turbidez.valor}
-                          onChange={(e) => handleChange('turbidez', e.target.value)}
-                          inputProps={{ step: "0.01", min: "0" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>NTU</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Oxígeno Disuelto</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.oxigenoDisuelto.valor}
-                          onChange={(e) => handleChange('oxigenoDisuelto', e.target.value)}
-                          inputProps={{ step: "0.01", min: "0" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>mg/L</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Nitratos</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.nitratos.valor}
-                          onChange={(e) => handleChange('nitratos', e.target.value)}
-                          inputProps={{ step: "0.01", min: "0" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>mg/L</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Sólidos Suspendidos</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.solidosSuspendidos.valor}
-                          onChange={(e) => handleChange('solidosSuspendidos', e.target.value)}
-                          inputProps={{ step: "0.1", min: "0" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>mg/L</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Fosfatos</TableCell>
-                      <TableCell>
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={resultados.fosfatos.valor}
-                          onChange={(e) => handleChange('fosfatos', e.target.value)}
-                          inputProps={{ step: "0.01", min: "0" }}
-                          required
-                        />
-                      </TableCell>
-                      <TableCell>mg/L</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <DialogActions sx={{ mt: 3 }}>
-                <Button
-                  onClick={() => navigate('/lista-resultados')}
-                  color="inherit"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  sx={{
-                    backgroundColor: '#39A900',
-                    '&:hover': { backgroundColor: '#2d8000' }
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? <CircularProgress size={24} /> : (isEditing ? 'Actualizar Resultados' : 'Registrar Resultados')}
-                </Button>
-              </DialogActions>
-            </form>
+            {historialCambios.map((cambio, index) => (
+              <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
+                <Typography variant="subtitle2">
+                  Realizado por: {cambio.nombre}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Fecha: {new Date(cambio.fecha).toLocaleString()}
+                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  {Object.entries(cambio.cambiosRealizados).map(([param, valores]) => (
+                    param !== '_id' && (
+                      <Typography key={param} variant="body2">
+                        {param}: {valores.valorAnterior} → {valores.valorNuevo}
+                        {valores.unidad ? ` ${valores.unidad}` : ''}
+                      </Typography>
+                    )
+                  ))}
+                </Box>
+              </Paper>
+            ))}
           </Box>
         )}
-      </DialogContent>
-    </Dialog>
+      </form>
+
+      {/* Diálogo de confirmación */}
+      <Dialog
+        open={openConfirm}
+        onClose={() => setOpenConfirm(false)}
+      >
+        <DialogTitle sx={{ color: '#39A900' }}>
+          Confirmar Acción
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Está seguro de que desea {resultadoExistente ? 'actualizar' : 'registrar'} los resultados?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setOpenConfirm(false)}
+            variant="outlined"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmSubmit}
+            variant="contained"
+            sx={{
+              backgroundColor: '#39A900',
+              '&:hover': { backgroundColor: '#2d8000' }
+            }}
+          >
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Paper>
   );
 };
 

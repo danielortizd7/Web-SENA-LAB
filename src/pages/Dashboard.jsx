@@ -82,7 +82,7 @@ const Dashboard = () => {
       }
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/muestras",
+          "https://daniel-back-dom.onrender.com/api/muestras",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
