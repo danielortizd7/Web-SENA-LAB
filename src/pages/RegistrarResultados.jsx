@@ -122,7 +122,7 @@ const RegistrarResultados = () => {
       
       // Determinar si es nuevo registro o actualización basado en resultadoExistente
       const endpoint = resultadoExistente
-        ? `https://daniel-back-dom.onrender.com/ingreso-resultados/editar/${idMuestra}`
+        ? `https://daniel-back-dom.onrender.com/api/ingreso-resultados/editar/${idMuestra}`
         : `https://daniel-back-dom.onrender.com/api/ingreso-resultados/registrar/${idMuestra}`;
       
       const method = resultadoExistente ? 'put' : 'post';

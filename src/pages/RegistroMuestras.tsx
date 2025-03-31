@@ -30,16 +30,18 @@ import SignaturePad from '../components/SignaturePad';
 import FirmasDigitales from '../components/FirmasDigitales';
 import { muestrasService } from '../services/muestras.service';
 
-// URLs base
+// URLs base actualizadas
 const BASE_URLS = {
   USUARIOS: 'https://back-usuarios-f.onrender.com/api',
   MUESTRAS: 'https://daniel-back-dom.onrender.com/api'
 };
 
-// URLs específicas
+// URLs específicas actualizadas - Añadimos la ruta correcta para editar resultados
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
+  INGRESO_RESULTADOS: `${BASE_URLS.MUESTRAS}/ingreso-resultados`,
+  EDITAR_RESULTADOS: (id: string) => `${BASE_URLS.MUESTRAS}/ingreso-resultados/editar/${id}`,
   TIPOS_AGUA: `${BASE_URLS.MUESTRAS}/tipos-agua`,
   CAMBIOS_ESTADO: `${BASE_URLS.MUESTRAS}/cambios-estado`
 };
@@ -601,7 +603,7 @@ const RegistroMuestras: React.FC = () => {
     }
   }, []);
 
-  // Modificar handleSubmit para incluir manejo de errores más detallado
+  // Actualizar la función handleSubmit para usar las URLs correctas
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -657,13 +659,16 @@ const RegistroMuestras: React.FC = () => {
 
       let response;
       if (isUpdating && muestraId) {
+        // Usar la URL correcta para actualizar resultados
         response = await axios.put(
-          `${API_URLS.MUESTRAS}/${muestraId}`,
+          API_URLS.EDITAR_RESULTADOS(muestraId),
           muestraData,
           { headers }
         );
-        setSuccess('✔ Muestra actualizada exitosamente');
+        console.log('URL de actualización:', API_URLS.EDITAR_RESULTADOS(muestraId));
+        setSuccess('✔ Resultados actualizados exitosamente');
       } else {
+        // Registrar nueva muestra
         response = await axios.post(
           API_URLS.MUESTRAS,
           muestraData,
@@ -671,17 +676,21 @@ const RegistroMuestras: React.FC = () => {
         );
         setSuccess('✔ Muestra registrada exitosamente');
       }
-      
+
       console.log('Respuesta del servidor:', response.data);
       limpiarEstado();
-      
+
     } catch (error: any) {
       console.error('Error detallado:', error);
+      console.error('URL intentada:', error.config?.url);
+      console.error('Método:', error.config?.method);
+      console.error('Respuesta del servidor:', error.response?.data);
+      
       const errorMessage = error.response?.data?.message || 
                           error.message || 
-                          (isUpdating ? 'Error al actualizar la muestra' : 'Error al registrar la muestra');
+                          (isUpdating ? 'Error al actualizar los resultados' : 'Error al registrar la muestra');
       setError(`Error: ${errorMessage}`);
-        
+      
       if (errorMessage.toLowerCase().includes('sesión') || 
           errorMessage.toLowerCase().includes('token')) {
         setTimeout(() => {
