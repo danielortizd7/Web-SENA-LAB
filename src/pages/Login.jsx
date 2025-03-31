@@ -1,4 +1,3 @@
-import senaLogo from "../assets/logo-sena.png";
 import React, { useState, useContext } from "react";
 import axios from "axios";
 import {
@@ -108,20 +107,11 @@ const Login = () => {
             },
           }}
         >
-          {/* Logo centrado */}
-          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-            <img
-              src={senaLogo}
-              alt="SENA Logo"
-              style={{ width: "100px", height: "auto" }}
-            />
-          </Box>
-
           <Typography
             variant="h4"
             fontWeight="bold"
             gutterBottom
-            color="#0000000"
+            color="#00324D"  // Azul oscuro para el título
           >
             Iniciar Sesión
           </Typography>
@@ -158,7 +148,7 @@ const Login = () => {
                 variant="contained"
                 fullWidth
                 sx={{
-                  backgroundColor: "#39A900",
+                  backgroundColor: "#39A900", // Verde corporativo
                   color: "white",
                   fontWeight: "bold",
                   transition: "all 0.3s ease-in-out",
