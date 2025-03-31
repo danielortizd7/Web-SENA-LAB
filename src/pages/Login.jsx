@@ -1,3 +1,4 @@
+import senaLogo from "../assets/logo-sena.png";
 import React, { useState, useContext } from "react";
 import axios from "axios";
 import {
@@ -42,41 +43,29 @@ const Login = () => {
 
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/login`;
-      console.log("🔑 Intentando login en:", url);
-
       const response = await axios.post(url, credentials);
-      console.log("📡 Respuesta del servidor:", response.data);
 
       if (response.data && response.data.token) {
         const { token, usuario } = response.data;
-        console.log("👤 Datos del usuario:", usuario);
-
         if (!usuario.rol) {
-          console.error("❌ El usuario no tiene un rol asignado");
           setError("Error: Usuario sin rol asignado");
           setLoading(false);
           return;
         }
-
         const usuarioFinal = {
           ...usuario,
           email: credentials.email,
-          token: token,
+          token,
           rol: usuario.rol,
         };
-
-        console.log("✅ Usuario final:", usuarioFinal);
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(usuarioFinal));
-
         login(usuarioFinal);
         navigate("/dashboard");
       } else {
-        console.error("❌ Respuesta sin token:", response.data);
         setError("Error: Respuesta inválida del servidor");
       }
     } catch (error) {
-      console.error("❌ Error en login:", error.response?.data || error.message);
       setError(
         error.response?.data?.message ||
           error.response?.data?.error ||
@@ -119,11 +108,20 @@ const Login = () => {
             },
           }}
         >
+          {/* Logo centrado */}
+          <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+            <img
+              src={senaLogo}
+              alt="SENA Logo"
+              style={{ width: "150px", height: "auto" }}
+            />
+          </Box>
+
           <Typography
             variant="h4"
             fontWeight="bold"
             gutterBottom
-            color="#39A900"
+            color="#0000000"
           >
             Iniciar Sesión
           </Typography>
