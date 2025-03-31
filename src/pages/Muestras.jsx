@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import senaLogo from "../assets/sena-logo.png";
+import senaLogo from "../assets/logo-sena.png";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -616,7 +616,7 @@ const Muestras = () => {
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
     // Agregar logo y título
-    doc.addImage(senaLogo, "PNG", 10, 10, 40, 20);
+    doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
     doc.setFillColor(0, 49, 77);

@@ -113,7 +113,7 @@ const Login = () => {
             <img
               src={senaLogo}
               alt="SENA Logo"
-              style={{ width: "150px", height: "auto" }}
+              style={{ width: "100px", height: "auto" }}
             />
           </Box>
 
