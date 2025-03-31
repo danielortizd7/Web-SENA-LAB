@@ -601,7 +601,7 @@ const RegistroMuestras: React.FC = () => {
     }
   }, []);
 
-  // Modificar handleSubmit para manejar actualizaciones
+  // Modificar handleSubmit para incluir manejo de errores más detallado
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -636,7 +636,12 @@ const RegistroMuestras: React.FC = () => {
         return;
       }
 
-      const muestraData: MuestraFormData = {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No se encontró el token de autenticación');
+      }
+
+      const muestraData = {
         ...formData,
         documento: clienteEncontrado.documento,
         firmas: {
@@ -645,24 +650,37 @@ const RegistroMuestras: React.FC = () => {
         }
       };
 
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
       let response;
       if (isUpdating && muestraId) {
-        // Actualizar muestra existente
-        response = await muestrasService.actualizarMuestra(muestraId, muestraData);
+        response = await axios.put(
+          `${API_URLS.MUESTRAS}/${muestraId}`,
+          muestraData,
+          { headers }
+        );
         setSuccess('✔ Muestra actualizada exitosamente');
       } else {
-        // Registrar nueva muestra
-        response = await muestrasService.registrarMuestra(muestraData);
+        response = await axios.post(
+          API_URLS.MUESTRAS,
+          muestraData,
+          { headers }
+        );
         setSuccess('✔ Muestra registrada exitosamente');
       }
       
+      console.log('Respuesta del servidor:', response.data);
       limpiarEstado();
       
     } catch (error: any) {
-      console.error('Error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 
-        isUpdating ? 'Error al actualizar la muestra' : 'Error al registrar la muestra';
-      setError(errorMessage);
+      console.error('Error detallado:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          (isUpdating ? 'Error al actualizar la muestra' : 'Error al registrar la muestra');
+      setError(`Error: ${errorMessage}`);
         
       if (errorMessage.toLowerCase().includes('sesión') || 
           errorMessage.toLowerCase().includes('token')) {
@@ -1296,4 +1314,4 @@ const RegistroMuestras: React.FC = () => {
   );
 };
 
-export default RegistroMuestras; 
+export default RegistroMuestras;
