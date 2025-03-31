@@ -154,9 +154,9 @@ const ListaResultados = () => {
     }
   };
 
+  // Filtrar solo por idMuestra
   const filteredResultados = resultados.filter((resultado) =>
-    resultado.idMuestra.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    resultado.nombreCliente?.toLowerCase().includes(searchTerm.toLowerCase())
+    resultado.idMuestra.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleVerDetalles = (resultado) => {
@@ -181,7 +181,7 @@ const ListaResultados = () => {
       <TextField
         fullWidth
         variant="outlined"
-        label="Buscar por ID de muestra o cliente"
+        label="Buscar por ID de muestra"
         value={searchTerm}
         onChange={handleSearchChange}
         sx={{ mb: 3 }}

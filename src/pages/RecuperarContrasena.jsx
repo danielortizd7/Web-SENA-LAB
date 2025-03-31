@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress
 } from "@mui/material";
+import { motion } from "framer-motion";
 
 const RecuperarContrasena = () => {
   const [email, setEmail] = useState("");
@@ -16,19 +17,16 @@ const RecuperarContrasena = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Manejar cambios en el input
   const handleChange = (e) => {
     setEmail(e.target.value);
   };
 
-  // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setMensaje(null);
     setLoading(true);
 
-    // Validación básica del email
     if (!email) {
       setError("⚠ Debes ingresar un correo electrónico.");
       setLoading(false);
@@ -41,10 +39,7 @@ const RecuperarContrasena = () => {
     }
 
     try {
-      // URL de la API desde variable de entorno
       const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/solicitar-recuperacion`;
-      
-      // Enviar solicitud a la API
       const response = await axios.post(url, { email });
 
       if (response.status === 200) {
@@ -63,55 +58,94 @@ const RecuperarContrasena = () => {
   return (
     <Box
       sx={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #d7f7dd 0%, #ffffff 100%)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        height: "100vh"
+        padding: 2,
       }}
     >
-      <Paper sx={{ padding: 4, width: 350, textAlign: "center", boxShadow: 3 }}>
-        <Typography variant="h5" sx={{ marginBottom: 2, fontWeight: "bold" }}>
-          🔑 Recuperar Contraseña
-        </Typography>
-
-        {mensaje && <Alert severity="success">{mensaje}</Alert>}
-        {error && <Alert severity="error">{error}</Alert>}
-
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+      <motion.div
+        initial={{ opacity: 0, y: -40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+      >
+        <Paper
+          elevation={10}
+          sx={{
+            padding: 4,
+            width: "100%",
+            maxWidth: 350,
+            backgroundColor: "rgba(255, 255, 255, 0.8)",
+            borderRadius: 5,
+            boxShadow: "0px 4px 30px rgba(0, 0, 0, 0.2)",
+            textAlign: "center",
+            transition: "all 0.3s ease-in-out",
+            "&:hover": {
+              transform: "scale(1.02)",
+              boxShadow: "0px 8px 40px rgba(0, 0, 0, 0.3)",
+            },
+          }}
         >
-          <TextField
-            label="Correo electrónico"
-            name="email"
-            type="email"
-            value={email}
-            onChange={handleChange}
-            fullWidth
-            required
-          />
+          <Typography
+            variant="h5"
+            sx={{ marginBottom: 2, fontWeight: "bold", color: "#39A900" }}
+          >
+            🔑 Recuperar Contraseña
+          </Typography>
 
-          {loading ? (
-            <CircularProgress size={24} sx={{ alignSelf: "center", margin: 2 }} />
-          ) : (
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{ backgroundColor: "#39A900", color: "white" }}
+          {mensaje && <Alert severity="success" sx={{ mb: 2 }}>{mensaje}</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+          >
+            <TextField
+              label="Correo electrónico"
+              name="email"
+              type="email"
+              value={email}
+              onChange={handleChange}
               fullWidth
-            >
-              Enviar correo
-            </Button>
-          )}
-        </Box>
+              required
+            />
 
-        <Typography variant="body2" sx={{ marginTop: 2 }}>
-          <a href="/login" style={{ color: "#39A900", textDecoration: "none" }}>
-            Volver al inicio de sesión
-          </a>
-        </Typography>
-      </Paper>
+            {loading ? (
+              <CircularProgress size={24} sx={{ alignSelf: "center", margin: 2 }} />
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                sx={{
+                  backgroundColor: "#39A900",
+                  color: "white",
+                  fontWeight: "bold",
+                  transition: "all 0.3s ease-in-out",
+                  "&:hover": {
+                    backgroundColor: "#2e7d00",
+                    transform: "scale(1.02)",
+                  },
+                }}
+              >
+                Enviar correo
+              </Button>
+            )}
+          </Box>
+
+          <Typography variant="body2" sx={{ marginTop: 2 }}>
+            <a
+              href="/login"
+              style={{ color: "#39A900", textDecoration: "none" }}
+            >
+              Volver al inicio de sesión
+            </a>
+          </Typography>
+        </Paper>
+      </motion.div>
     </Box>
   );
 };

@@ -1,6 +1,15 @@
 import React, { useState, useContext } from "react";
 import axios from "axios";
-import { TextField, Button, Box, Typography, Paper, Alert, CircularProgress } from "@mui/material";
+import {
+  TextField,
+  Button,
+  Box,
+  Typography,
+  Paper,
+  Alert,
+  CircularProgress,
+} from "@mui/material";
+import { motion } from "framer-motion";
 import AuthContext from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -34,7 +43,7 @@ const Login = () => {
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/login`;
       console.log("🔑 Intentando login en:", url);
-      
+
       const response = await axios.post(url, credentials);
       console.log("📡 Respuesta del servidor:", response.data);
 
@@ -42,7 +51,6 @@ const Login = () => {
         const { token, usuario } = response.data;
         console.log("👤 Datos del usuario:", usuario);
 
-        // Asegurarse de que el rol esté presente
         if (!usuario.rol) {
           console.error("❌ El usuario no tiene un rol asignado");
           setError("Error: Usuario sin rol asignado");
@@ -54,13 +62,13 @@ const Login = () => {
           ...usuario,
           email: credentials.email,
           token: token,
-          rol: usuario.rol
+          rol: usuario.rol,
         };
 
         console.log("✅ Usuario final:", usuarioFinal);
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(usuarioFinal));
-        
+
         login(usuarioFinal);
         navigate("/dashboard");
       } else {
@@ -70,36 +78,113 @@ const Login = () => {
     } catch (error) {
       console.error("❌ Error en login:", error.response?.data || error.message);
       setError(
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        "Error al iniciar sesión"
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          "Error al iniciar sesión"
       );
     }
     setLoading(false);
   };
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-      <Paper sx={{ padding: 4, width: 320, textAlign: "center" }}>
-        <Typography variant="h5" sx={{ marginBottom: 2, fontWeight: "bold" }}>Iniciar Sesión</Typography>
-        {error && <Alert severity="error">{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <TextField label="Correo" name="email" type="email" onChange={handleChange} fullWidth required />
-          <TextField label="Contraseña" name="password" type="password" onChange={handleChange} fullWidth required />
-          {loading ? (
-            <CircularProgress size={24} sx={{ alignSelf: "center", margin: 2 }} />
-          ) : (
-            <Button type="submit" variant="contained" sx={{ backgroundColor: "#39A900", color: "white" }}>
-              Ingresar
-            </Button>
-          )}
-        </Box>
-        <Typography variant="body2" sx={{ marginTop: 2 }}>
-          <a href="/recuperar-contrasena" style={{ color: "#39A900", textDecoration: "none" }}>
-            ¿Olvidaste tu contraseña?
-          </a>
-        </Typography>
-      </Paper>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #d7f7dd 0%, #ffffff 100%)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 2,
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+      >
+        <Paper
+          elevation={10}
+          sx={{
+            padding: 4,
+            width: "100%",
+            maxWidth: 400,
+            backgroundColor: "rgba(255, 255, 255, 0.8)",
+            borderRadius: 5,
+            boxShadow: "0px 4px 30px rgba(0, 0, 0, 0.2)",
+            textAlign: "center",
+            transition: "all 0.3s ease-in-out",
+            "&:hover": {
+              transform: "scale(1.02)",
+              boxShadow: "0px 8px 40px rgba(0, 0, 0, 0.3)",
+            },
+          }}
+        >
+          <Typography
+            variant="h4"
+            fontWeight="bold"
+            gutterBottom
+            color="#39A900"
+          >
+            Iniciar Sesión
+          </Typography>
+
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+          >
+            <TextField
+              label="Correo"
+              name="email"
+              type="email"
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Contraseña"
+              name="password"
+              type="password"
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+
+            {loading ? (
+              <CircularProgress sx={{ alignSelf: "center" }} />
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                sx={{
+                  backgroundColor: "#39A900",
+                  color: "white",
+                  fontWeight: "bold",
+                  transition: "all 0.3s ease-in-out",
+                  "&:hover": {
+                    backgroundColor: "#2e7d00",
+                    transform: "scale(1.02)",
+                  },
+                }}
+              >
+                Ingresar
+              </Button>
+            )}
+          </Box>
+
+          <Typography variant="body2" sx={{ mt: 2 }}>
+            <a
+              href="/recuperar-contrasena"
+              style={{ color: "#39A900", textDecoration: "none" }}
+            >
+              ¿Olvidaste tu contraseña?
+            </a>
+          </Typography>
+        </Paper>
+      </motion.div>
     </Box>
   );
 };
