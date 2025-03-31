@@ -103,6 +103,8 @@ const ListaResultados = () => {
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
+    // Si se cambia el término de búsqueda, reseteamos la página
+    setCurrentPage(1);
   };
 
   const handleVerificarResultados = async () => {
@@ -256,6 +258,30 @@ const ListaResultados = () => {
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Paginador personalizado */}
+          {filteredResultados.length > itemsPerPage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(event, value) => setCurrentPage(value)}
+                color="primary"
+                sx={{
+                  '& .MuiPaginationItem-root': {
+                    color: '#39A900',
+                  },
+                  '& .Mui-selected': {
+                    backgroundColor: '#39A900',
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: '#2d8000',
+                    }
+                  }
+                }}
+              />
+            </Box>
+          )}
 
           <Modal
             open={selectedResult !== null}
@@ -489,7 +515,7 @@ const ListaResultados = () => {
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
       >
         <Alert 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
