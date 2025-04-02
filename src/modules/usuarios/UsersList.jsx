@@ -1,13 +1,32 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  CircularProgress, Alert, TextField, Select, MenuItem, Button,
-  Dialog, DialogActions, DialogContent, DialogTitle, Switch, IconButton,
-  Box, Grid, Typography, Pagination, Snackbar
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  CircularProgress,
+  Alert,
+  TextField,
+  Select,
+  MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Switch,
+  IconButton,
+  Box,
+  Grid,
+  Typography,
+  Pagination,
+  Snackbar,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import AuthContext from "../../context/AuthContext";
 
@@ -31,10 +50,11 @@ const UsersList = () => {
 
   const navigate = useNavigate();
 
-  // Función auxiliar para obtener el nombre del rol,
-  // ya que en algunos casos puede venir como cadena y en otros como objeto.
+  // Función auxiliar para obtener el nombre del rol
+  // Retorna una cadena (o cadena vacía en caso de no encontrarla)
   const getRoleName = (user) => {
-    return typeof user?.rol === "string" ? user.rol : user?.rol?.name;
+    if (!user || !user.rol) return "";
+    return typeof user.rol === "string" ? user.rol : user.rol.name || "";
   };
 
   useEffect(() => {
@@ -49,7 +69,8 @@ const UsersList = () => {
         const response = await axios.get("https://back-usuarios-f.onrender.com/api/usuarios", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUsers(response.data);
+        // Aseguramos que response.data sea un array
+        setUsers(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         if (error.response?.status === 401) {
           localStorage.removeItem("token");
@@ -66,32 +87,40 @@ const UsersList = () => {
   }, [navigate]);
 
   useEffect(() => {
-    let visibleUsers = [...users];
+    try {
+      let visibleUsers = Array.isArray(users) ? [...users] : [];
 
-    if (tipoUsuario === "laboratorista") {
-      visibleUsers = visibleUsers.filter(user => getRoleName(user)?.toLowerCase() === "cliente");
-    } else if (tipoUsuario === "administrador") {
-      visibleUsers = visibleUsers.filter(user => {
-        const role = getRoleName(user)?.toLowerCase();
-        return role === "cliente" || role === "laboratorista";
-      });
+      if (tipoUsuario === "laboratorista") {
+        visibleUsers = visibleUsers.filter(
+          (user) => getRoleName(user).toLowerCase() === "cliente"
+        );
+      } else if (tipoUsuario === "administrador") {
+        visibleUsers = visibleUsers.filter((user) => {
+          const role = getRoleName(user).toLowerCase();
+          return role === "cliente" || role === "laboratorista";
+        });
+      }
+
+      if (filterType !== "todos") {
+        visibleUsers = visibleUsers.filter(
+          (user) => getRoleName(user).toLowerCase() === filterType.toLowerCase()
+        );
+      }
+
+      if (search.trim() !== "") {
+        visibleUsers = visibleUsers.filter(
+          (user) =>
+            user.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+            (user.documento && user.documento.toString().includes(search))
+        );
+      }
+
+      setFilteredUsers(visibleUsers);
+      setPage(0);
+    } catch (err) {
+      console.error("Error en el filtrado:", err);
+      setFilteredUsers([]);
     }
-
-    if (filterType !== "todos") {
-      visibleUsers = visibleUsers.filter(user =>
-        getRoleName(user)?.toLowerCase() === filterType.toLowerCase()
-      );
-    }
-
-    if (search.trim() !== "") {
-      visibleUsers = visibleUsers.filter(user =>
-        user.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-        (user.documento && user.documento.toString().includes(search))
-      );
-    }
-
-    setFilteredUsers(visibleUsers);
-    setPage(0);
   }, [search, filterType, users, tipoUsuario]);
 
   const handleSearchChange = (e) => setSearch(e.target.value);
@@ -106,7 +135,7 @@ const UsersList = () => {
   };
 
   const handleSnackbarClose = (event, reason) => {
-    if (reason === 'clickaway') return;
+    if (reason === "clickaway") return;
     setSnackbarOpen(false);
   };
 
@@ -123,7 +152,7 @@ const UsersList = () => {
       documento: editUser.documento,
       telefono: editUser.telefono,
       direccion: editUser.direccion,
-      email: editUser.email
+      email: editUser.email,
     };
     try {
       await axios.put(
@@ -131,11 +160,17 @@ const UsersList = () => {
         datosActualizados,
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
-      setUsers(users.map(user => (user._id === editUser._id ? { ...user, ...datosActualizados } : user)));
+      setUsers(
+        users.map((user) =>
+          user._id === editUser._id ? { ...user, ...datosActualizados } : user
+        )
+      );
       handleCloseEdit();
     } catch (error) {
       console.error("❌ Error al actualizar usuario:", error);
-      setSnackbarMessage(error.response?.data?.message || "Error al actualizar usuario.");
+      setSnackbarMessage(
+        error.response?.data?.message || "Error al actualizar usuario."
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -149,13 +184,19 @@ const UsersList = () => {
         { activo: nuevoEstado },
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
-      setUsers(users.map(user => user._id === userId ? { ...user, activo: nuevoEstado } : user));
+      setUsers(
+        users.map((user) =>
+          user._id === userId ? { ...user, activo: nuevoEstado } : user
+        )
+      );
       setSnackbarMessage(`Usuario ${nuevoEstado ? "activado" : "desactivado"} con éxito.`);
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
     } catch (error) {
       console.error("❌ Error al actualizar el estado:", error);
-      setSnackbarMessage(error.response?.data?.message || "Error al actualizar el estado del usuario.");
+      setSnackbarMessage(
+        error.response?.data?.message || "Error al actualizar el estado del usuario."
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -171,8 +212,12 @@ const UsersList = () => {
     setDetailUser(null);
   };
 
-  if (loading) return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
-  if (error) return <Alert severity="error" sx={{ margin: "20px" }}>{error}</Alert>;
+  if (loading) {
+    return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
+  }
+  if (error) {
+    return <Alert severity="error" sx={{ margin: "20px" }}>{error}</Alert>;
+  }
 
   const getFilterOptions = () => {
     if (tipoUsuario === "laboratorista") return ["cliente"];
@@ -182,10 +227,17 @@ const UsersList = () => {
 
   return (
     <Paper sx={{ padding: 2, marginTop: 2, boxShadow: 3 }}>
-      <Select value={filterType} onChange={handleFilterChange} fullWidth sx={{ marginBottom: 2 }}>
+      <Select
+        value={filterType}
+        onChange={handleFilterChange}
+        fullWidth
+        sx={{ marginBottom: 2 }}
+      >
         <MenuItem value="todos">Todos</MenuItem>
         {getFilterOptions().map((rol) => (
-          <MenuItem key={rol} value={rol}>{rol.charAt(0).toUpperCase() + rol.slice(1)}</MenuItem>
+          <MenuItem key={rol} value={rol}>
+            {rol.charAt(0).toUpperCase() + rol.slice(1)}
+          </MenuItem>
         ))}
       </Select>
 
@@ -209,95 +261,118 @@ const UsersList = () => {
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>Rol</TableCell>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>Activo</TableCell>
               {tipoUsuario !== "laboratorista" && (
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                  Acciones
+                </TableCell>
               )}
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(user => (
-              <TableRow key={user._id} onClick={() => handleRowClick(user)}
-                sx={{ transition: "transform 0.2s", "&:hover": { transform: "scale(1.02)", cursor: "pointer" } }}
-              >
-                <TableCell>{user.nombre}</TableCell>
-                <TableCell>{user.documento}</TableCell>
-                <TableCell>{user.telefono}</TableCell>
-                <TableCell>{user.direccion}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{getRoleName(user)}</TableCell>
-                <TableCell>{user.activo ? "Sí" : "No"}</TableCell>
-
-                {tipoUsuario !== "laboratorista" && (
-                  <TableCell>
-                    {tipoUsuario === "super_admin" && (
-                      <>
-                        <Switch
-                          checked={user.activo}
-                          onChange={() => handleToggleActivo(user._id, !user.activo)}
-                          color="primary"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        {getRoleName(user)?.toLowerCase() === "administrador" && (
+            {filteredUsers
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((user) => (
+                <TableRow
+                  key={user._id}
+                  onClick={() => handleRowClick(user)}
+                  sx={{
+                    transition: "transform 0.2s",
+                    "&:hover": { transform: "scale(1.02)", cursor: "pointer" },
+                  }}
+                >
+                  <TableCell>{user.nombre}</TableCell>
+                  <TableCell>{user.documento}</TableCell>
+                  <TableCell>{user.telefono}</TableCell>
+                  <TableCell>{user.direccion}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{getRoleName(user)}</TableCell>
+                  <TableCell>{user.activo ? "Sí" : "No"}</TableCell>
+                  {tipoUsuario !== "laboratorista" && (
+                    <TableCell>
+                      {tipoUsuario === "super_admin" && (
+                        <>
+                          <Switch
+                            checked={user.activo}
+                            onChange={() =>
+                              handleToggleActivo(user._id, !user.activo)
+                            }
+                            color="primary"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          {getRoleName(user).toLowerCase() === "administrador" && (
+                            <IconButton
+                              color="primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(user);
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          )}
+                        </>
+                      )}
+                      {tipoUsuario === "administrador" &&
+                        getRoleName(user).toLowerCase() !== "administrador" &&
+                        getRoleName(user).toLowerCase() !== "super_admin" && (
                           <IconButton
                             color="primary"
-                            onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditClick(user);
+                            }}
                           >
                             <EditIcon />
                           </IconButton>
                         )}
-                      </>
-                    )}
-                    {tipoUsuario === "administrador" &&
-                      getRoleName(user)?.toLowerCase() !== "administrador" &&
-                      getRoleName(user)?.toLowerCase() !== "super_admin" && (
-                        <IconButton
-                          color="primary"
-                          onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      )}
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </TableContainer>
 
       {filteredUsers.length > rowsPerPage && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
           <Pagination
             count={Math.ceil(filteredUsers.length / rowsPerPage)}
             page={page + 1}
             onChange={(event, value) => setPage(value - 1)}
             color="primary"
             sx={{
-              '& .MuiPaginationItem-root': {
-                color: '#39A900',
+              "& .MuiPaginationItem-root": {
+                color: "#39A900",
               },
-              '& .Mui-selected': {
-                backgroundColor: '#39A900',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: '#2d8000',
-                }
-              }
+              "& .Mui-selected": {
+                backgroundColor: "#39A900",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#2d8000",
+                },
+              },
             }}
           />
         </Box>
       )}
 
-      <Dialog open={openEdit} onClose={handleCloseEdit} disableEnforceFocus disableRestoreFocus>
+      <Dialog
+        open={openEdit}
+        onClose={handleCloseEdit}
+        disableEnforceFocus
+        disableRestoreFocus
+      >
         <DialogTitle>Editar Usuario</DialogTitle>
         <DialogContent>
-          {["nombre", "documento", "telefono", "direccion", "email"].map(field => (
+          {["nombre", "documento", "telefono", "direccion", "email"].map((field) => (
             <TextField
               key={field}
               fullWidth
               margin="dense"
               label={field}
               value={editUser?.[field] || ""}
-              onChange={(e) => setEditUser({ ...editUser, [field]: e.target.value })}
+              onChange={(e) =>
+                setEditUser({ ...editUser, [field]: e.target.value })
+              }
             />
           ))}
           {getRoleName(editUser) && (
@@ -312,17 +387,26 @@ const UsersList = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEdit}>Cancelar</Button>
-          <Button onClick={handleEditSubmit} variant="contained" color="primary">Guardar</Button>
+          <Button onClick={handleEditSubmit} variant="contained" color="primary">
+            Guardar
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openDetail} onClose={handleCloseDetail} disableEnforceFocus disableRestoreFocus>
+      <Dialog
+        open={openDetail}
+        onClose={handleCloseDetail}
+        disableEnforceFocus
+        disableRestoreFocus
+      >
         <DialogTitle>Detalle del Usuario</DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ border: '1px solid #ccc', borderRadius: 2, padding: 2 }}>
+          <Box sx={{ border: "1px solid #ccc", borderRadius: 2, padding: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="h6" align="center">{detailUser?.nombre}</Typography>
+                <Typography variant="h6" align="center">
+                  {detailUser?.nombre}
+                </Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body1">
@@ -362,12 +446,8 @@ const UsersList = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
+      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
           {snackbarMessage}
         </Alert>
       </Snackbar>
