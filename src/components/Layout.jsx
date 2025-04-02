@@ -2,14 +2,13 @@
 import React, { useState } from "react";
 import { Box, CssBaseline, AppBar, Toolbar, IconButton } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-// import Sidebar from "./Sidebar"; // Temporalmente removido para pruebas
+import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
 const Layout = ({ children }) => {
   // Estado para controlar el menú en dispositivos móviles
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Función que alterna la apertura del Drawer (Sidebar)
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -22,11 +21,12 @@ const Layout = ({ children }) => {
       <AppBar
         position="fixed"
         sx={{
+          // Quitamos la lógica de "width" y "ml" para que en escritorio no se recorte
           backgroundColor: "#00324D",
         }}
       >
         <Toolbar>
-          {/* Botón de menú visible solo en dispositivos móviles */}
+          {/* Botón de menú SOLO visible en pantallas pequeñas */}
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -37,28 +37,23 @@ const Layout = ({ children }) => {
             <MenuIcon />
           </IconButton>
 
-          {/* Componente Navbar */}
+          {/* Tu componente Navbar */}
           <Navbar />
         </Toolbar>
       </AppBar>
 
-      {/*
-        Sidebar removido temporalmente para pruebas.
-        Si al comentar el Sidebar el contenido se muestra correctamente,
-        el problema podría estar relacionado con él.
-      */}
-      {/*
+      {/* Sidebar que se muestra permanente en md+ y temporal en xs/sm */}
       <Sidebar mobileOpen={mobileOpen} handleDrawerToggle={handleDrawerToggle} />
-      */}
 
-      {/* Contenido principal, sin margen izquierdo ya que el Sidebar está removido */}
+      {/* Contenido principal, dejando espacio arriba para la AppBar */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          mt: "64px", // Espacio para el AppBar
-          // marginLeft: { md: "240px" }, // Removido temporalmente
+          mt: "64px", // altura del AppBar
+          // Dejamos margen izquierdo en pantallas md+ para no tapar el contenido
+          marginLeft: { md: "240px" },
         }}
       >
         {children}
