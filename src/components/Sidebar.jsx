@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import React, { useEffect, useState } from "react";
 import {
   Drawer,
@@ -26,9 +27,10 @@ import PersonIcon from "@mui/icons-material/Person";
 // Logo SENA
 import senaLogo from "../assets/sena-logo.png";
 
+// Ancho del Drawer
 const drawerWidth = 240;
 
-const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
+const Sidebar = () => {
   const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
@@ -198,40 +200,20 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
   );
 
   return (
-    <>
-      {/* Drawer para móviles */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: "block", md: "none" },
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-          },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
-
-      {/* Drawer para escritorio */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: "none", md: "block" },
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            borderRight: "none",
-            boxShadow: "2px 0 5px rgba(0,0,0,0.05)",
-            backgroundColor: "#fff",
-          },
-        }}
-        open
-      >
-        {drawerContent}
-      </Drawer>
-    </>
+    <Drawer
+      variant="permanent"
+      sx={{
+        "& .MuiDrawer-paper": {
+          width: drawerWidth,
+          borderRight: "none",
+          boxShadow: "2px 0 5px rgba(0,0,0,0.05)",
+          backgroundColor: "#fff",
+        },
+      }}
+      open
+    >
+      {drawerContent}
+    </Drawer>
   );
 };
 

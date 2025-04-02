@@ -1,59 +1,38 @@
 // src/components/Layout.jsx
-import React, { useState } from "react";
-import { Box, CssBaseline, AppBar, Toolbar, IconButton } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
-import Sidebar from "./Sidebar";
+import React from "react";
+import { Box, CssBaseline, AppBar, Toolbar } from "@mui/material";
 import Navbar from "./Navbar";
+import Sidebar from "./Sidebar";
 
 const Layout = ({ children }) => {
-  // Estado para controlar el menú en dispositivos móviles
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
 
-      {/* Barra superior */}
+      {/* Barra superior fija */}
       <AppBar
         position="fixed"
         sx={{
-          // Quitamos la lógica de "width" y "ml" para que en escritorio no se recorte
           backgroundColor: "#00324D",
         }}
       >
         <Toolbar>
-          {/* Botón de menú SOLO visible en pantallas pequeñas */}
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-
-          {/* Tu componente Navbar */}
+          {/* Aquí se eliminó el botón de menú responsive */}
           <Navbar />
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar que se muestra permanente en md+ y temporal en xs/sm */}
-      <Sidebar mobileOpen={mobileOpen} handleDrawerToggle={handleDrawerToggle} />
+      {/* Sidebar permanente, sin lógica para móviles */}
+      <Sidebar />
 
-      {/* Contenido principal, dejando espacio arriba para la AppBar */}
+      {/* Contenido principal con margen para no taparse con el Sidebar y el AppBar */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          mt: "64px", // altura del AppBar
-          // Dejamos margen izquierdo en pantallas md+ para no tapar el contenido
-          marginLeft: { md: "240px" },
+          mt: "64px",      // Espacio para el AppBar
+          ml: "240px",     // Espacio para el Sidebar permanente
         }}
       >
         {children}
