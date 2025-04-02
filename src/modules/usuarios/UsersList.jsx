@@ -31,6 +31,12 @@ const UsersList = () => {
 
   const navigate = useNavigate();
 
+  // Función auxiliar para obtener el nombre del rol,
+  // ya que en algunos casos puede venir como cadena y en otros como objeto.
+  const getRoleName = (user) => {
+    return typeof user?.rol === "string" ? user.rol : user?.rol?.name;
+  };
+
   useEffect(() => {
     const fetchUsers = async () => {
       const token = localStorage.getItem("token");
@@ -63,16 +69,17 @@ const UsersList = () => {
     let visibleUsers = [...users];
 
     if (tipoUsuario === "laboratorista") {
-      visibleUsers = visibleUsers.filter(user => user.rol?.name === "cliente");
+      visibleUsers = visibleUsers.filter(user => getRoleName(user)?.toLowerCase() === "cliente");
     } else if (tipoUsuario === "administrador") {
-      visibleUsers = visibleUsers.filter(user =>
-        user.rol?.name === "cliente" || user.rol?.name === "laboratorista"
-      );
+      visibleUsers = visibleUsers.filter(user => {
+        const role = getRoleName(user)?.toLowerCase();
+        return role === "cliente" || role === "laboratorista";
+      });
     }
 
     if (filterType !== "todos") {
       visibleUsers = visibleUsers.filter(user =>
-        user.rol?.name?.toLowerCase() === filterType.toLowerCase()
+        getRoleName(user)?.toLowerCase() === filterType.toLowerCase()
       );
     }
 
@@ -216,25 +223,36 @@ const UsersList = () => {
                 <TableCell>{user.telefono}</TableCell>
                 <TableCell>{user.direccion}</TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>{user.rol?.name}</TableCell>
+                <TableCell>{getRoleName(user)}</TableCell>
                 <TableCell>{user.activo ? "Sí" : "No"}</TableCell>
 
                 {tipoUsuario !== "laboratorista" && (
                   <TableCell>
                     {tipoUsuario === "super_admin" && (
                       <>
-                        <Switch checked={user.activo} onChange={() => handleToggleActivo(user._id, !user.activo)} color="primary" onClick={(e) => e.stopPropagation()} />
-                        {user.rol?.name?.toLowerCase() === "administrador" && (
-                          <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}>
+                        <Switch
+                          checked={user.activo}
+                          onChange={() => handleToggleActivo(user._id, !user.activo)}
+                          color="primary"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {getRoleName(user)?.toLowerCase() === "administrador" && (
+                          <IconButton
+                            color="primary"
+                            onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
+                          >
                             <EditIcon />
                           </IconButton>
                         )}
                       </>
                     )}
                     {tipoUsuario === "administrador" &&
-                      user.rol?.name?.toLowerCase() !== "administrador" &&
-                      user.rol?.name?.toLowerCase() !== "super_admin" && (
-                        <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}>
+                      getRoleName(user)?.toLowerCase() !== "administrador" &&
+                      getRoleName(user)?.toLowerCase() !== "super_admin" && (
+                        <IconButton
+                          color="primary"
+                          onClick={(e) => { e.stopPropagation(); handleEditClick(user); }}
+                        >
                           <EditIcon />
                         </IconButton>
                       )}
@@ -246,7 +264,6 @@ const UsersList = () => {
         </Table>
       </TableContainer>
 
-      {/* ✅ Paginador personalizado */}
       {filteredUsers.length > rowsPerPage && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Pagination
@@ -270,7 +287,6 @@ const UsersList = () => {
         </Box>
       )}
 
-      {/* Modal edición */}
       <Dialog open={openEdit} onClose={handleCloseEdit} disableEnforceFocus disableRestoreFocus>
         <DialogTitle>Editar Usuario</DialogTitle>
         <DialogContent>
@@ -284,12 +300,12 @@ const UsersList = () => {
               onChange={(e) => setEditUser({ ...editUser, [field]: e.target.value })}
             />
           ))}
-          {editUser?.rol?.name && (
+          {getRoleName(editUser) && (
             <TextField
               fullWidth
               margin="dense"
               label="Rol"
-              value={editUser.rol.name}
+              value={getRoleName(editUser)}
               InputProps={{ readOnly: true }}
             />
           )}
@@ -300,19 +316,44 @@ const UsersList = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal detalle */}
       <Dialog open={openDetail} onClose={handleCloseDetail} disableEnforceFocus disableRestoreFocus>
         <DialogTitle>Detalle del Usuario</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ border: '1px solid #ccc', borderRadius: 2, padding: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12}><Typography variant="h6" align="center">{detailUser?.nombre}</Typography></Grid>
-              <Grid item xs={6}><Typography variant="body1"><strong>Documento:</strong> {detailUser?.documento}</Typography></Grid>
-              <Grid item xs={6}><Typography variant="body1"><strong>Teléfono:</strong> {detailUser?.telefono}</Typography></Grid>
-              <Grid item xs={12}><Typography variant="body1"><strong>Dirección:</strong> {detailUser?.direccion}</Typography></Grid>
-              <Grid item xs={12}><Typography variant="body1"><strong>Email:</strong> {detailUser?.email}</Typography></Grid>
-              <Grid item xs={6}><Typography variant="body1"><strong>Rol:</strong> {detailUser?.rol?.name}</Typography></Grid>
-              <Grid item xs={6}><Typography variant="body1"><strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}</Typography></Grid>
+              <Grid item xs={12}>
+                <Typography variant="h6" align="center">{detailUser?.nombre}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">
+                  <strong>Documento:</strong> {detailUser?.documento}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">
+                  <strong>Teléfono:</strong> {detailUser?.telefono}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body1">
+                  <strong>Dirección:</strong> {detailUser?.direccion}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body1">
+                  <strong>Email:</strong> {detailUser?.email}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">
+                  <strong>Rol:</strong> {getRoleName(detailUser)}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1">
+                  <strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}
+                </Typography>
+              </Grid>
             </Grid>
           </Box>
         </DialogContent>
@@ -321,7 +362,6 @@ const UsersList = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar para mostrar mensajes */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
