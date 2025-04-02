@@ -1,3 +1,4 @@
+// src/components/UsersList.jsx
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import {
@@ -21,7 +22,6 @@ import {
   Switch,
   IconButton,
   Box,
-  Grid,
   Typography,
   Pagination,
   Snackbar,
@@ -51,7 +51,6 @@ const UsersList = () => {
   const navigate = useNavigate();
 
   // Función auxiliar para obtener el nombre del rol
-  // Retorna una cadena (o cadena vacía en caso de no encontrarla)
   const getRoleName = (user) => {
     if (!user || !user.rol) return "";
     return typeof user.rol === "string" ? user.rol : user.rol.name || "";
@@ -213,10 +212,10 @@ const UsersList = () => {
   };
 
   if (loading) {
-    return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
+    return <CircularProgress style={{ display: "block", margin: "20px auto" }} />;
   }
   if (error) {
-    return <Alert severity="error" sx={{ margin: "20px" }}>{error}</Alert>;
+    return <Alert severity="error" style={{ margin: "20px" }}>{error}</Alert>;
   }
 
   const getFilterOptions = () => {
@@ -226,12 +225,12 @@ const UsersList = () => {
   };
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2, boxShadow: 3 }}>
+    <Paper style={{ padding: 16, marginTop: 16, boxShadow: "0px 3px 6px rgba(0,0,0,0.16)" }}>
       <Select
         value={filterType}
         onChange={handleFilterChange}
         fullWidth
-        sx={{ marginBottom: 2 }}
+        style={{ marginBottom: 16 }}
       >
         <MenuItem value="todos">Todos</MenuItem>
         {getFilterOptions().map((rol) => (
@@ -245,23 +244,23 @@ const UsersList = () => {
         label="Buscar usuario (nombre o documento)"
         variant="outlined"
         fullWidth
-        sx={{ marginBottom: 2 }}
+        style={{ marginBottom: 16 }}
         onChange={handleSearchChange}
       />
 
       <TableContainer>
         <Table>
-          <TableHead sx={{ backgroundColor: "#39A900" }}>
+          <TableHead style={{ backgroundColor: "#39A900" }}>
             <TableRow>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Nombre</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Teléfono</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Dirección</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Email</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Rol</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Activo</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Nombre</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Teléfono</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Dirección</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Email</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Rol</TableCell>
+              <TableCell style={{ color: "white", fontWeight: "bold" }}>Activo</TableCell>
               {tipoUsuario !== "laboratorista" && (
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                <TableCell style={{ color: "white", fontWeight: "bold" }}>
                   Acciones
                 </TableCell>
               )}
@@ -274,9 +273,15 @@ const UsersList = () => {
                 <TableRow
                   key={user._id}
                   onClick={() => handleRowClick(user)}
-                  sx={{
+                  style={{
                     transition: "transform 0.2s",
-                    "&:hover": { transform: "scale(1.02)", cursor: "pointer" },
+                    cursor: "pointer",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = "scale(1.02)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
                   }}
                 >
                   <TableCell>{user.nombre}</TableCell>
@@ -333,23 +338,15 @@ const UsersList = () => {
       </TableContainer>
 
       {filteredUsers.length > rowsPerPage && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+        <Box style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
           <Pagination
             count={Math.ceil(filteredUsers.length / rowsPerPage)}
             page={page + 1}
             onChange={(event, value) => setPage(value - 1)}
             color="primary"
-            sx={{
-              "& .MuiPaginationItem-root": {
-                color: "#39A900",
-              },
-              "& .Mui-selected": {
-                backgroundColor: "#39A900",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#2d8000",
-                },
-              },
+            style={{
+              // Se usan estilos fijos sin breakpoints responsivos
+              color: "#39A900",
             }}
           />
         </Box>
@@ -358,8 +355,6 @@ const UsersList = () => {
       <Dialog
         open={openEdit}
         onClose={handleCloseEdit}
-        disableEnforceFocus
-        disableRestoreFocus
       >
         <DialogTitle>Editar Usuario</DialogTitle>
         <DialogContent>
@@ -396,49 +391,22 @@ const UsersList = () => {
       <Dialog
         open={openDetail}
         onClose={handleCloseDetail}
-        disableEnforceFocus
-        disableRestoreFocus
       >
         <DialogTitle>Detalle del Usuario</DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ border: "1px solid #ccc", borderRadius: 2, padding: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="h6" align="center">
-                  {detailUser?.nombre}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body1">
-                  <strong>Documento:</strong> {detailUser?.documento}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body1">
-                  <strong>Teléfono:</strong> {detailUser?.telefono}
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body1">
-                  <strong>Dirección:</strong> {detailUser?.direccion}
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body1">
-                  <strong>Email:</strong> {detailUser?.email}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body1">
-                  <strong>Rol:</strong> {getRoleName(detailUser)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body1">
-                  <strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}
-                </Typography>
-              </Grid>
-            </Grid>
+          {/* Se eliminó el Grid responsive y se usa un contenedor fijo */}
+          <Box style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16 }}>
+            <Typography variant="h6" align="center">
+              {detailUser?.nombre}
+            </Typography>
+            <Box style={{ marginTop: 8 }}>
+              <Typography variant="body1"><strong>Documento:</strong> {detailUser?.documento}</Typography>
+              <Typography variant="body1"><strong>Teléfono:</strong> {detailUser?.telefono}</Typography>
+              <Typography variant="body1"><strong>Dirección:</strong> {detailUser?.direccion}</Typography>
+              <Typography variant="body1"><strong>Email:</strong> {detailUser?.email}</Typography>
+              <Typography variant="body1"><strong>Rol:</strong> {getRoleName(detailUser)}</Typography>
+              <Typography variant="body1"><strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}</Typography>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -447,7 +415,7 @@ const UsersList = () => {
       </Dialog>
 
       <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} style={{ width: "100%" }}>
           {snackbarMessage}
         </Alert>
       </Snackbar>
