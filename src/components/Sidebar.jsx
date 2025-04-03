@@ -75,7 +75,7 @@ const Sidebar = () => {
       text: "Lista Resultados",
       icon: <AssignmentIcon />,
       path: "/lista-resultados",
-      roles: ["laboratorista", "administrador", "super_admin"],
+      roles: ["administrador", "super_admin"],
     },
   ];
 
