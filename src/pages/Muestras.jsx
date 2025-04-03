@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/pages/Muestras.jsx
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -33,11 +34,11 @@ import {
   Alert,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import DownloadIcon from "@mui/icons-material/Download";
+import GetAppIcon from "@mui/icons-material/GetApp";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import GetAppIcon from "@mui/icons-material/GetApp";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import AuthContext from "../context/AuthContext";
 
 // Componente personalizado para los botones de acción
 const ActionButton = ({ tooltip, onClick, IconComponent }) => (
@@ -60,7 +61,7 @@ const ActionButton = ({ tooltip, onClick, IconComponent }) => (
   </Tooltip>
 );
 
-// Constantes de análisis (se usan en Registro y edición)
+// Constantes de análisis para Agua y Suelo (se mantienen igual)
 const ANALISIS_AGUA = [
   {
     categoria: "Metales",
@@ -163,8 +164,8 @@ const getEstadoChipProps = (estado) => {
   }
 };
 
-// Subcomponente para ver los detalles de una muestra
-const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle }) => (
+// Modal para ver detalles de una muestra; se añade la prop hideClientData para condicionar datos sensibles
+const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
   <Modal open={selectedMuestra !== null} onClose={onClose}>
     <Box sx={modalStyle}>
       <Typography variant="h6" align="center" sx={{ mb: 2 }}>
@@ -178,14 +179,18 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle }) => (
                 <TableCell sx={{ fontWeight: "bold" }}>ID Muestra</TableCell>
                 <TableCell>{selectedMuestra.id_muestra || "N/A"}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
-                <TableCell>{selectedMuestra.documento || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
-                <TableCell>{selectedMuestra.nombreCliente || "No encontrado"}</TableCell>
-              </TableRow>
+              {!hideClientData && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
+                  <TableCell>{selectedMuestra.documento || "N/A"}</TableCell>
+                </TableRow>
+              )}
+              {!hideClientData && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
+                  <TableCell>{selectedMuestra.nombreCliente || "No encontrado"}</TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Tipo de Muestra</TableCell>
                 <TableCell>{selectedMuestra.tipoMuestra || "N/A"}</TableCell>
@@ -270,7 +275,7 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle }) => (
   </Modal>
 );
 
-// Subcomponente para editar una muestra
+// Subcomponente para editar una muestra (se mantiene sin cambios)
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
   if (!editingMuestra) return null;
   return (
@@ -285,7 +290,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
           autoComplete="off"
           sx={{ "& .MuiTextField-root": { mb: 2 } }}
         >
-          {/* Tipo de Muestreo */}
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
             fullWidth
@@ -300,8 +304,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Simple">Simple</MenuItem>
             <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
-
-          {/* Lugar de Muestreo */}
           <TextField
             fullWidth
             label="Lugar de Muestreo"
@@ -313,8 +315,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               })
             }
           />
-
-          {/* Preservación de Muestra */}
           <TextField
             fullWidth
             label="Preservación de Muestra"
@@ -326,8 +326,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               })
             }
           />
-
-          {/* Observaciones */}
           <TextField
             fullWidth
             label="Observaciones"
@@ -341,8 +339,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               })
             }
           />
-
-          {/* Sección de Análisis */}
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
             Análisis a Realizar
           </Typography>
@@ -381,7 +377,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
                 </AccordionDetails>
               </Accordion>
             ))}
-
           <Button
             variant="contained"
             color="primary"
@@ -408,8 +403,8 @@ const Muestras = () => {
   const [selectedMuestra, setSelectedMuestra] = useState(null);
   const [editingMuestra, setEditingMuestra] = useState(null);
   const navigate = useNavigate();
+  const { tipoUsuario } = useContext(AuthContext); // Obtenemos el rol del usuario
 
-  // Estados para el Snackbar (mensajes de error, info, etc.)
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("error");
@@ -419,7 +414,6 @@ const Muestras = () => {
     setSnackbarOpen(false);
   };
 
-  // Estilo común para los modales
   const modalStyle = {
     position: "absolute",
     top: "50%",
@@ -434,7 +428,6 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
-  // Cargar muestras y asociarlas a usuarios
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -448,11 +441,7 @@ const Muestras = () => {
         }
         const muestrasResponse = await axios.get(
           "https://daniel-back-dom.onrender.com/api/muestras",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         let muestrasData = [];
@@ -466,9 +455,7 @@ const Muestras = () => {
 
         const usuariosResponse = await axios.get(
           "https://back-usuarios-f.onrender.com/api/usuarios",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         const usuariosData = Array.isArray(usuariosResponse.data.usuarios)
@@ -502,7 +489,6 @@ const Muestras = () => {
     fetchData();
   }, []);
 
-  // Aplicar filtros y búsqueda
   useEffect(() => {
     let filtered = [...muestras];
     if (filterType !== "todos") {
@@ -511,16 +497,18 @@ const Muestras = () => {
           muestra.tipoMuestreo?.toLowerCase() === filterType.toLowerCase()
       );
     }
+    // En el filtro de búsqueda, si el usuario es laboratorista se omite la búsqueda por cliente
     if (search.trim() !== "") {
       filtered = filtered.filter(
         (muestra) =>
-          muestra.nombreCliente.toLowerCase().includes(search.toLowerCase()) ||
+          (tipoUsuario !== "laboratorista" &&
+            muestra.nombreCliente.toLowerCase().includes(search.toLowerCase())) ||
           String(muestra.id_muestra).includes(search)
       );
     }
     setFilteredMuestras(filtered);
     setPage(0);
-  }, [search, filterType, muestras]);
+  }, [search, filterType, muestras, tipoUsuario]);
 
   const handleSearchChange = (e) => setSearch(e.target.value);
 
@@ -533,11 +521,7 @@ const Muestras = () => {
 
       const muestrasResponse = await axios.get(
         "https://daniel-back-dom.onrender.com/api/muestras",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       let muestrasData = [];
@@ -566,9 +550,7 @@ const Muestras = () => {
 
       const usuariosResponse = await axios.get(
         "https://back-usuarios-f.onrender.com/api/usuarios",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       let usuariosData = [];
@@ -612,10 +594,8 @@ const Muestras = () => {
     setPage(0);
   };
 
-  // Función para generar PDF
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
-    // Agregar logo y título
     doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
@@ -747,7 +727,6 @@ const Muestras = () => {
         }
       );
 
-      // Actualizar la lista de muestras
       const updatedMuestras = muestras.map((m) =>
         m.id_muestra === editingMuestra.id_muestra 
           ? { ...m, ...updateData }
@@ -822,8 +801,13 @@ const Muestras = () => {
               <TableHead sx={{ backgroundColor: "#39A900" }}>
                 <TableRow>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+                  {/* Si el usuario es laboratorista, no se muestran las columnas de cliente */}
+                  {tipoUsuario !== "laboratorista" && (
+                    <>
+                      <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
+                      <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+                    </>
+                  )}
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo</TableCell>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
@@ -845,8 +829,12 @@ const Muestras = () => {
                       }}
                     >
                       <TableCell>{muestra.id_muestra}</TableCell>
-                      <TableCell>{muestra.nombreCliente}</TableCell>
-                      <TableCell>{muestra.documento}</TableCell>
+                      {tipoUsuario !== "laboratorista" && (
+                        <>
+                          <TableCell>{muestra.nombreCliente}</TableCell>
+                          <TableCell>{muestra.documento}</TableCell>
+                        </>
+                      )}
                       <TableCell>{muestra.tipoMuestra}</TableCell>
                       <TableCell>
                         {(() => {
@@ -932,11 +920,11 @@ const Muestras = () => {
         </Typography>
       )}
 
-      {/* Modales */}
       <DetailMuestraModal
         selectedMuestra={selectedMuestra}
         onClose={() => setSelectedMuestra(null)}
         modalStyle={modalStyle}
+        hideClientData={tipoUsuario === "laboratorista"}
       />
 
       <EditMuestraModal
@@ -946,7 +934,6 @@ const Muestras = () => {
         modalStyle={modalStyle}
       />
 
-      {/* Snackbar para mostrar mensajes */}
       <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
         <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
           {snackbarMessage}
