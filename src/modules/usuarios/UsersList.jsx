@@ -98,6 +98,11 @@ const UsersList = () => {
           const role = getRoleName(user).toLowerCase();
           return role === "cliente" || role === "laboratorista";
         });
+      } else if (tipoUsuario === "super_admin") {
+        // Excluir usuarios con rol super_admin
+        visibleUsers = visibleUsers.filter(
+          (user) => getRoleName(user).toLowerCase() !== "super_admin"
+        );
       }
 
       if (filterType !== "todos") {
@@ -218,9 +223,11 @@ const UsersList = () => {
     return <Alert severity="error" style={{ margin: "20px" }}>{error}</Alert>;
   }
 
+  // Se actualiza el select de opciones para que el rol super_admin no sea listado para el super administrador
   const getFilterOptions = () => {
     if (tipoUsuario === "laboratorista") return ["cliente"];
     if (tipoUsuario === "administrador") return ["cliente", "laboratorista"];
+    if (tipoUsuario === "super_admin") return ["cliente", "laboratorista", "administrador"];
     return ["cliente", "laboratorista", "administrador", "super_admin"];
   };
 
@@ -260,9 +267,7 @@ const UsersList = () => {
               <TableCell style={{ color: "white", fontWeight: "bold" }}>Rol</TableCell>
               <TableCell style={{ color: "white", fontWeight: "bold" }}>Activo</TableCell>
               {tipoUsuario !== "laboratorista" && (
-                <TableCell style={{ color: "white", fontWeight: "bold" }}>
-                  Acciones
-                </TableCell>
+                <TableCell style={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
               )}
             </TableRow>
           </TableHead>
@@ -345,17 +350,13 @@ const UsersList = () => {
             onChange={(event, value) => setPage(value - 1)}
             color="primary"
             style={{
-              // Se usan estilos fijos sin breakpoints responsivos
               color: "#39A900",
             }}
           />
         </Box>
       )}
 
-      <Dialog
-        open={openEdit}
-        onClose={handleCloseEdit}
-      >
+      <Dialog open={openEdit} onClose={handleCloseEdit}>
         <DialogTitle>Editar Usuario</DialogTitle>
         <DialogContent>
           {["nombre", "documento", "telefono", "direccion", "email"].map((field) => (
@@ -388,24 +389,32 @@ const UsersList = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={openDetail}
-        onClose={handleCloseDetail}
-      >
+      <Dialog open={openDetail} onClose={handleCloseDetail}>
         <DialogTitle>Detalle del Usuario</DialogTitle>
         <DialogContent dividers>
-          {/* Se eliminó el Grid responsive y se usa un contenedor fijo */}
           <Box style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16 }}>
             <Typography variant="h6" align="center">
               {detailUser?.nombre}
             </Typography>
             <Box style={{ marginTop: 8 }}>
-              <Typography variant="body1"><strong>Documento:</strong> {detailUser?.documento}</Typography>
-              <Typography variant="body1"><strong>Teléfono:</strong> {detailUser?.telefono}</Typography>
-              <Typography variant="body1"><strong>Dirección:</strong> {detailUser?.direccion}</Typography>
-              <Typography variant="body1"><strong>Email:</strong> {detailUser?.email}</Typography>
-              <Typography variant="body1"><strong>Rol:</strong> {getRoleName(detailUser)}</Typography>
-              <Typography variant="body1"><strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}</Typography>
+              <Typography variant="body1">
+                <strong>Documento:</strong> {detailUser?.documento}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Teléfono:</strong> {detailUser?.telefono}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Dirección:</strong> {detailUser?.direccion}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Email:</strong> {detailUser?.email}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Rol:</strong> {getRoleName(detailUser)}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}
+              </Typography>
             </Box>
           </Box>
         </DialogContent>
