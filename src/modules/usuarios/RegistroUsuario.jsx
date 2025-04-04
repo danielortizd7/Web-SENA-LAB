@@ -27,12 +27,12 @@ const RegistroUsuario = () => {
     direccion: "",
     email: "",
     password: "",
+    tipo_cliente: "", // Usamos "tipo_cliente" según lo espera el backend
     especialidad: "",
     codigoSeguridad: "",
     razonSocial: ""
   });
   const [cargando, setCargando] = useState(false);
-  // Se reemplazan los estados de mensaje y error por el estado del Snackbar:
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
@@ -52,7 +52,6 @@ const RegistroUsuario = () => {
   const manejarCambio = (e) => {
     const { name, value } = e.target;
     setUsuario({ ...usuario, [name]: value });
-    // Se limpia el mensaje actual al cambiar datos
     setSnackbarOpen(false);
   };
 
@@ -61,13 +60,12 @@ const RegistroUsuario = () => {
     setSnackbarOpen(false);
   };
 
-  // Enviar datos a la API con validaciones
   const registrarUsuario = async (e) => {
     e.preventDefault();
     setCargando(true);
     setSnackbarOpen(false);
 
-    // Verificar si el token existe ANTES de enviar la solicitud
+    // Verificar token
     const token = localStorage.getItem("token");
     if (!token) {
       setSnackbarMessage("⚠ No tienes permiso para registrar usuarios. Inicia sesión.");
@@ -77,6 +75,11 @@ const RegistroUsuario = () => {
       return;
     }
 
+    // **IMPORTANTE:** Para clientes no se debe asignar la contraseña en el front,
+    // es decir, no se ejecuta:
+    // if (usuario.tipo === "cliente") { usuario.password = usuario.documento; }
+    // De esta forma, el objeto "usuario" se mantiene sin la propiedad "password"
+
     // Validación de campos obligatorios
     if (
       !usuario.tipo ||
@@ -85,8 +88,8 @@ const RegistroUsuario = () => {
       !usuario.telefono ||
       !usuario.direccion ||
       !usuario.email ||
-      !usuario.password ||
-      (usuario.tipo === "cliente" && !usuario.razonSocial)
+      (usuario.tipo !== "cliente" && !usuario.password) ||
+      (usuario.tipo === "cliente" && (!usuario.tipo_cliente || !usuario.razonSocial))
     ) {
       setSnackbarMessage("⚠ Todos los campos obligatorios deben completarse.");
       setSnackbarSeverity("error");
@@ -95,7 +98,7 @@ const RegistroUsuario = () => {
       return;
     }
 
-    // Validación: Documento solo números
+    // Validaciones de formato
     if (!/^\d+$/.test(usuario.documento)) {
       setSnackbarMessage("⚠ El documento debe contener solo números.");
       setSnackbarSeverity("error");
@@ -104,7 +107,6 @@ const RegistroUsuario = () => {
       return;
     }
 
-    // Validación: Teléfono solo números y exactamente 10 dígitos
     if (!/^\d{10}$/.test(usuario.telefono)) {
       setSnackbarMessage("⚠ El teléfono debe contener exactamente 10 dígitos numéricos.");
       setSnackbarSeverity("error");
@@ -113,7 +115,6 @@ const RegistroUsuario = () => {
       return;
     }
 
-    // Validación: Correo electrónico
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usuario.email)) {
       setSnackbarMessage("⚠ El correo electrónico no tiene un formato válido.");
       setSnackbarSeverity("error");
@@ -122,48 +123,67 @@ const RegistroUsuario = () => {
       return;
     }
 
-    // Validación: Contraseña mínimo 8 caracteres, al menos una mayúscula y un número
-    if (usuario.password.length < 8) {
-      setSnackbarMessage("⚠ La contraseña debe tener al menos 8 caracteres.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-      setCargando(false);
-      return;
-    }
-    if (!/[A-Z]/.test(usuario.password)) {
-      setSnackbarMessage("⚠ La contraseña debe incluir al menos una letra mayúscula.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-      setCargando(false);
-      return;
-    }
-    if (!/\d/.test(usuario.password)) {
-      setSnackbarMessage("⚠ La contraseña debe incluir al menos un número.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-      setCargando(false);
-      return;
+    // Validaciones de contraseña para usuarios que no sean cliente
+    if (usuario.tipo !== "cliente") {
+      if (usuario.password.length < 8) {
+        setSnackbarMessage("⚠ La contraseña debe tener al menos 8 caracteres.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        setCargando(false);
+        return;
+      }
+      if (!/[A-Z]/.test(usuario.password)) {
+        setSnackbarMessage("⚠ La contraseña debe incluir al menos una letra mayúscula.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        setCargando(false);
+        return;
+      }
+      if (!/\d/.test(usuario.password)) {
+        setSnackbarMessage("⚠ La contraseña debe incluir al menos un número.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        setCargando(false);
+        return;
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(usuario.password)) {
+        setSnackbarMessage("⚠ La contraseña debe incluir al menos un carácter especial.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        setCargando(false);
+        return;
+      }
     }
 
-    // Preparar los datos de registro
-    let datosRegistro = { ...usuario };
+    // Construir el objeto a enviar según el tipo de usuario
+    let datosRegistro;
     if (usuario.tipo === "cliente") {
-      datosRegistro.detalles = {
-        tipo: "cliente",
-        razonSocial: usuario.razonSocial
+      // Para clientes se envía sin el campo "password"
+      datosRegistro = {
+        tipo: usuario.tipo,
+        nombre: usuario.nombre,
+        documento: usuario.documento,
+        telefono: usuario.telefono,
+        direccion: usuario.direccion,
+        email: usuario.email,
+        detalles: {
+          tipo_cliente: usuario.tipo_cliente,
+          razonSocial: usuario.razonSocial
+        }
       };
-      delete datosRegistro.razonSocial;
+    } else {
+      datosRegistro = { ...usuario };
     }
+
     console.log("Datos que se envían al backend:", datosRegistro);
 
     try {
-      console.log("📩 Enviando datos a la API:", JSON.stringify(datosRegistro, null, 2));
       const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/registro`;
       const respuesta = await axios.post(url, datosRegistro, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+          Authorization: `Bearer ${token}`
+        }
       });
       console.log("✔ Registro exitoso:", respuesta.data);
       setSnackbarMessage("✔ Usuario registrado correctamente.");
@@ -177,6 +197,7 @@ const RegistroUsuario = () => {
         direccion: "",
         email: "",
         password: "",
+        tipo_cliente: "",
         especialidad: "",
         codigoSeguridad: "",
         razonSocial: ""
@@ -190,8 +211,8 @@ const RegistroUsuario = () => {
       if (error.response) {
         setSnackbarMessage(
           error.response.data.mensaje ||
-            error.response.data.error ||
-            "⚠ Error en el registro."
+          error.response.data.error ||
+          "⚠ Error en el registro."
         );
       } else {
         setSnackbarMessage("⚠ Error de conexión con el servidor.");
@@ -208,8 +229,6 @@ const RegistroUsuario = () => {
       <Typography variant="h5" sx={{ marginBottom: 2 }}>
         Registrar Nuevo Usuario
       </Typography>
-
-      {/* Se han removido los Alert directos y se utiliza el Snackbar para los mensajes */}
 
       <form onSubmit={registrarUsuario}>
         <Select
@@ -277,18 +296,54 @@ const RegistroUsuario = () => {
           required
           sx={{ marginBottom: 2 }}
         />
-        <TextField
-          label="Contraseña"
-          name="password"
-          type="password"
-          value={usuario.password}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
 
-        {/* Campos condicionales */}
+        {/* Mostrar campo de contraseña solo para tipos que no sean cliente */}
+        {usuario.tipo !== "cliente" && (
+          <TextField
+            label="Contraseña"
+            name="password"
+            type="password"
+            value={usuario.password}
+            onChange={manejarCambio}
+            fullWidth
+            required
+            sx={{ marginBottom: 2 }}
+          />
+        )}
+
+        {/* Campos específicos para clientes */}
+        {usuario.tipo === "cliente" && (
+          <>
+            <Select
+              value={usuario.tipo_cliente}
+              name="tipo_cliente"
+              onChange={manejarCambio}
+              displayEmpty
+              fullWidth
+              required
+              sx={{ marginBottom: 2 }}
+            >
+              <MenuItem value="" disabled>
+                Selecciona un tipo de cliente
+              </MenuItem>
+              <MenuItem value="empresas">empresas</MenuItem>
+              <MenuItem value="emprendedor">emprendedor</MenuItem>
+              <MenuItem value="persona natural">persona natural</MenuItem>
+              <MenuItem value="institucion educativa">institucion educativa</MenuItem>
+              <MenuItem value="aprendiz/instructor Sena">aprendiz/instructor Sena</MenuItem>
+            </Select>
+            <TextField
+              label="Razón Social"
+              name="razonSocial"
+              value={usuario.razonSocial}
+              onChange={manejarCambio}
+              fullWidth
+              required
+              sx={{ marginBottom: 2 }}
+            />
+          </>
+        )}
+
         {usuario.tipo === "laboratorista" && (
           <TextField
             label="Especialidad"
@@ -309,18 +364,6 @@ const RegistroUsuario = () => {
             sx={{ marginBottom: 2 }}
           />
         )}
-        {usuario.tipo === "cliente" && (
-          <TextField
-            label="Razón Social"
-            name="razonSocial"
-            value={usuario.razonSocial}
-            onChange={manejarCambio}
-            fullWidth
-            required
-            sx={{ marginBottom: 2 }}
-          />
-        )}
-
         {usuario.tipo === "administrador" && (
           <Typography sx={{ marginBottom: 2 }}>
             Nivel de acceso: 1
@@ -332,12 +375,7 @@ const RegistroUsuario = () => {
         </Button>
       </form>
 
-      {/* Snackbar para mostrar mensajes */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-      >
+      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
         <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
           {snackbarMessage}
         </Alert>

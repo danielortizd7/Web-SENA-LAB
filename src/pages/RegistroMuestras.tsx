@@ -15,7 +15,6 @@ import {
   Alert,
   MenuItem,
   Select,
-  SelectChangeEvent,
   InputLabel,
   Modal,
   Backdrop,
@@ -29,6 +28,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import SignaturePad from '../components/SignaturePad';
 import FirmasDigitales from '../components/FirmasDigitales';
 import { muestrasService } from '../services/muestras.service';
+import { SelectChangeEvent } from '@mui/material/Select';
 
 // URLs base actualizadas
 const BASE_URLS = {
@@ -36,7 +36,7 @@ const BASE_URLS = {
   MUESTRAS: 'https://daniel-back-dom.onrender.com/api'
 };
 
-// URLs específicas actualizadas - Añadimos la ruta correcta para editar resultados
+// URLs específicas actualizadas
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
@@ -46,23 +46,21 @@ const API_URLS = {
   CAMBIOS_ESTADO: `${BASE_URLS.MUESTRAS}/cambios-estado`
 };
 
-// Tipos de preservación válidos
-const TIPOS_PRESERVACION = ['Refrigeración', 'Congelación', 'Temperatura Ambiente'] as const;
+const TIPOS_PRESERVACION = ['Refrigeración', 'Congelación', 'Acidificación', 'Otro'] as const;
 type TipoPreservacion = typeof TIPOS_PRESERVACION[number];
 
-// Tipos de muestreo válidos
 const TIPOS_MUESTREO = ['Simple', 'Compuesto'] as const;
 type TipoMuestreo = typeof TIPOS_MUESTREO[number];
 
-// Tipos de agua válidos
-const TIPOS_AGUA = ['potable', 'natural', 'residual', 'otra'] as const;
+const TIPOS_AGUA = ['potable', 'natural', 'residual domestica', 'residual no domestica', 'otra'] as const;
 type TipoAgua = typeof TIPOS_AGUA[number];
 
-// Estados válidos para las muestras
+const TIPOS_ANALISIS = ['Fisicoquímicos', 'Microbiológicos'] as const;
+type TipoAnalisis = typeof TIPOS_ANALISIS[number];
+
 const ESTADOS_VALIDOS = ["Recibida", "En análisis", "Pendiente de resultados", "Finalizada", "Rechazada"] as const;
 type EstadoMuestra = typeof ESTADOS_VALIDOS[number];
 
-// Interfaces actualizadas
 interface SignatureData {
   firma: string;
 }
@@ -80,18 +78,24 @@ interface TipoDeAgua {
   descripcion: string;
 }
 
+// Se agregan las propiedades estado, observacionRechazo y además la propiedad tipoMuestreo
 interface MuestraFormData {
   documento: string;
   tipoMuestra: string;
-  tipoMuestreo: string;
+  tipoMuestreo: string; // <-- propiedad agregada
   fechaHora: string;
+  fechaHoraMuestreo: string;
   lugarMuestreo: string;
   planMuestreo: string;
   condicionesAmbientales: string;
   preservacionMuestra: string;
+  preservacionMuestraOtro?: string;
   identificacionMuestra: string;
   analisisSeleccionados: string[];
   tipoDeAgua: TipoDeAgua;
+  tipoAnalisis: string;
+  estado?: string;
+  observacionRechazo?: string;
   firmas: {
     firmaAdministrador: { firma: string };
     firmaCliente: { firma: string };
@@ -140,12 +144,14 @@ interface FirmasState {
 const initialFormData: MuestraFormData = {
   documento: '',
   tipoMuestra: '',
-  tipoMuestreo: '',
+  tipoMuestreo: '', // Valor inicial agregado
   fechaHora: '',
+  fechaHoraMuestreo: '',
   lugarMuestreo: '',
   planMuestreo: '',
   condicionesAmbientales: '',
   preservacionMuestra: '',
+  preservacionMuestraOtro: '',
   identificacionMuestra: '',
   analisisSeleccionados: [],
   tipoDeAgua: {
@@ -153,6 +159,9 @@ const initialFormData: MuestraFormData = {
     tipoPersonalizado: '',
     descripcion: ''
   },
+  tipoAnalisis: '',
+  estado: '',
+  observacionRechazo: '',
   firmas: {
     firmaAdministrador: { firma: '' },
     firmaCliente: { firma: '' }
@@ -166,16 +175,14 @@ const initialClienteData: ClienteData = {
   direccion: '',
   email: '',
   password: '',
-  razonSocial: '',
+  razonSocial: ''
 };
 
-// Estado inicial para las firmas
 const initialFirmasState: FirmasState = {
   administrador: null,
   cliente: null
 };
 
-// Listas de análisis
 const analisisAgua = [
   {
     categoria: "Metales",
@@ -229,15 +236,20 @@ const analisisSuelo = [
   }
 ];
 
-// Función para formatear la fecha al formato del formulario
+// Función para formatear la fecha y hora (ej. "2025-04-03 15:45")
 const formatearFecha = (fecha: Date): string => {
   const dia = fecha.getDate().toString().padStart(2, '0');
   const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
   const año = fecha.getFullYear();
   const hora = fecha.getHours().toString().padStart(2, '0');
   const minutos = fecha.getMinutes().toString().padStart(2, '0');
-  return `${año}-${mes}-${dia}T${hora}:${minutos}`;
+  return `${año}-${mes}-${dia} ${hora}:${minutos}`;
 };
+
+// Definimos un tipo unificado para el evento de cambio
+type MyChangeEvent =
+  | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  | SelectChangeEvent;
 
 const RegistroMuestras: React.FC = () => {
   const navigate = useNavigate();
@@ -254,6 +266,12 @@ const RegistroMuestras: React.FC = () => {
   const [firmasCompletas, setFirmasCompletas] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [muestraId, setMuestraId] = useState<string | null>(null);
+  // Estado para la fecha y hora actual (para mostrar en la esquina superior derecha)
+  const [currentDateTime, setCurrentDateTime] = useState(formatearFecha(new Date()));
+  // Estados para el rechazo de la muestra
+  const [isRejected, setIsRejected] = useState<boolean>(false);
+  const [openRechazoModal, setOpenRechazoModal] = useState<boolean>(false);
+  const [observacionRechazo, setObservacionRechazo] = useState<string>('');
 
   // Estados para el modal de registro de cliente
   const [openModal, setOpenModal] = useState<boolean>(false);
@@ -265,19 +283,24 @@ const RegistroMuestras: React.FC = () => {
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
 
-  // Verificar y cargar datos del administrador al montar el componente
+  // Actualizar la fecha y hora cada minuto para mostrarla en la esquina superior derecha
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentDateTime(formatearFecha(new Date()));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const verificarAdmin = async () => {
       try {
         const { userData, token } = obtenerDatosUsuario();
         const rol = typeof userData.rol === 'string' ? userData.rol : userData.rol?.name;
-
         if (!token || !rol || rol !== 'administrador') {
           setError('Acceso denegado. Se requieren permisos de administrador.');
           setTimeout(() => navigate('/login'), 2000);
           return;
         }
-
         setAdminData({
           id: userData._id,
           nombre: userData.nombre,
@@ -291,11 +314,9 @@ const RegistroMuestras: React.FC = () => {
         setTimeout(() => navigate('/login'), 2000);
       }
     };
-
     verificarAdmin();
   }, [navigate]);
 
-  // Efecto para verificar el estado de las firmas
   useEffect(() => {
     const verificarFirmas = () => {
       if (firmas.administrador && firmas.cliente) {
@@ -304,42 +325,65 @@ const RegistroMuestras: React.FC = () => {
         setFirmasCompletas(false);
       }
     };
-
     verificarFirmas();
   }, [firmas]);
 
-  // Determinar qué lista de análisis mostrar según el tipo de muestra
-  const analisisDisponibles = formData.tipoMuestra === "Suelo" ? analisisSuelo :
-                             formData.tipoMuestra === "Agua" ? analisisAgua : [];
+  // Todas las muestras serán de tipo "Agua", por lo que se usan los análisis de agua
+  const analisisDisponibles = analisisAgua;
 
-  // Función actualizada para validar el formulario
   const validarFormulario = (data: MuestraFormData): Record<string, string> => {
     const errores: Record<string, string> = {};
-
-    // Validaciones básicas
     if (!data.documento) errores.documento = 'El documento es requerido';
-    if (!data.tipoMuestra) errores.tipoMuestra = 'El tipo de muestra es requerido';
     if (!data.tipoMuestreo) errores.tipoMuestreo = 'El tipo de muestreo es requerido';
     if (!data.lugarMuestreo) errores.lugarMuestreo = 'El lugar de muestreo es requerido';
+    if (!data.fechaHoraMuestreo) errores.fechaHoraMuestreo = 'La fecha y hora de muestreo es requerida';
+    if (!data.tipoAnalisis) errores.tipoAnalisis = 'El tipo de análisis es requerido';
+    if (!data.identificacionMuestra) errores.identificacionMuestra = 'La identificación de la muestra es requerida';
+    if (!data.planMuestreo) errores.planMuestreo = 'El plan de muestreo es requerido';
+    if (!data.condicionesAmbientales) errores.condicionesAmbientales = 'Las condiciones ambientales son requeridas';
+    if (!data.preservacionMuestra) errores.preservacionMuestra = 'La preservación de la muestra es requerida';
+    if (data.preservacionMuestra === 'Otro' && !data.preservacionMuestraOtro) {
+      errores.preservacionMuestraOtro = 'Especifique la preservación de la muestra';
+    }
     if (!data.analisisSeleccionados?.length) errores.analisisSeleccionados = 'Debe seleccionar al menos un análisis';
-
-    // Validación de firmas
-    if (!data.firmas?.firmaAdministrador.firma) {
-      errores.firmaAdministrador = 'La firma del administrador es requerida';
+    // Si la muestra se rechaza, no se requiere validar las firmas
+    if (!isRejected) {
+      if (!data.firmas?.firmaAdministrador.firma) {
+        errores.firmaAdministrador = 'La firma del administrador es requerida';
+      }
+      if (!data.firmas?.firmaCliente.firma) {
+        errores.firmaCliente = 'La firma del cliente es requerida';
+      }
     }
-    if (!data.firmas?.firmaCliente.firma) {
-      errores.firmaCliente = 'La firma del cliente es requerida';
-    }
-
-    // Validación específica para tipo de agua
-    if (data.tipoMuestra === 'Agua' && !data.tipoDeAgua?.tipo) {
-      errores.tipoDeAgua = 'El tipo de agua es requerido';
-    }
-
     return errores;
   };
 
-  // Función para validar el cliente
+  // Usamos el tipo unificado MyChangeEvent para manejar tanto TextField como Select
+  const handleChange = (e: MyChangeEvent) => {
+    // Forzamos el tipado a HTMLInputElement para obtener name y value
+    const { name, value } = e.target as HTMLInputElement;
+    // Manejo especial para el campo "tipoAgua" que afecta a tipoDeAgua
+    if (name === "tipoAgua") {
+      setFormData(prev => ({
+        ...prev,
+        tipoDeAgua: {
+          ...prev.tipoDeAgua,
+          tipo: value,
+          tipoPersonalizado: value === 'otra' ? prev.tipoDeAgua.tipoPersonalizado : '',
+          descripcion: value === 'otra' ? prev.tipoDeAgua.descripcion : ''
+        }
+      }));
+    } else if (name === "preservacionMuestra") {
+      setFormData(prev => ({ ...prev, preservacionMuestra: value }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    setError(null);
+  };
+
   const handleValidateUser = async () => {
     if (!formData.documento) {
       setUserValidationError("Por favor ingrese el número de documento.");
@@ -351,11 +395,8 @@ const RegistroMuestras: React.FC = () => {
       const token = localStorage.getItem("token");
       const response = await axios.get(
         `https://back-usuarios-f.onrender.com/api/usuarios/buscar?documento=${formData.documento}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       if (response.data && response.data.documento) {
         setClienteEncontrado(response.data);
         setUserValidationError(null);
@@ -365,24 +406,18 @@ const RegistroMuestras: React.FC = () => {
         setClienteEncontrado(null);
       }
     } catch (error: any) {
-      console.error(
-        "Error al validar usuario:",
-        error.response ? error.response.data : error.message
-      );
+      console.error("Error al validar usuario:", error.response ? error.response.data : error.message);
       setUserValidationError("Usuario no encontrado.");
       setClienteEncontrado(null);
     }
     setValidatingUser(false);
   };
 
-  // Función para decodificar el token JWT
   const decodeToken = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
       return JSON.parse(jsonPayload);
     } catch (error) {
       console.error("Error decodificando token:", error);
@@ -390,57 +425,32 @@ const RegistroMuestras: React.FC = () => {
     }
   };
 
-  // Función para obtener los datos del usuario
   const obtenerDatosUsuario = () => {
-    console.log("Iniciando obtención de datos de usuario...");
-    
     const token = localStorage.getItem('token');
     if (!token) {
-        console.error("No se encontró token en localStorage");
-        throw new Error("No hay token de autenticación. Por favor, inicie sesión nuevamente.");
+      throw new Error("No hay token de autenticación. Por favor, inicie sesión nuevamente.");
     }
-
     let userData;
     try {
-        // Intentar obtener datos del localStorage
-        console.log("Buscando datos en localStorage...");
-        const userDataStr = localStorage.getItem("usuario") || localStorage.getItem("user");
-        
-        if (userDataStr) {
-            console.log("Datos encontrados en localStorage:", userDataStr);
-            userData = JSON.parse(userDataStr);
-        } else {
-            console.log("No se encontraron datos en localStorage, intentando decodificar token...");
-            // Si no hay datos en localStorage, intentar obtener del token
-            const decodedToken = decodeToken(token);
-            if (decodedToken) {
-                userData = {
-                    _id: decodedToken.id,
-                    nombre: decodedToken.nombre,
-                    email: decodedToken.email,
-                    rol: decodedToken.rol
-                };
-                console.log("Datos obtenidos del token:", userData);
-            }
+      const userDataStr = localStorage.getItem("usuario") || localStorage.getItem("user");
+      if (userDataStr) {
+        userData = JSON.parse(userDataStr);
+      } else {
+        const decodedToken = decodeToken(token);
+        if (decodedToken) {
+          userData = { _id: decodedToken.id, nombre: decodedToken.nombre, email: decodedToken.email, rol: decodedToken.rol };
         }
-
-        if (!userData || !userData._id || !userData.nombre || !userData.rol) {
-            console.error("Datos de usuario incompletos:", userData);
-            throw new Error("Datos de usuario incompletos. Por favor, inicie sesión nuevamente.");
-        }
-
-        // Usar el _id como documento si no existe documento
-        const documento = userData.documento || userData._id;
-
-        console.log("Datos de usuario validados correctamente:", { ...userData, documento });
-        return { userData: { ...userData, documento }, token };
+      }
+      if (!userData || !userData._id || !userData.nombre || !userData.rol) {
+        throw new Error("Datos de usuario incompletos. Por favor, inicie sesión nuevamente.");
+      }
+      const documento = userData.documento || userData._id;
+      return { userData: { ...userData, documento }, token };
     } catch (error) {
-        console.error("Error al obtener datos del usuario:", error);
-        throw new Error("Error al obtener datos del usuario. Por favor, inicie sesión nuevamente.");
+      throw new Error("Error al obtener datos del usuario. Por favor, inicie sesión nuevamente.");
     }
   };
 
-  // Función para limpiar firmas
   const limpiarFirma = (tipo: 'administrador' | 'cliente') => {
     if (tipo === 'administrador' && firmaAdministradorRef.current) {
       firmaAdministradorRef.current.clear();
@@ -449,114 +459,88 @@ const RegistroMuestras: React.FC = () => {
     }
   };
 
-  // Función para validar el tamaño de la firma
   const validarTamañoFirma = (firma: string): boolean => {
     const tamañoBytes = new Blob([firma]).size;
     const tamañoMB = tamañoBytes / (1024 * 1024);
     return tamañoMB <= 2;
   };
 
-  // Función para validar formato base64
   const validarFormatoBase64 = (firma: string): boolean => {
     try {
-      return firma.startsWith('data:image/png;base64,') && 
+      return firma.startsWith('data:image/png;base64,') &&
              btoa(atob(firma.split(',')[1])) === firma.split(',')[1];
     } catch {
       return false;
     }
   };
 
-  // Función actualizada para guardar firma del administrador
   const guardarFirmaAdministrador = (firma: string) => {
     try {
       if (!adminData) {
         setError('No se encontraron datos del administrador');
-            return;
-        }
-
+        return;
+      }
       if (adminData.rol !== 'administrador') {
         setError('Solo los administradores pueden firmar en esta sección');
         return;
       }
-
       if (!validarTamañoFirma(firma)) {
         setError('La firma no puede exceder 2MB');
         return;
       }
-
       if (!validarFormatoBase64(firma)) {
         setError('Formato de firma inválido');
         return;
       }
-
       setFormData(prev => ({
         ...prev,
-        firmas: {
-          ...prev.firmas,
-          firmaAdministrador: { firma }
-        }
+        firmas: { ...prev.firmas, firmaAdministrador: { firma } }
       }));
-
-        setError(null);
+      setError(null);
     } catch (error: any) {
-      console.error('Error al guardar firma del administrador:', error);
       setError(error.message || 'Error al guardar la firma del administrador');
     }
   };
 
-  // Función actualizada para guardar firma del cliente
   const guardarFirmaCliente = (firma: string) => {
     try {
       if (!clienteEncontrado) {
         setError('Debe validar el cliente antes de firmar');
         return;
       }
-
       if (!validarTamañoFirma(firma)) {
         setError('La firma no puede exceder 2MB');
         return;
       }
-
       if (!validarFormatoBase64(firma)) {
         setError('Formato de firma inválido');
         return;
       }
-
-      console.log('Guardando firma del cliente...');
-      
       setFormData(prev => ({
         ...prev,
-        firmas: {
-          ...prev.firmas,
-          firmaCliente: { firma }
-        }
+        firmas: { ...prev.firmas, firmaCliente: { firma } }
       }));
-
-      console.log('Firma del cliente guardada correctamente');
       setError(null);
       setSuccess('✔ Firma del cliente guardada correctamente');
     } catch (error: any) {
-      console.error('Error al guardar firma del cliente:', error);
       setError(error.message || 'Error al guardar la firma del cliente');
     }
   };
 
-  // Función actualizada para validar firmas
   const validarFirmas = () => {
-    if (!formData.firmas.firmaAdministrador.firma) {
-      setError('Se requiere la firma del administrador');
-      return false;
+    if (!isRejected) {
+      if (!formData.firmas.firmaAdministrador.firma) {
+        setError('La firma del administrador es requerida');
+        return false;
+      }
+      if (!formData.firmas.firmaCliente.firma) {
+        setError('La firma del cliente es requerida');
+        return false;
+      }
     }
-
-    if (!formData.firmas.firmaCliente.firma) {
-      setError('Se requiere la firma del cliente');
-      return false;
-    }
-
     return true;
   };
 
-  // Función para cargar los datos de una muestra existente
   const cargarMuestraExistente = async (id: string) => {
     try {
       const response = await muestrasService.obtenerMuestra(id);
@@ -567,13 +551,18 @@ const RegistroMuestras: React.FC = () => {
           tipoMuestra: muestra.tipoMuestra,
           tipoMuestreo: muestra.tipoMuestreo,
           fechaHora: muestra.fechaHora,
+          fechaHoraMuestreo: muestra.fechaHoraMuestreo,
           lugarMuestreo: muestra.lugarMuestreo,
           planMuestreo: muestra.planMuestreo,
           condicionesAmbientales: muestra.condicionesAmbientales,
           preservacionMuestra: muestra.preservacionMuestra,
+          preservacionMuestraOtro: muestra.preservacionMuestraOtro || '',
           identificacionMuestra: muestra.identificacionMuestra,
           analisisSeleccionados: muestra.analisisSeleccionados || [],
           tipoDeAgua: muestra.tipoDeAgua || { tipo: '', tipoPersonalizado: '', descripcion: '' },
+          tipoAnalisis: muestra.tipoAnalisis || '',
+          estado: muestra.estado || '',
+          observacionRechazo: muestra.observacionRechazo || '',
           firmas: muestra.firmas || {
             firmaAdministrador: { firma: '' },
             firmaCliente: { firma: '' }
@@ -581,20 +570,16 @@ const RegistroMuestras: React.FC = () => {
         });
         setMuestraId(id);
         setIsUpdating(true);
-        
-        // Validar el cliente automáticamente
         if (muestra.documento) {
           setFormData(prev => ({ ...prev, documento: muestra.documento }));
           await handleValidateUser();
         }
       }
     } catch (error: any) {
-      console.error('Error al cargar la muestra:', error);
       setError(error.message || 'Error al cargar la muestra');
     }
   };
 
-  // Efecto para cargar la muestra si hay un ID en la URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
@@ -603,72 +588,95 @@ const RegistroMuestras: React.FC = () => {
     }
   }, []);
 
-  // Actualizar la función handleSubmit para usar las URLs correctas
+  const handleOpenRechazoModal = () => {
+    setOpenRechazoModal(true);
+  };
+
+  const handleCloseRechazoModal = () => {
+    setOpenRechazoModal(false);
+  };
+
+  const handleConfirmarRechazo = () => {
+    // Si se ingresa observación, se marca la muestra como rechazada
+    if (!observacionRechazo.trim()) {
+      setError("Debe ingresar la observación para el rechazo.");
+      return;
+    }
+    setIsRejected(true);
+    setOpenRechazoModal(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
+    // Validamos el formulario (en caso de rechazo, podemos omitir firmas)
+    const errores = validarFormulario(formData);
+    if (Object.keys(errores).length > 0) {
+      setError(Object.values(errores).join(' - '));
+      setLoading(false);
+      return;
+    }
     try {
       if (!adminData) {
         throw new Error('No se encontraron datos del administrador');
       }
-
       if (!clienteEncontrado) {
         setError('Debe validar el cliente antes de continuar');
         setLoading(false);
         return;
       }
-
-      if (!mostrarFirmas) {
-        if (!formData.tipoMuestra || !formData.tipoMuestreo || !formData.lugarMuestreo || 
-            !formData.fechaHora || formData.analisisSeleccionados.length === 0) {
-          setError('Por favor complete todos los campos requeridos');
+      if (!formData.tipoMuestreo || !formData.lugarMuestreo || formData.analisisSeleccionados.length === 0) {
+        setError('Por favor complete todos los campos requeridos');
+        setLoading(false);
+        return;
+      }
+      // Asignar automáticamente el tipo de muestra y la fecha y hora de registro actuales
+      const updatedFormData: MuestraFormData = {
+        ...formData,
+        tipoMuestra: "Agua",
+        fechaHora: formatearFecha(new Date())
+      };
+      // Si la muestra fue rechazada, se asigna el estado "Rechazada" y se agrega la observación
+      if (isRejected) {
+        updatedFormData.estado = "Rechazada";
+        updatedFormData.observacionRechazo = observacionRechazo;
+      } else {
+        if (!mostrarFirmas) {
+          setMostrarFirmas(true);
           setLoading(false);
           return;
         }
-
-        setMostrarFirmas(true);
-        setLoading(false);
-        return;
+        if (!validarFirmas()) {
+          setLoading(false);
+          return;
+        }
       }
-
-      if (!validarFirmas()) {
-        setLoading(false);
-        return;
-      }
-
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No se encontró el token de autenticación');
       }
-
       const muestraData = {
-        ...formData,
+        ...updatedFormData,
         documento: clienteEncontrado.documento,
         firmas: {
-          firmaAdministrador: { firma: formData.firmas.firmaAdministrador.firma },
-          firmaCliente: { firma: formData.firmas.firmaCliente.firma }
+          firmaAdministrador: { firma: updatedFormData.firmas.firmaAdministrador.firma },
+          firmaCliente: { firma: updatedFormData.firmas.firmaCliente.firma }
         }
       };
-
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-
       let response;
       if (isUpdating && muestraId) {
-        // Usar la URL correcta para actualizar resultados
         response = await axios.put(
           API_URLS.EDITAR_RESULTADOS(muestraId),
           muestraData,
           { headers }
         );
-        console.log('URL de actualización:', API_URLS.EDITAR_RESULTADOS(muestraId));
         setSuccess('✔ Resultados actualizados exitosamente');
       } else {
-        // Registrar nueva muestra
         response = await axios.post(
           API_URLS.MUESTRAS,
           muestraData,
@@ -676,23 +684,11 @@ const RegistroMuestras: React.FC = () => {
         );
         setSuccess('✔ Muestra registrada exitosamente');
       }
-
-      console.log('Respuesta del servidor:', response.data);
       limpiarEstado();
-
     } catch (error: any) {
-      console.error('Error detallado:', error);
-      console.error('URL intentada:', error.config?.url);
-      console.error('Método:', error.config?.method);
-      console.error('Respuesta del servidor:', error.response?.data);
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          (isUpdating ? 'Error al actualizar los resultados' : 'Error al registrar la muestra');
+      const errorMessage = error.response?.data?.message || error.message || (isUpdating ? 'Error al actualizar los resultados' : 'Error al registrar la muestra');
       setError(`Error: ${errorMessage}`);
-      
-      if (errorMessage.toLowerCase().includes('sesión') || 
-          errorMessage.toLowerCase().includes('token')) {
+      if (errorMessage.toLowerCase().includes('sesión') || errorMessage.toLowerCase().includes('token')) {
         setTimeout(() => {
           localStorage.clear();
           navigate('/login');
@@ -703,40 +699,6 @@ const RegistroMuestras: React.FC = () => {
     }
   };
 
-  // Manejar cambios en el formulario
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent
-  ) => {
-    const { name, value } = e.target;
-    
-    if (name === "tipoAgua") {
-      setFormData(prev => ({
-        ...prev,
-        tipoDeAgua: {
-          ...prev.tipoDeAgua,
-          tipo: value,
-          tipoPersonalizado: value === 'otra' ? prev.tipoDeAgua.tipoPersonalizado : '',
-          descripcion: value === 'otra' ? prev.tipoDeAgua.descripcion : ''
-        }
-      }));
-    } else if (name === "tipoPersonalizado" || name === "descripcion") {
-      setFormData(prev => ({
-        ...prev,
-        tipoDeAgua: {
-          ...prev.tipoDeAgua,
-          [name]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-    setError(null);
-  };
-
-  // Manejar cambios en los análisis seleccionados
   const handleAnalisisChange = (analisis: string) => {
     setFormData(prev => ({
       ...prev,
@@ -746,13 +708,12 @@ const RegistroMuestras: React.FC = () => {
     }));
   };
 
-  // Modal para registrar cliente
   const handleOpenModal = () => {
     setOpenModal(true);
     setRegistroError(null);
     setRegistroExito(null);
   };
-  
+
   const handleCloseModal = () => {
     setOpenModal(false);
     setClienteData(initialClienteData);
@@ -767,39 +728,31 @@ const RegistroMuestras: React.FC = () => {
   };
 
   const handleRegistrarCliente = async () => {
-    // Validar campos requeridos
     const camposRequeridos = {
       nombre: 'Nombre',
       documento: 'Documento',
       email: 'Email',
       password: 'Contraseña'
     };
-
     const camposFaltantes = Object.entries(camposRequeridos)
       .filter(([key]) => !clienteData[key as keyof ClienteData])
       .map(([, label]) => label);
-
     if (camposFaltantes.length > 0) {
       setRegistroError(`Los siguientes campos son obligatorios: ${camposFaltantes.join(', ')}`);
       return;
     }
-
-    // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(clienteData.email)) {
       setRegistroError("El formato del correo electrónico no es válido");
       return;
     }
-
     setRegistrando(true);
     setRegistroError(null);
     setRegistroExito(null);
-
     try {
       const token = localStorage.getItem("token");
       const userData = JSON.parse(localStorage.getItem("usuario") || '{}');
       const userRole = userData?.rol?.name || "";
-      
       const newClienteData = {
         ...clienteData,
         tipo: "cliente",
@@ -807,12 +760,10 @@ const RegistroMuestras: React.FC = () => {
         direccion: clienteData.direccion || '',
         razonSocial: clienteData.razonSocial || ''
       };
-      
       if (userRole === "administrador" && newClienteData.tipo !== "cliente" && newClienteData.tipo !== "laboratorista") {
         setRegistroError("Un administrador solo puede registrar clientes o laboratoristas.");
         return;
       }
-      
       const response = await axios.post(
         `${API_URLS.USUARIOS}/registro`,
         newClienteData,
@@ -823,27 +774,16 @@ const RegistroMuestras: React.FC = () => {
           },
         }
       );
-      
-      console.log("Cliente registrado con éxito:", response.data);
       setRegistroExito("Cliente registrado correctamente.");
-      
-      // Actualizar el documento en el formulario principal
       setFormData(prev => ({ ...prev, documento: newClienteData.documento }));
-      
-      // Cerrar el modal después de un breve delay y validar el usuario
       setTimeout(() => {
         handleCloseModal();
         handleValidateUser();
       }, 2000);
-      
     } catch (error: any) {
-      console.error(
-        "Error al registrar el cliente:",
-        error.response ? error.response.data : error.message
-      );
       setRegistroError(
-        error.response?.data?.message || 
-        error.response?.data?.detalles || 
+        error.response?.data?.message ||
+        error.response?.data?.detalles ||
         "⚠ Error en el registro. Por favor, verifique los datos e intente nuevamente."
       );
     } finally {
@@ -851,7 +791,6 @@ const RegistroMuestras: React.FC = () => {
     }
   };
 
-  // Función para limpiar el estado
   const limpiarEstado = () => {
     setFormData(initialFormData);
     setFirmas(initialFirmasState);
@@ -861,10 +800,37 @@ const RegistroMuestras: React.FC = () => {
     setSuccess(null);
     setIsUpdating(false);
     setMuestraId(null);
+    setIsRejected(false);
+    setObservacionRechazo('');
   };
 
   return (
-    <Paper sx={{ padding: 3, maxWidth: 800, margin: "auto", marginTop: 3 }}>
+    <Paper
+      sx={{
+        position: 'relative',
+        padding: 3,
+        maxWidth: 800,
+        margin: "auto",
+        marginTop: 3
+      }}
+    >
+      {/* Mostrar fecha y hora de registro en la esquina superior derecha */}
+      <Box
+        sx={{
+          position: "absolute",
+          top: 8,
+          right: 16,
+          zIndex: 9999,
+          backgroundColor: "rgba(255,255,255,0.8)",
+          px: 1,
+          borderRadius: 1
+        }}
+      >
+        <Typography variant="caption" color="textSecondary">
+          {currentDateTime}
+        </Typography>
+      </Box>
+
       <Typography variant="h5" gutterBottom>
         {isUpdating ? 'Actualizar Muestra' : 'Registro de Muestra'}
       </Typography>
@@ -873,135 +839,7 @@ const RegistroMuestras: React.FC = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
       <form onSubmit={handleSubmit} autoComplete="off">
-        {/* Selección de Tipo de Muestra */}
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Tipo de Muestra</InputLabel>
-          <Select
-            name="tipoMuestra"
-            value={formData.tipoMuestra}
-            onChange={handleChange}
-            label="Tipo de Muestra"
-          >
-            <MenuItem value="Agua">Agua</MenuItem>
-            <MenuItem value="Suelo">Suelo</MenuItem>
-          </Select>
-        </FormControl>
-
-        {/* Selección de Tipo de Muestreo */}
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Tipo de Muestreo</InputLabel>
-          <Select
-            name="tipoMuestreo"
-            value={formData.tipoMuestreo}
-            onChange={handleChange}
-            label="Tipo de Muestreo"
-          >
-            {TIPOS_MUESTREO.map(tipo => (
-              <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* La selección de Tipo de Agua solo se muestra si el Tipo de Muestra es Agua */}
-        {formData.tipoMuestra === "Agua" && (
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Tipo de Agua</InputLabel>
-            <Select
-              name="tipoAgua"
-              value={formData.tipoDeAgua.tipo}
-              onChange={handleChange}
-              label="Tipo de Agua"
-            >
-              {TIPOS_AGUA.map(tipo => (
-                <MenuItem key={tipo} value={tipo}>
-                  {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-
-        {formData.tipoDeAgua.tipo === "otra" && (
-          <>
-            <TextField
-              fullWidth
-              label="Tipo Personalizado"
-              name="tipoPersonalizado"
-              value={formData.tipoDeAgua.tipoPersonalizado}
-              onChange={handleChange}
-              sx={{ mb: 2 }}
-              required
-            />
-            <TextField
-              fullWidth
-              label="Descripción"
-              name="descripcion"
-              value={formData.tipoDeAgua.descripcion}
-              onChange={handleChange}
-              sx={{ mb: 2 }}
-              multiline
-              rows={2}
-            />
-          </>
-        )}
-
-        {/* Campos de identificación y ubicación */}
-        <TextField
-          fullWidth
-          label="Identificación de la Muestra"
-          name="identificacionMuestra"
-          value={formData.identificacionMuestra}
-          onChange={handleChange}
-          sx={{ mb: 2 }}
-          helperText="Identificación física/química de la muestra"
-        />
-
-        <TextField
-          fullWidth
-          label="Lugar de Muestreo"
-          name="lugarMuestreo"
-          value={formData.lugarMuestreo}
-          onChange={handleChange}
-          required
-          sx={{ mb: 2 }}
-        />
-
-        <TextField
-          fullWidth
-          label="Plan de Muestreo"
-          name="planMuestreo"
-          value={formData.planMuestreo}
-          onChange={handleChange}
-          sx={{ mb: 2 }}
-        />
-
-        <TextField
-          fullWidth
-          label="Condiciones Ambientales"
-          name="condicionesAmbientales"
-          value={formData.condicionesAmbientales}
-          onChange={handleChange}
-          sx={{ mb: 2 }}
-          multiline
-          rows={2}
-        />
-
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Preservación de la Muestra</InputLabel>
-          <Select
-            name="preservacionMuestra"
-            value={formData.preservacionMuestra}
-            onChange={handleChange}
-            label="Preservación de la Muestra"
-            required
-          >
-            {TIPOS_PRESERVACION.map(tipo => (
-              <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Número de Documento y Validación */}
+        {/* 1. Documento */}
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <TextField
             fullWidth
@@ -1029,13 +867,11 @@ const RegistroMuestras: React.FC = () => {
             </Button>
           )}
         </Box>
-
         {userValidationError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {userValidationError}
           </Alert>
         )}
-
         {clienteEncontrado && (
           <Box sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
@@ -1053,29 +889,170 @@ const RegistroMuestras: React.FC = () => {
           </Box>
         )}
 
-        {/* Fecha y Hora */}
+        {/* 2. Tipo de Agua */}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Tipo de Agua</InputLabel>
+          <Select
+            name="tipoAgua"
+            value={formData.tipoDeAgua.tipo}
+            onChange={handleChange}
+            label="Tipo de Agua"
+          >
+            {TIPOS_AGUA.map(tipo => (
+              <MenuItem key={tipo} value={tipo}>
+                {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {formData.tipoDeAgua.tipo === "otra" && (
+          <>
+            <TextField
+              fullWidth
+              label="Tipo Personalizado"
+              name="tipoPersonalizado"
+              value={formData.tipoDeAgua.tipoPersonalizado}
+              onChange={handleChange}
+              sx={{ mb: 2 }}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Descripción"
+              name="descripcion"
+              value={formData.tipoDeAgua.descripcion}
+              onChange={handleChange}
+              sx={{ mb: 2 }}
+              multiline
+              rows={2}
+            />
+          </>
+        )}
+
+        {/* 3. Tipo de Muestreo */}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Tipo de Muestreo</InputLabel>
+          <Select
+            name="tipoMuestreo"
+            value={formData.tipoMuestreo}
+            onChange={handleChange}
+            label="Tipo de Muestreo"
+          >
+            {TIPOS_MUESTREO.map(tipo => (
+              <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* 4. Lugar de Muestreo */}
         <TextField
           fullWidth
+          label="Lugar de Muestreo"
+          name="lugarMuestreo"
+          value={formData.lugarMuestreo}
+          onChange={handleChange}
+          required
+          sx={{ mb: 2 }}
+        />
+
+        {/* 5. Fecha y Hora de Muestreo */}
+        <TextField
+          fullWidth
+          label="Fecha y Hora de Muestreo"
+          name="fechaHoraMuestreo"
           type="datetime-local"
-          label="Fecha y Hora"
-          name="fechaHora"
-          value={formData.fechaHora}
+          value={formData.fechaHoraMuestreo}
           onChange={handleChange}
           InputLabelProps={{ shrink: true }}
           sx={{ mb: 2 }}
           required
         />
 
-        {/* Selección de Análisis */}
+        {/* 6. Tipo de Análisis */}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Tipo de Análisis</InputLabel>
+          <Select
+            name="tipoAnalisis"
+            value={formData.tipoAnalisis}
+            onChange={handleChange}
+            label="Tipo de Análisis"
+            required
+          >
+            {TIPOS_ANALISIS.map(option => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* 7. Identificación de la Muestra */}
+        <TextField
+          fullWidth
+          label="Identificación de la Muestra"
+          name="identificacionMuestra"
+          value={formData.identificacionMuestra}
+          onChange={handleChange}
+          sx={{ mb: 2 }}
+          helperText="Identificación física/química de la muestra"
+        />
+
+        {/* 8. Plan de Muestreo */}
+        <TextField
+          fullWidth
+          label="Plan de Muestreo"
+          name="planMuestreo"
+          value={formData.planMuestreo}
+          onChange={handleChange}
+          sx={{ mb: 2 }}
+        />
+
+        {/* 9. Condiciones Ambientales */}
+        <TextField
+          fullWidth
+          label="Condiciones Ambientales"
+          name="condicionesAmbientales"
+          value={formData.condicionesAmbientales}
+          onChange={handleChange}
+          sx={{ mb: 2 }}
+          multiline
+          rows={2}
+        />
+
+        {/* 10. Preservación de la Muestra */}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Preservación de la Muestra</InputLabel>
+          <Select
+            name="preservacionMuestra"
+            value={formData.preservacionMuestra}
+            onChange={handleChange}
+            label="Preservación de la Muestra"
+            required
+          >
+            {TIPOS_PRESERVACION.map(tipo => (
+              <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {formData.preservacionMuestra === 'Otro' && (
+          <TextField
+            fullWidth
+            label="Especificar preservación"
+            name="preservacionMuestraOtro"
+            value={formData.preservacionMuestraOtro}
+            onChange={handleChange}
+            required
+            sx={{ mb: 2 }}
+          />
+        )}
+
+        {/* 11. Análisis a Realizar */}
         <Typography variant="subtitle1" sx={{ mb: 1 }}>
           Análisis a realizar:
         </Typography>
         {analisisDisponibles.map((categoria, index) => (
           <Accordion key={index} sx={{ mb: 1, boxShadow: 2 }}>
-            <AccordionSummary
-              expandIcon={<ExpandMoreIcon />}
-              sx={{ bgcolor: 'grey.100' }}
-            >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'grey.100' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
                 {categoria.categoria}
               </Typography>
@@ -1100,12 +1077,21 @@ const RegistroMuestras: React.FC = () => {
           </Accordion>
         ))}
 
-        {mostrarFirmas && (
+        {/* Botón para rechazar la muestra (antes de pasar a firmas) */}
+        {!isRejected && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button variant="contained" color="error" onClick={handleOpenRechazoModal}>
+              Rechazar Muestra
+            </Button>
+          </Box>
+        )}
+
+        {/* Se muestran las firmas solo si la muestra no fue rechazada */}
+        {!isRejected && mostrarFirmas && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="h6" gutterBottom>
               Firmas Digitales
             </Typography>
-            
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" color="primary" gutterBottom>
                 Firma del Administrador
@@ -1132,7 +1118,6 @@ const RegistroMuestras: React.FC = () => {
                 </Alert>
               )}
             </Box>
-
             <Box sx={{ mb: 3 }}>
               <Typography variant="subtitle1" color="primary" gutterBottom>
                 Firma del Cliente
@@ -1154,8 +1139,6 @@ const RegistroMuestras: React.FC = () => {
                 </Alert>
               )}
             </Box>
-
-            {/* Indicador de estado de las firmas */}
             {(formData.firmas.firmaAdministrador.firma || formData.firmas.firmaCliente.firma) && (
               <Box sx={{ mt: 2, mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
@@ -1185,12 +1168,10 @@ const RegistroMuestras: React.FC = () => {
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CircularProgress size={24} color="inherit" />
-              <span>{isUpdating ? 'Actualizando muestra...' : 'Registrando muestra...'}</span>
+              <span>{isUpdating ? 'Actualizando muestra...' : isRejected ? 'Registrar Muestra Rechazada' : 'Registrar Muestra'}</span>
             </Box>
-          ) : mostrarFirmas ? (
-            formData.firmas.firmaAdministrador.firma && formData.firmas.firmaCliente.firma
-              ? isUpdating ? "Actualizar Muestra" : "Registrar Muestra"
-              : "Se requieren ambas firmas para continuar"
+          ) : isRejected ? (
+            "Registrar Muestra Rechazada"
           ) : (
             "Continuar con las Firmas"
           )}
@@ -1235,86 +1216,62 @@ const RegistroMuestras: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Registrar Cliente
             </Typography>
-            <TextField
-              fullWidth
-              label="Nombre Completo"
-              name="nombre"
-              value={clienteData.nombre}
-              onChange={handleClienteChange}
-              required
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Documento"
-              name="documento"
-              value={clienteData.documento}
-              onChange={handleClienteChange}
-              required
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Teléfono"
-              name="telefono"
-              value={clienteData.telefono}
-              onChange={handleClienteChange}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Dirección"
-              name="direccion"
-              value={clienteData.direccion}
-              onChange={handleClienteChange}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Correo Electrónico"
-              name="email"
-              type="email"
-              value={clienteData.email}
-              onChange={handleClienteChange}
-              required
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Contraseña"
-              name="password"
-              type="password"
-              value={clienteData.password}
-              onChange={handleClienteChange}
-              required
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Razón Social"
-              name="razonSocial"
-              value={clienteData.razonSocial}
-              onChange={handleClienteChange}
-              sx={{ mb: 2 }}
-            />
-            {registroError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {registroError}
-              </Alert>
-            )}
-            {registroExito && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                {registroExito}
-              </Alert>
-            )}
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={handleRegistrarCliente}
-              disabled={registrando}
-            >
+            <TextField fullWidth label="Nombre Completo" name="nombre" value={clienteData.nombre} onChange={handleClienteChange} required sx={{ mb: 2 }} />
+            <TextField fullWidth label="Documento" name="documento" value={clienteData.documento} onChange={handleClienteChange} required sx={{ mb: 2 }} />
+            <TextField fullWidth label="Teléfono" name="telefono" value={clienteData.telefono} onChange={handleClienteChange} sx={{ mb: 2 }} />
+            <TextField fullWidth label="Dirección" name="direccion" value={clienteData.direccion} onChange={handleClienteChange} sx={{ mb: 2 }} />
+            <TextField fullWidth label="Correo Electrónico" name="email" type="email" value={clienteData.email} onChange={handleClienteChange} required sx={{ mb: 2 }} />
+            <TextField fullWidth label="Contraseña" name="password" type="password" value={clienteData.password} onChange={handleClienteChange} required sx={{ mb: 2 }} />
+            <TextField fullWidth label="Razón Social" name="razonSocial" value={clienteData.razonSocial} onChange={handleClienteChange} sx={{ mb: 2 }} />
+            {registroError && <Alert severity="error" sx={{ mb: 2 }}>{registroError}</Alert>}
+            {registroExito && <Alert severity="success" sx={{ mb: 2 }}>{registroExito}</Alert>}
+            <Button variant="contained" color="primary" fullWidth onClick={handleRegistrarCliente} disabled={registrando}>
               {registrando ? <CircularProgress size={24} /> : "Registrar"}
+            </Button>
+          </Box>
+        </Fade>
+      </Modal>
+
+      {/* Modal para rechazo de muestra */}
+      <Modal
+        open={openRechazoModal}
+        onClose={handleCloseRechazoModal}
+        closeAfterTransition
+        BackdropComponent={Backdrop}
+        BackdropProps={{ timeout: 500 }}
+      >
+        <Fade in={openRechazoModal}>
+          <Box
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 400,
+              bgcolor: "background.paper",
+              boxShadow: 24,
+              p: 4,
+              borderRadius: 1,
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Rechazar Muestra
+            </Typography>
+            <TextField
+              fullWidth
+              label="Observación de rechazo"
+              name="observacionRechazo"
+              value={observacionRechazo}
+              onChange={(e) => setObservacionRechazo(e.target.value)}
+              multiline
+              rows={3}
+              required
+              sx={{ mb: 2 }}
+            />
+            <Button variant="contained" color="error" fullWidth onClick={handleConfirmarRechazo}>
+              Confirmar Rechazo
             </Button>
           </Box>
         </Fade>
