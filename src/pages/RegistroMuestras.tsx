@@ -32,7 +32,7 @@ import { SelectChangeEvent } from '@mui/material/Select';
 
 // URLs base actualizadas
 const BASE_URLS = {
-  USUARIOS: 'https://back-usuarios-f.onrender.com/api',
+  USUARIOS: 'https://backend-sena-lab-1-qpzp.onrender.com/api',
   MUESTRAS: 'https://daniel-back-dom.onrender.com/api'
 };
 

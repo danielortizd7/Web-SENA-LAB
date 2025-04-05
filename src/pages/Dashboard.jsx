@@ -128,7 +128,7 @@ const Dashboard = () => {
       }
       try {
         const response = await axios.get(
-          "https://back-usuarios-f.onrender.com/api/usuarios",
+          "https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios",
           {
             headers: { Authorization: `Bearer ${token}` },
           }

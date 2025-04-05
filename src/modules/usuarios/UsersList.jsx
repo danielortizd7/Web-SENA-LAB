@@ -65,7 +65,7 @@ const UsersList = () => {
         return;
       }
       try {
-        const response = await axios.get("https://back-usuarios-f.onrender.com/api/usuarios", {
+        const response = await axios.get("https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios", {
           headers: { Authorization: `Bearer ${token}` },
         });
         // Aseguramos que response.data sea un array
@@ -160,7 +160,7 @@ const UsersList = () => {
     };
     try {
       await axios.put(
-        `https://back-usuarios-f.onrender.com/api/usuarios/${editUser._id}`,
+        `https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios/${editUser._id}`,
         datosActualizados,
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
@@ -184,7 +184,7 @@ const UsersList = () => {
     const token = localStorage.getItem("token");
     try {
       await axios.put(
-        `https://back-usuarios-f.onrender.com/api/usuarios/${userId}/estado`,
+        `https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios/${userId}/estado`,
         { activo: nuevoEstado },
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
       );
