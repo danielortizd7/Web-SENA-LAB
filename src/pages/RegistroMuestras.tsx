@@ -40,10 +40,8 @@ const BASE_URLS = {
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
-  INGRESO_RESULTADOS: `${BASE_URLS.MUESTRAS}/ingreso-resultados`,
-  EDITAR_RESULTADOS: (id: string) => `${BASE_URLS.MUESTRAS}/ingreso-resultados/editar/${id}`,
-  TIPOS_AGUA: `${BASE_URLS.MUESTRAS}/tipos-agua`,
-  CAMBIOS_ESTADO: `${BASE_URLS.MUESTRAS}/cambios-estado`
+  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimicos`,
+  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`
 };
 
 const TIPOS_PRESERVACION = ['Refrigeración', 'Congelación', 'Acidificación', 'Otro'] as const;
@@ -55,51 +53,41 @@ type TipoMuestreo = typeof TIPOS_MUESTREO[number];
 const TIPOS_AGUA = ['potable', 'natural', 'residual domestica', 'residual no domestica', 'otra'] as const;
 type TipoAgua = typeof TIPOS_AGUA[number];
 
-const TIPOS_ANALISIS = ['Fisicoquímicos', 'Microbiológicos'] as const;
+const TIPOS_ANALISIS = ['Fisicoquímico', 'Microbiológico'] as const;
 type TipoAnalisis = typeof TIPOS_ANALISIS[number];
 
 const ESTADOS_VALIDOS = ["Recibida", "En análisis", "Pendiente de resultados", "Finalizada", "Rechazada"] as const;
 type EstadoMuestra = typeof ESTADOS_VALIDOS[number];
 
-interface SignatureData {
-  firma: string;
-}
-
-interface Firmas {
-  cedulaLaboratorista: string;
-  firmaLaboratorista: string;
-  cedulaCliente: string;
-  firmaCliente: string;
-}
-
 interface TipoDeAgua {
   tipo: string;
-  tipoPersonalizado: string;
+  codigo: string;
   descripcion: string;
 }
 
-// Se agregan las propiedades estado, observacionRechazo y además la propiedad tipoMuestreo
+interface FirmaData {
+  firma: string;
+  fecha: Date;
+}
+
 interface MuestraFormData {
   documento: string;
-  tipoMuestra: string;
-  tipoMuestreo: string; // <-- propiedad agregada
-  fechaHora: string;
-  fechaHoraMuestreo: string;
+  tipoDeAgua: TipoDeAgua;
+  tipoMuestreo: TipoMuestreo;
   lugarMuestreo: string;
+  fechaHoraMuestreo: string;
+  tipoAnalisis: string;
+  identificacionMuestra: string;
   planMuestreo: string;
   condicionesAmbientales: string;
   preservacionMuestra: string;
-  preservacionMuestraOtro?: string;
-  identificacionMuestra: string;
+  preservacionMuestraOtra?: string;
   analisisSeleccionados: string[];
-  tipoDeAgua: TipoDeAgua;
-  tipoAnalisis: string;
-  estado?: string;
-  observacionRechazo?: string;
   firmas: {
-    firmaAdministrador: { firma: string };
-    firmaCliente: { firma: string };
+    firmaAdministrador: FirmaData;
+    firmaCliente: FirmaData;
   };
+  observaciones?: string;
 }
 
 interface Cliente {
@@ -141,31 +129,38 @@ interface FirmasState {
   cliente: Firma | null;
 }
 
+interface AnalisisCategoria {
+  nombre: string;
+  unidad: string;
+}
+
+interface AnalisisDisponibles {
+  fisicoquimico: AnalisisCategoria[];
+  microbiologico: AnalisisCategoria[];
+}
+
 const initialFormData: MuestraFormData = {
   documento: '',
-  tipoMuestra: '',
-  tipoMuestreo: '', // Valor inicial agregado
-  fechaHora: '',
-  fechaHoraMuestreo: '',
+  tipoDeAgua: {
+    tipo: '',
+    codigo: '',
+    descripcion: ''
+  },
+  tipoMuestreo: 'Simple',
   lugarMuestreo: '',
+  fechaHoraMuestreo: '',
+  tipoAnalisis: '',
+  identificacionMuestra: '',
   planMuestreo: '',
   condicionesAmbientales: '',
   preservacionMuestra: '',
-  preservacionMuestraOtro: '',
-  identificacionMuestra: '',
+  preservacionMuestraOtra: '',
   analisisSeleccionados: [],
-  tipoDeAgua: {
-    tipo: '',
-    tipoPersonalizado: '',
-    descripcion: ''
-  },
-  tipoAnalisis: '',
-  estado: '',
-  observacionRechazo: '',
   firmas: {
-    firmaAdministrador: { firma: '' },
-    firmaCliente: { firma: '' }
-  }
+    firmaAdministrador: { firma: '', fecha: new Date() },
+    firmaCliente: { firma: '', fecha: new Date() }
+  },
+  observaciones: ''
 };
 
 const initialClienteData: ClienteData = {
@@ -183,73 +178,30 @@ const initialFirmasState: FirmasState = {
   cliente: null
 };
 
-const analisisAgua = [
-  {
-    categoria: "Metales",
-    analisis: [
-      "Aluminio", "Arsénico", "Cadmio", "Cobre", "Cromo", "Hierro",
-      "Manganeso", "Mercurio", "Molibdeno", "Níquel", "Plata", "Plomo", "Zinc"
-    ]
+// Actualizar la configuración base de axios
+const axiosInstance = axios.create({
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
-  {
-    categoria: "Química General",
-    analisis: [
-      "Carbono Orgánico Total (COT)", "Cloro residual", "Cloro Total",
-      "Cloruros", "Conductividad", "Dureza Cálcica", "Dureza Magnésica",
-      "Dureza Total", "Ortofosfatos", "Fósforo Total", "Nitratos",
-      "Nitritos", "Nitrógeno amoniacal", "Nitrógeno total",
-      "Oxígeno disuelto", "pH", "Potasio", "Sulfatos"
-    ]
-  },
-  {
-    categoria: "Físicos",
-    analisis: [
-      "Color aparente", "Color real", "Sólidos sedimentables",
-      "Sólidos suspendidos", "Sólidos Totales", "Turbiedad"
-    ]
-  },
-  {
-    categoria: "Otros",
-    analisis: ["Bromo", "Cobalto", "Yodo"]
-  }
-];
+  withCredentials: false // Cambiado a false porque no estamos usando cookies entre dominios
+});
 
-const analisisSuelo = [
-  {
-    categoria: "Propiedades Físicas",
-    analisis: ["pH", "Conductividad Eléctrica", "Humedad", "Sólidos Totales"]
-  },
-  {
-    categoria: "Propiedades Químicas",
-    analisis: [
-      "Carbono orgánico", "Materia orgánica", "Fósforo total",
-      "Acidez intercambiable", "Bases intercambiables"
-    ]
-  },
-  {
-    categoria: "Macronutrientes",
-    analisis: ["Calcio", "Magnesio", "Potasio", "Sodio"]
-  },
-  {
-    categoria: "Micronutrientes",
-    analisis: ["Cobre", "Zinc", "Hierro", "Manganeso", "Cadmio", "Mercurio"]
+const getTipoAguaCodigo = (tipo: string): string => {
+  switch (tipo) {
+    case 'potable':
+      return 'P';
+    case 'natural':
+      return 'N';
+    case 'residual domestica':
+    case 'residual no domestica':
+      return 'R';
+    case 'otra':
+      return 'O';
+    default:
+      return '';
   }
-];
-
-// Función para formatear la fecha y hora (ej. "2025-04-03 15:45")
-const formatearFecha = (fecha: Date): string => {
-  const dia = fecha.getDate().toString().padStart(2, '0');
-  const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-  const año = fecha.getFullYear();
-  const hora = fecha.getHours().toString().padStart(2, '0');
-  const minutos = fecha.getMinutes().toString().padStart(2, '0');
-  return `${año}-${mes}-${dia} ${hora}:${minutos}`;
 };
-
-// Definimos un tipo unificado para el evento de cambio
-type MyChangeEvent =
-  | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  | SelectChangeEvent;
 
 const RegistroMuestras: React.FC = () => {
   const navigate = useNavigate();
@@ -266,27 +218,23 @@ const RegistroMuestras: React.FC = () => {
   const [firmasCompletas, setFirmasCompletas] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [muestraId, setMuestraId] = useState<string | null>(null);
-  // Estado para la fecha y hora actual (para mostrar en la esquina superior derecha)
-  const [currentDateTime, setCurrentDateTime] = useState(formatearFecha(new Date()));
-  // Estados para el rechazo de la muestra
+  const [currentDateTime, setCurrentDateTime] = useState(new Date().toISOString());
   const [isRejected, setIsRejected] = useState<boolean>(false);
   const [openRechazoModal, setOpenRechazoModal] = useState<boolean>(false);
   const [observacionRechazo, setObservacionRechazo] = useState<string>('');
-
-  // Estados para el modal de registro de cliente
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [clienteData, setClienteData] = useState<ClienteData>(initialClienteData);
   const [registroError, setRegistroError] = useState<string | null>(null);
   const [registroExito, setRegistroExito] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState<boolean>(false);
+  const [analisisDisponibles, setAnalisisDisponibles] = useState<AnalisisDisponibles | null>(null);
 
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
 
-  // Actualizar la fecha y hora cada minuto para mostrarla en la esquina superior derecha
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentDateTime(formatearFecha(new Date()));
+      setCurrentDateTime(new Date().toISOString());
     }, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -328,53 +276,113 @@ const RegistroMuestras: React.FC = () => {
     verificarFirmas();
   }, [firmas]);
 
-  // Todas las muestras serán de tipo "Agua", por lo que se usan los análisis de agua
-  const analisisDisponibles = analisisAgua;
+  useEffect(() => {
+    const cargarTodosLosAnalisis = async () => {
+      try {
+        setAnalisisDisponibles({
+          fisicoquimico: [],
+          microbiologico: []
+        });
+        
+        if (formData.tipoAnalisis) {
+          await cargarAnalisis(formData.tipoAnalisis);
+        }
+      } catch (error) {
+        console.error('Error en la carga inicial de análisis:', error);
+        setError('No se pudieron cargar los análisis. Por favor, recargue la página.');
+      }
+    };
+    
+    cargarTodosLosAnalisis();
+  }, [formData.tipoAnalisis]);
+
+  const cargarAnalisis = async (tipo: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = tipo === 'Fisicoquímico' 
+        ? API_URLS.ANALISIS_FISICOQUIMICOS 
+        : API_URLS.ANALISIS_MICROBIOLOGICOS;
+
+      const response = await axios.get(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (tipo === 'Fisicoquímico') {
+        setAnalisisDisponibles(prev => ({
+          ...prev,
+          fisicoquimico: response.data
+        }));
+      } else {
+        setAnalisisDisponibles(prev => ({
+          ...prev,
+          microbiologico: response.data
+        }));
+      }
+    } catch (error) {
+      console.error('Error al cargar análisis:', error);
+      setError('Error al cargar los análisis disponibles');
+    }
+  };
 
   const validarFormulario = (data: MuestraFormData): Record<string, string> => {
     const errores: Record<string, string> = {};
+    
+    // Validaciones básicas
     if (!data.documento) errores.documento = 'El documento es requerido';
+    if (!data.tipoDeAgua.tipo) errores.tipoDeAgua = 'El tipo de agua es requerido';
+    
+    // Solo validar descripción si el tipo es "otra"
+    if (data.tipoDeAgua.tipo === 'otra') {
+      if (!data.tipoDeAgua.descripcion) {
+        errores.descripcion = 'La descripción es requerida para otro tipo de agua';
+      }
+    }
+
     if (!data.tipoMuestreo) errores.tipoMuestreo = 'El tipo de muestreo es requerido';
     if (!data.lugarMuestreo) errores.lugarMuestreo = 'El lugar de muestreo es requerido';
-    if (!data.fechaHoraMuestreo) errores.fechaHoraMuestreo = 'La fecha y hora de muestreo es requerida';
+    if (!data.fechaHoraMuestreo) errores.fechaHoraMuestreo = 'La fecha y hora de muestreo son requeridas';
     if (!data.tipoAnalisis) errores.tipoAnalisis = 'El tipo de análisis es requerido';
     if (!data.identificacionMuestra) errores.identificacionMuestra = 'La identificación de la muestra es requerida';
     if (!data.planMuestreo) errores.planMuestreo = 'El plan de muestreo es requerido';
     if (!data.condicionesAmbientales) errores.condicionesAmbientales = 'Las condiciones ambientales son requeridas';
     if (!data.preservacionMuestra) errores.preservacionMuestra = 'La preservación de la muestra es requerida';
-    if (data.preservacionMuestra === 'Otro' && !data.preservacionMuestraOtro) {
-      errores.preservacionMuestraOtro = 'Especifique la preservación de la muestra';
+    if (data.preservacionMuestra === 'Otro' && !data.preservacionMuestraOtra) {
+      errores.preservacionMuestraOtra = 'Debe especificar la preservación cuando selecciona "Otro"';
     }
-    if (!data.analisisSeleccionados?.length) errores.analisisSeleccionados = 'Debe seleccionar al menos un análisis';
-    // Si la muestra se rechaza, no se requiere validar las firmas
+    if (!data.analisisSeleccionados || data.analisisSeleccionados.length === 0) {
+      errores.analisisSeleccionados = 'Debe seleccionar al menos un análisis';
+    }
     if (!isRejected) {
-      if (!data.firmas?.firmaAdministrador.firma) {
+      if (!data.firmas.firmaAdministrador.firma) {
         errores.firmaAdministrador = 'La firma del administrador es requerida';
       }
-      if (!data.firmas?.firmaCliente.firma) {
+      if (!data.firmas.firmaCliente.firma) {
         errores.firmaCliente = 'La firma del cliente es requerida';
       }
     }
     return errores;
   };
 
-  // Usamos el tipo unificado MyChangeEvent para manejar tanto TextField como Select
-  const handleChange = (e: MyChangeEvent) => {
-    // Forzamos el tipado a HTMLInputElement para obtener name y value
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target as HTMLInputElement;
-    // Manejo especial para el campo "tipoAgua" que afecta a tipoDeAgua
     if (name === "tipoAgua") {
+      const codigo = getTipoAguaCodigo(value);
       setFormData(prev => ({
         ...prev,
         tipoDeAgua: {
           ...prev.tipoDeAgua,
           tipo: value,
-          tipoPersonalizado: value === 'otra' ? prev.tipoDeAgua.tipoPersonalizado : '',
-          descripcion: value === 'otra' ? prev.tipoDeAgua.descripcion : ''
+          codigo: codigo,
+          descripcion: value === 'otra' ? '' : value
         }
       }));
     } else if (name === "preservacionMuestra") {
       setFormData(prev => ({ ...prev, preservacionMuestra: value }));
+    } else if (name === "tipoMuestreo") {
+      setFormData(prev => ({ ...prev, tipoMuestreo: value }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -393,9 +401,12 @@ const RegistroMuestras: React.FC = () => {
     setUserValidationError(null);
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(
-        `https://back-usuarios-f.onrender.com/api/usuarios/buscar?documento=${formData.documento}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await axiosInstance.get(
+        `${API_URLS.USUARIOS}/buscar`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { documento: formData.documento }
+        }
       );
       if (response.data && response.data.documento) {
         setClienteEncontrado(response.data);
@@ -494,7 +505,7 @@ const RegistroMuestras: React.FC = () => {
       }
       setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaAdministrador: { firma } }
+        firmas: { ...prev.firmas, firmaAdministrador: { firma, fecha: new Date() } }
       }));
       setError(null);
     } catch (error: any) {
@@ -518,7 +529,7 @@ const RegistroMuestras: React.FC = () => {
       }
       setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaCliente: { firma } }
+        firmas: { ...prev.firmas, firmaCliente: { firma, fecha: new Date() } }
       }));
       setError(null);
       setSuccess('✔ Firma del cliente guardada correctamente');
@@ -548,25 +559,22 @@ const RegistroMuestras: React.FC = () => {
         const muestra = response.data.muestra;
         setFormData({
           documento: muestra.documento,
-          tipoMuestra: muestra.tipoMuestra,
-          tipoMuestreo: muestra.tipoMuestreo,
-          fechaHora: muestra.fechaHora,
-          fechaHoraMuestreo: muestra.fechaHoraMuestreo,
+          tipoDeAgua: muestra.tipoDeAgua || { tipo: '', codigo: '', descripcion: '' },
+          tipoMuestreo: muestra.tipoMuestreo || 'Simple',
           lugarMuestreo: muestra.lugarMuestreo,
+          fechaHoraMuestreo: muestra.fechaHoraMuestreo,
+          tipoAnalisis: muestra.tipoAnalisis || '',
+          identificacionMuestra: muestra.identificacionMuestra,
           planMuestreo: muestra.planMuestreo,
           condicionesAmbientales: muestra.condicionesAmbientales,
           preservacionMuestra: muestra.preservacionMuestra,
-          preservacionMuestraOtro: muestra.preservacionMuestraOtro || '',
-          identificacionMuestra: muestra.identificacionMuestra,
+          preservacionMuestraOtra: muestra.preservacionMuestraOtra || '',
           analisisSeleccionados: muestra.analisisSeleccionados || [],
-          tipoDeAgua: muestra.tipoDeAgua || { tipo: '', tipoPersonalizado: '', descripcion: '' },
-          tipoAnalisis: muestra.tipoAnalisis || '',
-          estado: muestra.estado || '',
-          observacionRechazo: muestra.observacionRechazo || '',
           firmas: muestra.firmas || {
-            firmaAdministrador: { firma: '' },
-            firmaCliente: { firma: '' }
-          }
+            firmaAdministrador: { firma: '', fecha: new Date() },
+            firmaCliente: { firma: '', fecha: new Date() }
+          },
+          observaciones: muestra.observaciones || ''
         });
         setMuestraId(id);
         setIsUpdating(true);
@@ -597,7 +605,6 @@ const RegistroMuestras: React.FC = () => {
   };
 
   const handleConfirmarRechazo = () => {
-    // Si se ingresa observación, se marca la muestra como rechazada
     if (!observacionRechazo.trim()) {
       setError("Debe ingresar la observación para el rechazo.");
       return;
@@ -608,95 +615,103 @@ const RegistroMuestras: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    // Validamos el formulario (en caso de rechazo, podemos omitir firmas)
-    const errores = validarFormulario(formData);
-    if (Object.keys(errores).length > 0) {
-      setError(Object.values(errores).join(' - '));
-      setLoading(false);
+    
+    // Si no se están mostrando las firmas, mostrarlas y no enviar el formulario
+    if (!mostrarFirmas && !isRejected) {
+      const errores = validarFormulario(formData);
+      // Filtrar errores de firma ya que aún no se muestran
+      const erroresSinFirmas = Object.entries(errores).reduce((acc, [key, value]) => {
+        if (!key.includes('firma')) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      if (Object.keys(erroresSinFirmas).length > 0) {
+        setError(Object.values(erroresSinFirmas).join(' - '));
+        return;
+      }
+
+      setMostrarFirmas(true);
       return;
     }
+
+    setLoading(true);
+    setError('');
+
     try {
-      if (!adminData) {
-        throw new Error('No se encontraron datos del administrador');
-      }
-      if (!clienteEncontrado) {
-        setError('Debe validar el cliente antes de continuar');
+      const errores = validarFormulario(formData);
+      if (Object.keys(errores).length > 0) {
+        setError(Object.values(errores).join(' - '));
         setLoading(false);
         return;
       }
-      if (!formData.tipoMuestreo || !formData.lugarMuestreo || formData.analisisSeleccionados.length === 0) {
-        setError('Por favor complete todos los campos requeridos');
-        setLoading(false);
-        return;
-      }
-      // Asignar automáticamente el tipo de muestra y la fecha y hora de registro actuales
-      const updatedFormData: MuestraFormData = {
-        ...formData,
-        tipoMuestra: "Agua",
-        fechaHora: formatearFecha(new Date())
-      };
-      // Si la muestra fue rechazada, se asigna el estado "Rechazada" y se agrega la observación
-      if (isRejected) {
-        updatedFormData.estado = "Rechazada";
-        updatedFormData.observacionRechazo = observacionRechazo;
-      } else {
-        if (!mostrarFirmas) {
-          setMostrarFirmas(true);
-          setLoading(false);
-          return;
-        }
-        if (!validarFirmas()) {
-          setLoading(false);
-          return;
-        }
-      }
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No se encontró el token de autenticación');
-      }
+
       const muestraData = {
-        ...updatedFormData,
-        documento: clienteEncontrado.documento,
+        documento: formData.documento,
+        tipoDeAgua: {
+          tipo: formData.tipoDeAgua.tipo,
+          codigo: formData.tipoDeAgua.codigo,
+          descripcion: formData.tipoDeAgua.descripcion
+        },
+        tipoMuestreo: formData.tipoMuestreo,
+        lugarMuestreo: formData.lugarMuestreo,
+        fechaHoraMuestreo: new Date(formData.fechaHoraMuestreo).toISOString(),
+        tipoAnalisis: formData.tipoAnalisis,
+        identificacionMuestra: formData.identificacionMuestra,
+        planMuestreo: formData.planMuestreo,
+        condicionesAmbientales: formData.condicionesAmbientales,
+        preservacionMuestra: formData.preservacionMuestra,
+        preservacionMuestraOtra: formData.preservacionMuestraOtra,
+        analisisSeleccionados: formData.analisisSeleccionados,
         firmas: {
-          firmaAdministrador: { firma: updatedFormData.firmas.firmaAdministrador.firma },
-          firmaCliente: { firma: updatedFormData.firmas.firmaCliente.firma }
-        }
+          firmaAdministrador: {
+            firma: formData.firmas.firmaAdministrador.firma,
+            fecha: new Date().toISOString()
+          },
+          firmaCliente: {
+            firma: formData.firmas.firmaCliente.firma,
+            fecha: new Date().toISOString()
+          }
+        },
+        observaciones: formData.observaciones || ''
       };
+
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No se encontró el token de autenticación');
+
       const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
+
       let response;
       if (isUpdating && muestraId) {
         response = await axios.put(
-          API_URLS.EDITAR_RESULTADOS(muestraId),
+          `${API_URLS.MUESTRAS}/${muestraId}`,
           muestraData,
           { headers }
         );
-        setSuccess('✔ Resultados actualizados exitosamente');
       } else {
         response = await axios.post(
           API_URLS.MUESTRAS,
           muestraData,
           { headers }
         );
-        setSuccess('✔ Muestra registrada exitosamente');
       }
+
+      setSuccess(isUpdating ? '✔ Muestra actualizada exitosamente' : '✔ Muestra registrada exitosamente');
       limpiarEstado();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || (isUpdating ? 'Error al actualizar los resultados' : 'Error al registrar la muestra');
+      const errorMessage = error.response?.data?.message || error.message;
       setError(`Error: ${errorMessage}`);
-      if (errorMessage.toLowerCase().includes('sesión') || errorMessage.toLowerCase().includes('token')) {
-        setTimeout(() => {
-          localStorage.clear();
-          navigate('/login');
-        }, 2000);
-      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const volverAlFormulario = () => {
+    setMostrarFirmas(false);
   };
 
   const handleAnalisisChange = (analisis: string) => {
@@ -804,6 +819,61 @@ const RegistroMuestras: React.FC = () => {
     setObservacionRechazo('');
   };
 
+  const renderAnalisisDisponibles = () => {
+    if (!formData.tipoAnalisis) {
+      return (
+        <Alert severity="info">
+          Seleccione un tipo de análisis para ver las opciones disponibles
+        </Alert>
+      );
+    }
+
+    const analisisAMostrar = formData.tipoAnalisis === 'Fisicoquímico' 
+      ? analisisDisponibles?.fisicoquimico || []
+      : analisisDisponibles?.microbiologico || [];
+
+    if (analisisAMostrar.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography>{formData.tipoAnalisis === 'Fisicoquímico' ? 'Análisis Fisicoquímicos' : 'Análisis Microbiológicos'}</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Grid container spacing={2}>
+            {analisisAMostrar.map((analisis) => (
+              <Grid item xs={12} sm={6} key={analisis.nombre}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.analisisSeleccionados.includes(analisis.nombre)}
+                      onChange={() => handleAnalisisChange(analisis.nombre)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      {analisis.nombre}
+                      <br />
+                      <small style={{ color: 'text.secondary' }}>
+                        {analisis.unidad !== 'N/A' ? `Unidad: ${analisis.unidad}` : 'Sin unidad'}
+                      </small>
+                    </Typography>
+                  }
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </AccordionDetails>
+      </Accordion>
+    );
+  };
+
   return (
     <Paper
       sx={{
@@ -814,7 +884,6 @@ const RegistroMuestras: React.FC = () => {
         marginTop: 3
       }}
     >
-      {/* Mostrar fecha y hora de registro en la esquina superior derecha */}
       <Box
         sx={{
           position: "absolute",
@@ -839,7 +908,6 @@ const RegistroMuestras: React.FC = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
       <form onSubmit={handleSubmit} autoComplete="off">
-        {/* 1. Documento */}
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <TextField
             fullWidth
@@ -889,7 +957,6 @@ const RegistroMuestras: React.FC = () => {
           </Box>
         )}
 
-        {/* 2. Tipo de Agua */}
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Tipo de Agua</InputLabel>
           <Select
@@ -900,7 +967,7 @@ const RegistroMuestras: React.FC = () => {
           >
             {TIPOS_AGUA.map(tipo => (
               <MenuItem key={tipo} value={tipo}>
-                {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                {tipo.charAt(0).toUpperCase() + tipo.slice(1)} ({getTipoAguaCodigo(tipo)})
               </MenuItem>
             ))}
           </Select>
@@ -909,12 +976,11 @@ const RegistroMuestras: React.FC = () => {
           <>
             <TextField
               fullWidth
-              label="Tipo Personalizado"
-              name="tipoPersonalizado"
-              value={formData.tipoDeAgua.tipoPersonalizado}
-              onChange={handleChange}
+              label="Código"
+              name="codigo"
+              value={formData.tipoDeAgua.codigo}
+              disabled
               sx={{ mb: 2 }}
-              required
             />
             <TextField
               fullWidth
@@ -925,11 +991,11 @@ const RegistroMuestras: React.FC = () => {
               sx={{ mb: 2 }}
               multiline
               rows={2}
+              required
             />
           </>
         )}
 
-        {/* 3. Tipo de Muestreo */}
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Tipo de Muestreo</InputLabel>
           <Select
@@ -937,6 +1003,7 @@ const RegistroMuestras: React.FC = () => {
             value={formData.tipoMuestreo}
             onChange={handleChange}
             label="Tipo de Muestreo"
+            required
           >
             {TIPOS_MUESTREO.map(tipo => (
               <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
@@ -944,7 +1011,6 @@ const RegistroMuestras: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* 4. Lugar de Muestreo */}
         <TextField
           fullWidth
           label="Lugar de Muestreo"
@@ -955,7 +1021,6 @@ const RegistroMuestras: React.FC = () => {
           sx={{ mb: 2 }}
         />
 
-        {/* 5. Fecha y Hora de Muestreo */}
         <TextField
           fullWidth
           label="Fecha y Hora de Muestreo"
@@ -968,7 +1033,6 @@ const RegistroMuestras: React.FC = () => {
           required
         />
 
-        {/* 6. Tipo de Análisis */}
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Tipo de Análisis</InputLabel>
           <Select
@@ -986,7 +1050,6 @@ const RegistroMuestras: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* 7. Identificación de la Muestra */}
         <TextField
           fullWidth
           label="Identificación de la Muestra"
@@ -997,7 +1060,6 @@ const RegistroMuestras: React.FC = () => {
           helperText="Identificación física/química de la muestra"
         />
 
-        {/* 8. Plan de Muestreo */}
         <TextField
           fullWidth
           label="Plan de Muestreo"
@@ -1007,7 +1069,6 @@ const RegistroMuestras: React.FC = () => {
           sx={{ mb: 2 }}
         />
 
-        {/* 9. Condiciones Ambientales */}
         <TextField
           fullWidth
           label="Condiciones Ambientales"
@@ -1019,7 +1080,6 @@ const RegistroMuestras: React.FC = () => {
           rows={2}
         />
 
-        {/* 10. Preservación de la Muestra */}
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Preservación de la Muestra</InputLabel>
           <Select
@@ -1038,46 +1098,19 @@ const RegistroMuestras: React.FC = () => {
           <TextField
             fullWidth
             label="Especificar preservación"
-            name="preservacionMuestraOtro"
-            value={formData.preservacionMuestraOtro}
+            name="preservacionMuestraOtra"
+            value={formData.preservacionMuestraOtra}
             onChange={handleChange}
             required
             sx={{ mb: 2 }}
           />
         )}
 
-        {/* 11. Análisis a Realizar */}
         <Typography variant="subtitle1" sx={{ mb: 1 }}>
           Análisis a realizar:
         </Typography>
-        {analisisDisponibles.map((categoria, index) => (
-          <Accordion key={index} sx={{ mb: 1, boxShadow: 2 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'grey.100' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {categoria.categoria}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                {categoria.analisis.map((analisis, idx) => (
-                  <Grid item xs={12} sm={6} key={idx}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={formData.analisisSeleccionados.includes(analisis)}
-                          onChange={() => handleAnalisisChange(analisis)}
-                        />
-                      }
-                      label={analisis}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-        ))}
+        {renderAnalisisDisponibles()}
 
-        {/* Botón para rechazar la muestra (antes de pasar a firmas) */}
         {!isRejected && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button variant="contained" color="error" onClick={handleOpenRechazoModal}>
@@ -1086,96 +1119,113 @@ const RegistroMuestras: React.FC = () => {
           </Box>
         )}
 
-        {/* Se muestran las firmas solo si la muestra no fue rechazada */}
-        {!isRejected && mostrarFirmas && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Firmas Digitales
-            </Typography>
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" color="primary" gutterBottom>
-                Firma del Administrador
+        {mostrarFirmas ? (
+          <>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Firmas Digitales
               </Typography>
-              {!adminData && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  No se encontraron datos del administrador. Por favor, inicie sesión nuevamente.
-                </Alert>
-              )}
-              {adminData && adminData.rol !== 'administrador' && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  Solo los administradores pueden firmar en esta sección.
-                </Alert>
-              )}
-              <SignaturePad
-                onSave={guardarFirmaAdministrador}
-                titulo="Firma del Administrador"
-                disabled={!adminData || adminData.rol !== 'administrador'}
-                firma={formData.firmas.firmaAdministrador.firma}
-              />
-              {formData.firmas.firmaAdministrador.firma && (
-                <Alert severity="success" sx={{ mt: 1 }}>
-                  ✔ Firma del administrador guardada correctamente
-                </Alert>
-              )}
-            </Box>
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" color="primary" gutterBottom>
-                Firma del Cliente
-              </Typography>
-              {!clienteEncontrado && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  Debe validar el cliente antes de poder firmar.
-                </Alert>
-              )}
-              <SignaturePad
-                onSave={guardarFirmaCliente}
-                titulo="Firma del Cliente"
-                disabled={!clienteEncontrado}
-                firma={formData.firmas.firmaCliente.firma}
-              />
-              {formData.firmas.firmaCliente.firma && (
-                <Alert severity="success" sx={{ mt: 1 }}>
-                  ✔ Firma del cliente guardada correctamente
-                </Alert>
-              )}
-            </Box>
-            {(formData.firmas.firmaAdministrador.firma || formData.firmas.firmaCliente.firma) && (
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Estado de las Firmas:
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" color="primary" gutterBottom>
+                  Firma del Administrador
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Alert severity={formData.firmas.firmaAdministrador.firma ? "success" : "warning"}>
-                    Firma del Administrador: {formData.firmas.firmaAdministrador.firma ? "✔ Completada" : "⚠ Pendiente"}
+                {!adminData && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    No se encontraron datos del administrador. Por favor, inicie sesión nuevamente.
                   </Alert>
-                  <Alert severity={formData.firmas.firmaCliente.firma ? "success" : "warning"}>
-                    Firma del Cliente: {formData.firmas.firmaCliente.firma ? "✔ Completada" : "⚠ Pendiente"}
+                )}
+                {adminData && adminData.rol !== 'administrador' && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    Solo los administradores pueden firmar en esta sección.
                   </Alert>
-                </Box>
+                )}
+                <SignaturePad
+                  onSave={guardarFirmaAdministrador}
+                  titulo="Firma del Administrador"
+                  disabled={!adminData || adminData.rol !== 'administrador'}
+                  firma={formData.firmas.firmaAdministrador.firma}
+                />
+                {formData.firmas.firmaAdministrador.firma && (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    ✔ Firma del administrador guardada correctamente
+                  </Alert>
+                )}
               </Box>
-            )}
-          </Box>
-        )}
-
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          fullWidth
-          disabled={loading}
-          sx={{ mt: 2 }}
-        >
-          {loading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={24} color="inherit" />
-              <span>{isUpdating ? 'Actualizando muestra...' : isRejected ? 'Registrar Muestra Rechazada' : 'Registrar Muestra'}</span>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" color="primary" gutterBottom>
+                  Firma del Cliente
+                </Typography>
+                {!clienteEncontrado && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    Debe validar el cliente antes de poder firmar.
+                  </Alert>
+                )}
+                <SignaturePad
+                  onSave={guardarFirmaCliente}
+                  titulo="Firma del Cliente"
+                  disabled={!clienteEncontrado}
+                  firma={formData.firmas.firmaCliente.firma}
+                />
+                {formData.firmas.firmaCliente.firma && (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    ✔ Firma del cliente guardada correctamente
+                  </Alert>
+                )}
+              </Box>
+              {(formData.firmas.firmaAdministrador.firma || formData.firmas.firmaCliente.firma) && (
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Estado de las Firmas:
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Alert severity={formData.firmas.firmaAdministrador.firma ? "success" : "warning"}>
+                      Firma del Administrador: {formData.firmas.firmaAdministrador.firma ? "✔ Completada" : "⚠ Pendiente"}
+                    </Alert>
+                    <Alert severity={formData.firmas.firmaCliente.firma ? "success" : "warning"}>
+                      Firma del Cliente: {formData.firmas.firmaCliente.firma ? "✔ Completada" : "⚠ Pendiente"}
+                    </Alert>
+                  </Box>
+                </Box>
+              )}
             </Box>
-          ) : isRejected ? (
-            "Registrar Muestra Rechazada"
-          ) : (
-            "Continuar con las Firmas"
-          )}
-        </Button>
+            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={volverAlFormulario}
+                fullWidth
+              >
+                Volver al Formulario
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={loading}
+              >
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={24} color="inherit" />
+                    <span>Registrando muestra...</span>
+                  </Box>
+                ) : (
+                  "Registrar Muestra"
+                )}
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            disabled={loading}
+            sx={{ mt: 2 }}
+          >
+            {isRejected ? "Registrar Muestra Rechazada" : "Continuar con las Firmas"}
+          </Button>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -1189,7 +1239,6 @@ const RegistroMuestras: React.FC = () => {
         )}
       </form>
 
-      {/* Modal para registrar Cliente */}
       <Modal
         open={openModal}
         onClose={handleCloseModal}
@@ -1219,20 +1268,10 @@ const RegistroMuestras: React.FC = () => {
             <TextField fullWidth label="Nombre Completo" name="nombre" value={clienteData.nombre} onChange={handleClienteChange} required sx={{ mb: 2 }} />
             <TextField fullWidth label="Documento" name="documento" value={clienteData.documento} onChange={handleClienteChange} required sx={{ mb: 2 }} />
             <TextField fullWidth label="Teléfono" name="telefono" value={clienteData.telefono} onChange={handleClienteChange} sx={{ mb: 2 }} />
-            <TextField fullWidth label="Dirección" name="direccion" value={clienteData.direccion} onChange={handleClienteChange} sx={{ mb: 2 }} />
-            <TextField fullWidth label="Correo Electrónico" name="email" type="email" value={clienteData.email} onChange={handleClienteChange} required sx={{ mb: 2 }} />
-            <TextField fullWidth label="Contraseña" name="password" type="password" value={clienteData.password} onChange={handleClienteChange} required sx={{ mb: 2 }} />
-            <TextField fullWidth label="Razón Social" name="razonSocial" value={clienteData.razonSocial} onChange={handleClienteChange} sx={{ mb: 2 }} />
-            {registroError && <Alert severity="error" sx={{ mb: 2 }}>{registroError}</Alert>}
-            {registroExito && <Alert severity="success" sx={{ mb: 2 }}>{registroExito}</Alert>}
-            <Button variant="contained" color="primary" fullWidth onClick={handleRegistrarCliente} disabled={registrando}>
-              {registrando ? <CircularProgress size={24} /> : "Registrar"}
-            </Button>
           </Box>
         </Fade>
       </Modal>
 
-      {/* Modal para rechazo de muestra */}
       <Modal
         open={openRechazoModal}
         onClose={handleCloseRechazoModal}
