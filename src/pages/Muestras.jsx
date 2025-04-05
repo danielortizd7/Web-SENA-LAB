@@ -1,4 +1,3 @@
-// src/pages/Muestras.jsx
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -32,6 +31,7 @@ import {
   Pagination,
   Snackbar,
   Alert,
+  Grid
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import GetAppIcon from "@mui/icons-material/GetApp";
@@ -39,6 +39,19 @@ import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AuthContext from "../context/AuthContext";
+
+// ----- URLs para las peticiones (ajusta si las tuyas son distintas) -----
+const BASE_URLS = {
+  USUARIOS: "https://backend-sena-lab-1-qpzp.onrender.com/api",
+  MUESTRAS: "https://daniel-back-dom.onrender.com/api",
+};
+
+const API_URLS = {
+  USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
+  MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
+  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimicos`,
+  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`,
+};
 
 // Componente personalizado para los botones de acción
 const ActionButton = ({ tooltip, onClick, IconComponent }) => (
@@ -61,98 +74,13 @@ const ActionButton = ({ tooltip, onClick, IconComponent }) => (
   </Tooltip>
 );
 
-// Constantes de análisis para Agua y Suelo (se mantienen igual)
-const ANALISIS_AGUA = [
-  {
-    categoria: "Metales",
-    analisis: [
-      "Aluminio",
-      "Arsénico",
-      "Cadmio",
-      "Cobre",
-      "Cromo",
-      "Hierro",
-      "Manganeso",
-      "Mercurio",
-      "Molibdeno",
-      "Níquel",
-      "Plata",
-      "Plomo",
-      "Zinc",
-    ],
-  },
-  {
-    categoria: "Química General",
-    analisis: [
-      "Carbono Orgánico Total (COT)",
-      "Cloro residual",
-      "Cloro Total",
-      "Cloruros",
-      "Conductividad",
-      "Dureza Cálcica",
-      "Dureza Magnésica",
-      "Dureza Total",
-      "Ortofosfatos",
-      "Fósforo Total",
-      "Nitratos",
-      "Nitritos",
-      "Nitrógeno amoniacal",
-      "Nitrógeno total",
-      "Oxígeno disuelto",
-      "pH",
-      "Potasio",
-      "Sulfatos",
-    ],
-  },
-  {
-    categoria: "Físicos",
-    analisis: [
-      "Color aparente",
-      "Color real",
-      "Sólidos sedimentables",
-      "Sólidos suspendidos",
-      "Sólidos Totales",
-      "Turbiedad",
-    ],
-  },
-  {
-    categoria: "Otros",
-    analisis: ["Bromo", "Cobalto", "Yodo"],
-  },
-];
-
-const ANALISIS_SUELO = [
-  {
-    categoria: "Propiedades Físicas",
-    analisis: ["pH", "Conductividad Eléctrica", "Humedad", "Sólidos Totales"],
-  },
-  {
-    categoria: "Propiedades Químicas",
-    analisis: [
-      "Carbono orgánico",
-      "Materia orgánica",
-      "Fósforo total",
-      "Acidez intercambiable",
-      "Bases intercambiables",
-    ],
-  },
-  {
-    categoria: "Macronutrientes",
-    analisis: ["Calcio", "Magnesio", "Potasio", "Sodio"],
-  },
-  {
-    categoria: "Micronutrientes",
-    analisis: ["Cobre", "Zinc", "Hierro", "Manganeso", "Cadmio", "Mercurio"],
-  },
-];
-
 // Función para obtener propiedades del Chip según el estado
 const getEstadoChipProps = (estado) => {
   switch (estado) {
     case "Recibida":
       return { chipColor: "primary", sx: { backgroundColor: "#39A900", color: "white" } };
     case "En análisis":
-      return { chipColor: "info", sx: { backgroundColor: "#2196ag", color: "white" } };
+      return { chipColor: "info", sx: { backgroundColor: "#2196F3", color: "white" } };
     case "Pendiente de resultados":
       return { chipColor: "warning", sx: { backgroundColor: "#FF9800", color: "white" } };
     case "Finalizada":
@@ -164,7 +92,7 @@ const getEstadoChipProps = (estado) => {
   }
 };
 
-// Modal para ver detalles de una muestra; se añade la prop hideClientData para condicionar datos sensibles
+// ------------------ Modal para ver detalles de la Muestra ------------------
 const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
   <Modal open={selectedMuestra !== null} onClose={onClose}>
     <Box sx={modalStyle}>
@@ -192,24 +120,28 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                 </TableRow>
               )}
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Muestra</TableCell>
-                <TableCell>{selectedMuestra.tipoMuestra || "N/A"}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Análisis</TableCell>
+                <TableCell>{selectedMuestra.tipoAnalisis || "N/A"}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Tipo de Muestreo</TableCell>
                 <TableCell>{selectedMuestra.tipoMuestreo || "N/A"}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Fecha y Hora</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Fecha y Hora de Muestreo</TableCell>
                 <TableCell>
-                  {selectedMuestra.fechaHora
-                    ? new Date(selectedMuestra.fechaHora).toLocaleString()
+                  {selectedMuestra.fechaHoraMuestreo
+                    ? new Date(selectedMuestra.fechaHoraMuestreo).toLocaleString()
                     : "N/A"}
                 </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
                 <TableCell>{selectedMuestra.lugarMuestreo || "N/A"}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }}>Identificación de Muestra</TableCell>
+                <TableCell>{selectedMuestra.identificacionMuestra || "N/A"}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Plan de Muestreo</TableCell>
@@ -223,26 +155,22 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                 <TableCell sx={{ fontWeight: "bold" }}>Preservación de Muestra</TableCell>
                 <TableCell>{selectedMuestra.preservacionMuestra || "N/A"}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Identificación de Muestra</TableCell>
-                <TableCell>{selectedMuestra.identificacionMuestra || "N/A"}</TableCell>
-              </TableRow>
+              {selectedMuestra.preservacionMuestra === "Otro" && (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Detalle de Preservación</TableCell>
+                  <TableCell>{selectedMuestra.preservacionMuestraOtra || "N/A"}</TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
                 <TableCell>
                   {selectedMuestra.analisisSeleccionados?.join(", ") || "Ninguno"}
                 </TableCell>
               </TableRow>
-              {selectedMuestra.tipoMuestra === "Agua" && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Tipo de Agua</TableCell>
-                  <TableCell>
-                    {selectedMuestra.tipoDeAgua?.tipo || "N/A"}
-                    {selectedMuestra.tipoDeAgua?.tipoPersonalizado &&
-                      ` - ${selectedMuestra.tipoDeAgua.tipoPersonalizado}`}
-                  </TableCell>
-                </TableRow>
-              )}
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }}>Observaciones</TableCell>
+                <TableCell>{selectedMuestra.observaciones || "N/A"}</TableCell>
+              </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Estado</TableCell>
                 <TableCell>
@@ -259,13 +187,30 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                 </TableCell>
               </TableRow>
               {selectedMuestra.historial && selectedMuestra.historial.length > 0 && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Último cambio por</TableCell>
-                  <TableCell>
-                    {selectedMuestra.historial[selectedMuestra.historial.length - 1]
-                      .nombreadministrador || "N/A"}
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Último cambio por</TableCell>
+                    <TableCell>
+                      {selectedMuestra.historial[selectedMuestra.historial.length - 1]
+                        .nombreadministrador || "N/A"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Fecha de cambio</TableCell>
+                    <TableCell>
+                      {new Date(
+                        selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio
+                      ).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Observaciones Hist.</TableCell>
+                    <TableCell>
+                      {selectedMuestra.historial[selectedMuestra.historial.length - 1]
+                        .observaciones || "N/A"}
+                    </TableCell>
+                  </TableRow>
+                </>
               )}
             </TableBody>
           </Table>
@@ -275,115 +220,238 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
   </Modal>
 );
 
-// Subcomponente para editar una muestra (se mantiene sin cambios)
+// ------------------ Modal para Editar la Muestra (CARGA DINÁMICA) ------------------
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
+  // Aquí guardamos la lista de análisis disponibles que llegan desde el backend
+  const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
+
+  // Función que llama a los endpoints para cargar la lista de análisis
+  const cargarAnalisis = async (tipo) => {
+    try {
+      const token = localStorage.getItem("token");
+      let endpoint = "";
+      if (tipo === "Fisicoquímico") {
+        endpoint = API_URLS.ANALISIS_FISICOQUIMICOS;
+      } else if (tipo === "Microbiológico") {
+        endpoint = API_URLS.ANALISIS_MICROBIOLOGICOS;
+      } else {
+        setAnalisisDisponibles([]);
+        return;
+      }
+      const response = await axios.get(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Asumiendo que el endpoint devuelve un array de objetos { nombre, unidad, ... }
+      if (Array.isArray(response.data)) {
+        setAnalisisDisponibles(response.data);
+      } else {
+        // Ajusta según la forma real en que tu backend devuelve los datos
+        setAnalisisDisponibles([]);
+      }
+    } catch (error) {
+      console.error("Error al cargar análisis:", error);
+      setAnalisisDisponibles([]);
+    }
+  };
+
+  // Efecto que se dispara cuando el usuario abre/cambia el tipo de análisis en el modal
+  useEffect(() => {
+    if (editingMuestra && editingMuestra.tipoAnalisis) {
+      cargarAnalisis(editingMuestra.tipoAnalisis);
+    } else {
+      setAnalisisDisponibles([]);
+    }
+  }, [editingMuestra?.tipoAnalisis]);
+
   if (!editingMuestra) return null;
+
+  // Manejo de checkboxes para los análisis seleccionados
+  const handleAnalisisChange = (analisisNombre) => {
+    setEditingMuestra((prev) => {
+      const alreadySelected = prev.analisisSeleccionados?.includes(analisisNombre);
+      return {
+        ...prev,
+        analisisSeleccionados: alreadySelected
+          ? prev.analisisSeleccionados.filter((item) => item !== analisisNombre)
+          : [...(prev.analisisSeleccionados || []), analisisNombre],
+      };
+    });
+  };
+
   return (
     <Modal open={editingMuestra !== null} onClose={() => setEditingMuestra(null)}>
       <Box sx={modalStyle}>
         <Typography variant="h6" align="center" sx={{ mb: 2 }}>
           Editar Muestra
         </Typography>
-        <Box
-          component="form"
-          noValidate
-          autoComplete="off"
-          sx={{ "& .MuiTextField-root": { mb: 2 } }}
-        >
+        <Box component="form" noValidate autoComplete="off" sx={{ "& .MuiTextField-root": { mb: 2 } }}>
+          {/* Tipo de Análisis */}
+          <Typography variant="subtitle2">Tipo de Análisis</Typography>
+          <Select
+            fullWidth
+            value={editingMuestra.tipoAnalisis || ""}
+            onChange={(e) =>
+              // Al cambiar se reinician los análisis seleccionados
+              setEditingMuestra({
+                ...editingMuestra,
+                tipoAnalisis: e.target.value,
+                analisisSeleccionados: [],
+              })
+            }
+          >
+            <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
+            <MenuItem value="Microbiológico">Microbiológico</MenuItem>
+          </Select>
+
+          {/* Tipo de Muestreo */}
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
             fullWidth
             value={editingMuestra.tipoMuestreo || ""}
-            onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                tipoMuestreo: e.target.value,
-              })
-            }
+            onChange={(e) => setEditingMuestra({ ...editingMuestra, tipoMuestreo: e.target.value })}
           >
             <MenuItem value="Simple">Simple</MenuItem>
             <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
+
+          {/* Fecha y Hora de Muestreo */}
+          <TextField
+            fullWidth
+            label="Fecha y Hora de Muestreo"
+            type="datetime-local"
+            InputLabelProps={{ shrink: true }}
+            value={
+              editingMuestra.fechaHoraMuestreo
+                ? editingMuestra.fechaHoraMuestreo.substring(0, 16)
+                : ""
+            }
+            onChange={(e) =>
+              setEditingMuestra({ ...editingMuestra, fechaHoraMuestreo: e.target.value })
+            }
+          />
+
+          {/* Lugar de Muestreo */}
           <TextField
             fullWidth
             label="Lugar de Muestreo"
             value={editingMuestra.lugarMuestreo || ""}
             onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                lugarMuestreo: e.target.value,
-              })
+              setEditingMuestra({ ...editingMuestra, lugarMuestreo: e.target.value })
             }
           />
+
+          {/* Identificación de Muestra */}
           <TextField
             fullWidth
-            label="Preservación de Muestra"
-            value={editingMuestra.preservacionMuestra || ""}
+            label="Identificación de Muestra"
+            value={editingMuestra.identificacionMuestra || ""}
             onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                preservacionMuestra: e.target.value,
-              })
+              setEditingMuestra({ ...editingMuestra, identificacionMuestra: e.target.value })
             }
           />
+
+          {/* Plan de Muestreo */}
+          <TextField
+            fullWidth
+            label="Plan de Muestreo"
+            value={editingMuestra.planMuestreo || ""}
+            onChange={(e) =>
+              setEditingMuestra({ ...editingMuestra, planMuestreo: e.target.value })
+            }
+          />
+
+          {/* Condiciones Ambientales */}
+          <TextField
+            fullWidth
+            label="Condiciones Ambientales"
+            multiline
+            rows={3}
+            value={editingMuestra.condicionesAmbientales || ""}
+            onChange={(e) =>
+              setEditingMuestra({ ...editingMuestra, condicionesAmbientales: e.target.value })
+            }
+          />
+
+          {/* Preservación de Muestra */}
+          <Typography variant="subtitle2">Preservación de Muestra</Typography>
+          <Select
+            fullWidth
+            value={editingMuestra.preservacionMuestra || ""}
+            onChange={(e) =>
+              setEditingMuestra({ ...editingMuestra, preservacionMuestra: e.target.value })
+            }
+          >
+            <MenuItem value="Refrigeración">Refrigeración</MenuItem>
+            <MenuItem value="Congelación">Congelación</MenuItem>
+            <MenuItem value="Acidificación">Acidificación</MenuItem>
+            <MenuItem value="Otro">Otro</MenuItem>
+          </Select>
+          {editingMuestra.preservacionMuestra === "Otro" && (
+            <TextField
+              fullWidth
+              label="Detalle de Preservación"
+              value={editingMuestra.preservacionMuestraOtra || ""}
+              onChange={(e) =>
+                setEditingMuestra({ ...editingMuestra, preservacionMuestraOtra: e.target.value })
+              }
+            />
+          )}
+
+          {/* Análisis a Realizar (dinámico, cargado desde el backend) */}
+          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+            Análisis a Realizar
+          </Typography>
+
+          {analisisDisponibles.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No hay análisis disponibles para este tipo (o aún no se han cargado).
+            </Alert>
+          ) : (
+            <Accordion defaultExpanded>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>
+                  {editingMuestra.tipoAnalisis === "Fisicoquímico"
+                    ? "Análisis Fisicoquímicos"
+                    : "Análisis Microbiológicos"}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Grid container spacing={2}>
+                  {analisisDisponibles.map((analisis) => (
+                    <Grid item xs={12} sm={6} key={analisis.nombre}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={editingMuestra.analisisSeleccionados?.includes(analisis.nombre)}
+                            onChange={() => handleAnalisisChange(analisis.nombre)}
+                          />
+                        }
+                        label={
+                          analisis.unidad && analisis.unidad !== "N/A"
+                            ? `${analisis.nombre} (Unidad: ${analisis.unidad})`
+                            : analisis.nombre
+                        }
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
+          )}
+
+          {/* Observaciones */}
           <TextField
             fullWidth
             label="Observaciones"
             multiline
-            rows={4}
+            rows={3}
             value={editingMuestra.observaciones || ""}
             onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                observaciones: e.target.value,
-              })
+              setEditingMuestra({ ...editingMuestra, observaciones: e.target.value })
             }
           />
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            Análisis a Realizar
-          </Typography>
-          {editingMuestra.tipoMuestra === "Agua" &&
-            ANALISIS_AGUA.map((categoria, index) => (
-              <Accordion key={index} sx={{ mb: 1 }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                    {categoria.categoria}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {categoria.analisis.map((analisis, idx) => (
-                    <FormControlLabel
-                      key={idx}
-                      control={
-                        <Checkbox
-                          value={analisis}
-                          checked={editingMuestra.analisisSeleccionados?.includes(analisis)}
-                          onChange={(e) => {
-                            const { value, checked } = e.target;
-                            setEditingMuestra((prev) => ({
-                              ...prev,
-                              analisisSeleccionados: checked
-                                ? [...(prev.analisisSeleccionados || []), value]
-                                : (prev.analisisSeleccionados || []).filter(
-                                    (item) => item !== value
-                                  ),
-                            }));
-                          }}
-                        />
-                      }
-                      label={analisis}
-                    />
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            onClick={onSave}
-            sx={{ mt: 2 }}
-          >
+
+          <Button variant="contained" color="primary" fullWidth onClick={onSave} sx={{ mt: 2 }}>
             Guardar Cambios
           </Button>
         </Box>
@@ -392,18 +460,20 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
   );
 };
 
+// ------------------ Componente Principal Muestras ------------------
 const Muestras = () => {
   const [muestras, setMuestras] = useState([]);
   const [filteredMuestras, setFilteredMuestras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // El filtro se basa en "tipoAnalisis"
   const [filterType, setFilterType] = useState("todos");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedMuestra, setSelectedMuestra] = useState(null);
   const [editingMuestra, setEditingMuestra] = useState(null);
   const navigate = useNavigate();
-  const { tipoUsuario } = useContext(AuthContext); // Obtenemos el rol del usuario
+  const { tipoUsuario } = useContext(AuthContext); // Se obtiene el rol del usuario
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -428,6 +498,7 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
+  // Carga inicial de muestras y usuarios
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -439,10 +510,10 @@ const Muestras = () => {
           setLoading(false);
           return;
         }
-        const muestrasResponse = await axios.get(
-          "https://daniel-back-dom.onrender.com/api/muestras",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // Cargamos las muestras
+        const muestrasResponse = await axios.get(API_URLS.MUESTRAS, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         let muestrasData = [];
         if (
@@ -453,10 +524,10 @@ const Muestras = () => {
           muestrasData = muestrasResponse.data.data.muestras;
         }
 
-        const usuariosResponse = await axios.get(
-          "https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios",
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // Cargamos los usuarios
+        const usuariosResponse = await axios.get(API_URLS.USUARIOS, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         const usuariosData = Array.isArray(usuariosResponse.data.usuarios)
           ? usuariosResponse.data.usuarios
@@ -464,12 +535,16 @@ const Muestras = () => {
           ? usuariosResponse.data
           : [];
 
+        // Vinculamos la info del cliente
         const muestrasCompletas = muestrasData.map((muestra) => {
           const usuario = usuariosData.find(
             (user) => user.documento === muestra.documento
           );
           return {
             ...muestra,
+            tipoAnalisis: muestra.tipoAnalisis || "N/A",
+            tipoMuestreo: muestra.tipoMuestreo || "N/A",
+            fechaHoraMuestreo: muestra.fechaHoraMuestreo || "N/A",
             nombreCliente: usuario ? usuario.nombre : "No encontrado",
             telefono: usuario ? usuario.telefono : "No encontrado",
           };
@@ -489,21 +564,22 @@ const Muestras = () => {
     fetchData();
   }, []);
 
+  // Filtrado local (tipoAnalisis y búsqueda)
   useEffect(() => {
     let filtered = [...muestras];
     if (filterType !== "todos") {
       filtered = filtered.filter(
-        (muestra) =>
-          muestra.tipoMuestreo?.toLowerCase() === filterType.toLowerCase()
+        (m) =>
+          m.tipoAnalisis &&
+          m.tipoAnalisis.toLowerCase() === filterType.toLowerCase()
       );
     }
-    // En el filtro de búsqueda, si el usuario es laboratorista se omite la búsqueda por cliente
     if (search.trim() !== "") {
       filtered = filtered.filter(
-        (muestra) =>
+        (m) =>
           (tipoUsuario !== "laboratorista" &&
-            muestra.nombreCliente.toLowerCase().includes(search.toLowerCase())) ||
-          String(muestra.id_muestra).includes(search)
+            m.nombreCliente.toLowerCase().includes(search.toLowerCase())) ||
+          String(m.id_muestra).includes(search)
       );
     }
     setFilteredMuestras(filtered);
@@ -515,85 +591,9 @@ const Muestras = () => {
   const handleFilterChange = async (e) => {
     const selectedType = e.target.value;
     setFilterType(selectedType);
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-
-      const muestrasResponse = await axios.get(
-        "https://daniel-back-dom.onrender.com/api/muestras",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      let muestrasData = [];
-      if (
-        muestrasResponse.data &&
-        muestrasResponse.data.data &&
-        muestrasResponse.data.data.muestras
-      ) {
-        muestrasData = muestrasResponse.data.data.muestras;
-      }
-
-      let muestrasFiltradas = muestrasData;
-      if (selectedType === "Agua") {
-        muestrasFiltradas = muestrasData.filter(
-          (muestra) =>
-            muestra.tipoMuestra &&
-            muestra.tipoMuestra.toLowerCase() === "agua"
-        );
-      } else if (selectedType === "Suelo") {
-        muestrasFiltradas = muestrasData.filter(
-          (muestra) =>
-            muestra.tipoMuestra &&
-            muestra.tipoMuestra.toLowerCase() === "suelo"
-        );
-      }
-
-      const usuariosResponse = await axios.get(
-        "https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      let usuariosData = [];
-      if (usuariosResponse.data && usuariosResponse.data.usuarios) {
-        usuariosData = usuariosResponse.data.usuarios;
-      }
-
-      const muestrasCompletas = muestrasFiltradas.map((muestra) => {
-        const usuario = usuariosData.find(
-          (user) => user.documento === muestra.documento
-        );
-        const ultimoEstado =
-          muestra.historial && muestra.historial.length > 0
-            ? muestra.historial[muestra.historial.length - 1].estado
-            : "No especificado";
-        return {
-          ...muestra,
-          id_muestra: muestra.id_muestra || "N/A",
-          nombreCliente: usuario
-            ? usuario.nombre
-            : muestra.nombreadministrador || "No encontrado",
-          telefono: usuario ? usuario.telefono : "No encontrado",
-          estado: muestra.estado || ultimoEstado,
-          tipoMuestreo: muestra.tipoMuestreo || "N/A",
-          fechaHora: muestra.fechaHora || "N/A",
-          analisisSeleccionados: muestra.analisisSeleccionados || [],
-          tipoDeAgua: muestra.tipoDeAgua ? muestra.tipoDeAgua.tipo : "N/A",
-        };
-      });
-
-      setMuestras(muestrasCompletas);
-      setFilteredMuestras(muestrasCompletas);
-    } catch (error) {
-      console.error("Error al cargar muestras:", error);
-      setSnackbarMessage("Error al cargar las muestras. Verifica tu conexión.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    } finally {
-      setLoading(false);
-    }
-    setPage(0);
   };
 
+  // Generar PDF
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
     doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
@@ -607,41 +607,40 @@ const Muestras = () => {
       ["ID Muestra", muestra.id_muestra || "N/A"],
       ["Documento", muestra.documento || "N/A"],
       ["Nombre del Cliente", muestra.nombreCliente || "No encontrado"],
-      ["Tipo de Muestra", muestra.tipoMuestra || "N/A"],
+      ["Tipo de Análisis", muestra.tipoAnalisis || "N/A"],
       ["Tipo de Muestreo", muestra.tipoMuestreo || "N/A"],
       [
-        "Fecha y Hora",
-        muestra.fechaHora ? new Date(muestra.fechaHora).toLocaleString() : "N/A",
+        "Fecha y Hora de Muestreo",
+        muestra.fechaHoraMuestreo
+          ? new Date(muestra.fechaHoraMuestreo).toLocaleString()
+          : "N/A",
       ],
       ["Lugar de Muestreo", muestra.lugarMuestreo || "N/A"],
+      ["Identificación de Muestra", muestra.identificacionMuestra || "N/A"],
       ["Plan de Muestreo", muestra.planMuestreo || "N/A"],
       ["Condiciones Ambientales", muestra.condicionesAmbientales || "N/A"],
       ["Preservación de Muestra", muestra.preservacionMuestra || "N/A"],
-      ["Identificación de Muestra", muestra.identificacionMuestra || "N/A"],
-      [
-        "Análisis Seleccionados",
-        muestra.analisisSeleccionados?.join(", ") || "Ninguno",
-      ],
     ];
 
-    if (muestra.tipoMuestra === "Agua" && muestra.tipoDeAgua) {
-      detallesMuestra.push(["Tipo de Agua", muestra.tipoDeAgua.tipo || "N/A"]);
-      if (muestra.tipoDeAgua.tipoPersonalizado) {
-        detallesMuestra.push(["Tipo Personalizado", muestra.tipoDeAgua.tipoPersonalizado]);
-      }
-      if (muestra.tipoDeAgua.descripcion) {
-        detallesMuestra.push(["Descripción", muestra.tipoDeAgua.descripcion]);
-      }
+    if (muestra.preservacionMuestra === "Otro") {
+      detallesMuestra.push([
+        "Detalle de Preservación",
+        muestra.preservacionMuestraOtra || "N/A",
+      ]);
     }
 
-    detallesMuestra.push(["Estado", muestra.estado || "No especificado"]);
+    detallesMuestra.push(
+      ["Análisis Seleccionados", muestra.analisisSeleccionados?.join(", ") || "Ninguno"],
+      ["Observaciones", muestra.observaciones || "N/A"],
+      ["Estado", muestra.estado || "No especificado"]
+    );
 
     if (muestra.historial && muestra.historial.length > 0) {
       const ultimoCambio = muestra.historial[muestra.historial.length - 1];
       detallesMuestra.push(
         ["Último cambio por", ultimoCambio.nombreadministrador || "N/A"],
         ["Fecha de cambio", new Date(ultimoCambio.fechaCambio).toLocaleString()],
-        ["Observaciones", ultimoCambio.observaciones || "N/A"]
+        ["Observaciones Hist.", ultimoCambio.observaciones || "N/A"]
       );
     }
 
@@ -650,10 +649,7 @@ const Muestras = () => {
       head: [["Campo", "Valor"]],
       body: detallesMuestra,
       theme: "grid",
-      styles: {
-        fontSize: 10,
-        cellPadding: 2,
-      },
+      styles: { fontSize: 10, cellPadding: 2 },
       columnStyles: {
         0: { fontStyle: "bold", cellWidth: 60 },
         1: { cellWidth: 130 },
@@ -672,9 +668,7 @@ const Muestras = () => {
         try {
           doc.addImage(muestra.firmas.firmaAdministrador, "PNG", 20, currentY, 70, 30);
           doc.setFontSize(10);
-          doc.text("Daniel Ortiz", 20, currentY + 35);
-          doc.text("1006995304", 20, currentY + 40);
-          doc.text("Administrador", 20, currentY + 45);
+          doc.text("Administrador", 20, currentY + 35);
         } catch (error) {
           console.error("Error al agregar firma del administrador:", error);
         }
@@ -684,9 +678,7 @@ const Muestras = () => {
         try {
           doc.addImage(muestra.firmas.firmaCliente, "PNG", 120, currentY, 70, 30);
           doc.setFontSize(10);
-          doc.text(muestra.nombreCliente, 120, currentY + 35);
-          doc.text(muestra.documento, 120, currentY + 40);
-          doc.text("Cliente", 120, currentY + 45);
+          doc.text("Cliente", 120, currentY + 35);
         } catch (error) {
           console.error("Error al agregar firma del cliente:", error);
         }
@@ -704,20 +696,30 @@ const Muestras = () => {
     }
   };
 
+  // Edición de la muestra
   const handleEditMuestra = (muestra) => setEditingMuestra(muestra);
 
   const handleSaveEdit = async () => {
     try {
       const updateData = {
+        tipoAnalisis: editingMuestra.tipoAnalisis,
         tipoMuestreo: editingMuestra.tipoMuestreo,
-        preservacionMuestra: editingMuestra.preservacionMuestra,
+        fechaHoraMuestreo: editingMuestra.fechaHoraMuestreo,
         lugarMuestreo: editingMuestra.lugarMuestreo,
+        identificacionMuestra: editingMuestra.identificacionMuestra,
+        planMuestreo: editingMuestra.planMuestreo,
+        condicionesAmbientales: editingMuestra.condicionesAmbientales,
+        preservacionMuestra: editingMuestra.preservacionMuestra,
+        preservacionMuestraOtra:
+          editingMuestra.preservacionMuestra === "Otro"
+            ? editingMuestra.preservacionMuestraOtra
+            : "",
         analisisSeleccionados: editingMuestra.analisisSeleccionados,
-        observaciones: editingMuestra.observaciones
+        observaciones: editingMuestra.observaciones,
       };
 
       await axios.put(
-        `https://daniel-back-dom.onrender.com/api/muestras/${editingMuestra.id_muestra}`,
+        `${API_URLS.MUESTRAS}/${editingMuestra.id_muestra}`,
         updateData,
         {
           headers: {
@@ -728,64 +730,59 @@ const Muestras = () => {
       );
 
       const updatedMuestras = muestras.map((m) =>
-        m.id_muestra === editingMuestra.id_muestra 
-          ? { ...m, ...updateData }
-          : m
+        m.id_muestra === editingMuestra.id_muestra ? { ...m, ...updateData } : m
       );
 
       setMuestras(updatedMuestras);
       setFilteredMuestras(updatedMuestras);
       setEditingMuestra(null);
-      
+
       setSnackbarMessage("Muestra actualizada exitosamente");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
     } catch (error) {
       console.error("Error al actualizar la muestra:", error);
-      setSnackbarMessage("Error al actualizar la muestra: " + (error.response?.data?.message || error.message));
+      setSnackbarMessage(
+        "Error al actualizar la muestra: " +
+          (error.response?.data?.message || error.message)
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
   };
 
+  // Para ver los detalles
   const handleViewDetails = (muestra) => {
     setSelectedMuestra(muestra);
   };
 
+  // Para descargar PDF
   const handleDownloadPDF = (muestra) => {
     generarPDFMuestra(muestra);
   };
 
+  // Click en botón "Editar"
   const handleEditClick = (muestra) => {
     handleEditMuestra(muestra);
   };
 
   if (loading)
-    return (
-      <CircularProgress sx={{ display: "block", margin: "20px auto" }} />
-    );
+    return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
 
   return (
     <Paper sx={{ padding: 2, marginTop: 2, boxShadow: 3 }}>
-      <Typography
-        variant="h4"
-        align="center"
-        sx={{ marginBottom: 2, fontWeight: "bold" }}
-      >
+      <Typography variant="h4" align="center" sx={{ marginBottom: 2, fontWeight: "bold" }}>
         Muestras Registradas
       </Typography>
 
-      <Select
-        value={filterType}
-        onChange={handleFilterChange}
-        fullWidth
-        sx={{ marginBottom: 2 }}
-      >
+      {/* Filtro por tipo de análisis */}
+      <Select value={filterType} onChange={handleFilterChange} fullWidth sx={{ marginBottom: 2 }}>
         <MenuItem value="todos">Todos</MenuItem>
-        <MenuItem value="Agua">Agua</MenuItem>
-        <MenuItem value="Suelo">Suelo</MenuItem>
+        <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
+        <MenuItem value="Microbiológico">Microbiológico</MenuItem>
       </Select>
 
+      {/* Búsqueda */}
       <TextField
         label="Buscar muestra (ID o cliente)"
         variant="outlined"
@@ -801,14 +798,13 @@ const Muestras = () => {
               <TableHead sx={{ backgroundColor: "#39A900" }}>
                 <TableRow>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID</TableCell>
-                  {/* Si el usuario es laboratorista, no se muestran las columnas de cliente */}
                   {tipoUsuario !== "laboratorista" && (
                     <>
                       <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
                       <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
                     </>
                   )}
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Análisis</TableCell>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
                   <TableCell sx={{ color: "white", fontWeight: "bold" }}>Análisis</TableCell>
@@ -835,7 +831,7 @@ const Muestras = () => {
                           <TableCell>{muestra.documento}</TableCell>
                         </>
                       )}
-                      <TableCell>{muestra.tipoMuestra}</TableCell>
+                      <TableCell>{muestra.tipoAnalisis}</TableCell>
                       <TableCell>
                         {(() => {
                           const estadoProps = getEstadoChipProps(muestra.estado);
@@ -849,13 +845,12 @@ const Muestras = () => {
                         })()}
                       </TableCell>
                       <TableCell>
-                        {muestra.fechaHora
-                          ? new Date(muestra.fechaHora).toLocaleDateString()
+                        {muestra.fechaHoraMuestreo
+                          ? new Date(muestra.fechaHoraMuestreo).toLocaleDateString()
                           : "N/A"}
                       </TableCell>
                       <TableCell>
-                        {muestra.analisisSeleccionados &&
-                        muestra.analisisSeleccionados.length > 0
+                        {muestra.analisisSeleccionados && muestra.analisisSeleccionados.length > 0
                           ? muestra.analisisSeleccionados.join(", ")
                           : "Ninguno"}
                       </TableCell>
@@ -891,6 +886,7 @@ const Muestras = () => {
             </Table>
           </TableContainer>
 
+          {/* Paginación */}
           {filteredMuestras.length > rowsPerPage && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
               <Pagination
@@ -899,15 +895,11 @@ const Muestras = () => {
                 onChange={(event, value) => setPage(value - 1)}
                 color="primary"
                 sx={{
-                  "& .MuiPaginationItem-root": {
-                    color: "#39A900",
-                  },
+                  "& .MuiPaginationItem-root": { color: "#39A900" },
                   "& .Mui-selected": {
                     backgroundColor: "#39A900",
                     color: "white",
-                    "&:hover": {
-                      backgroundColor: "#2d8000",
-                    },
+                    "&:hover": { backgroundColor: "#2d8000" },
                   },
                 }}
               />
@@ -920,6 +912,7 @@ const Muestras = () => {
         </Typography>
       )}
 
+      {/* Modal de Detalles */}
       <DetailMuestraModal
         selectedMuestra={selectedMuestra}
         onClose={() => setSelectedMuestra(null)}
@@ -927,6 +920,7 @@ const Muestras = () => {
         hideClientData={tipoUsuario === "laboratorista"}
       />
 
+      {/* Modal de Edición (usa carga dinámica de análisis) */}
       <EditMuestraModal
         editingMuestra={editingMuestra}
         setEditingMuestra={setEditingMuestra}
