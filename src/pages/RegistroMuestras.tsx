@@ -377,7 +377,7 @@ const RegistroMuestras: React.FC = () => {
     
     // Solo validar descripción si el tipo es "otra"
     if (data.tipoDeAgua.tipo === 'otra' && !data.tipoDeAgua.descripcion) {
-      errores.descripcion = 'La descripción es requerida para otro tipo de agua';
+      errores.descripcion = 'La descripción del tipo de agua es requerida';
     }
 
     if (!data.tipoMuestreo) errores.tipoMuestreo = 'El tipo de muestreo es requerido';
@@ -415,8 +415,16 @@ const RegistroMuestras: React.FC = () => {
           ...prev.tipoDeAgua,
           tipo: value,
           codigo: codigo,
-          descripcion: value === 'otra' ? '' : value,
+          descripcion: value === 'otra' ? '' : value === 'potable' ? 'Agua potable' : value === 'natural' ? 'Agua natural' : prev.tipoDeAgua.descripcion,
           subtipo: value === 'residual' ? prev.tipoDeAgua.subtipo : undefined
+        }
+      }));
+    } else if (name === "descripcion") {
+      setFormData(prev => ({
+        ...prev,
+        tipoDeAgua: {
+          ...prev.tipoDeAgua,
+          descripcion: value
         }
       }));
     } else if (name === "tipoAguaResidual") {
@@ -425,7 +433,6 @@ const RegistroMuestras: React.FC = () => {
         tipoDeAgua: {
           ...prev.tipoDeAgua,
           subtipo: value,
-          subtipoResidual: value,
           descripcion: `Agua residual ${value}`
         }
       }));
@@ -665,7 +672,7 @@ const RegistroMuestras: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Si no se están mostrando las firmas, mostrarlas y no enviar el formulario
     if (!mostrarFirmas && !isRejected) {
       const errores = validarFormulario(formData);
@@ -720,7 +727,7 @@ const RegistroMuestras: React.FC = () => {
         planMuestreo: formData.planMuestreo,
         condicionesAmbientales: formData.condicionesAmbientales,
         preservacionMuestra: formData.preservacionMuestra,
-        preservacionMuestraOtra: formData.preservacionMuestraOtra,
+        descripcion: formData.preservacionMuestra === 'Otro' ? formData.preservacionMuestraOtra : undefined,
         analisisSeleccionados: formData.analisisSeleccionados,
         firmas: {
           firmaAdministrador: {
@@ -732,7 +739,7 @@ const RegistroMuestras: React.FC = () => {
             fecha: new Date().toISOString()
           }
         },
-        observaciones: formData.observaciones || '',
+        observaciones: isRejected ? observacionRechazo : formData.observaciones || '',
         estado: isRejected ? 'Rechazada' : 'Recibida'
       };
 
@@ -761,7 +768,7 @@ const RegistroMuestras: React.FC = () => {
 
       setSuccess(isUpdating ? '✔ Muestra actualizada exitosamente' : '✔ Muestra registrada exitosamente');
       limpiarEstado();
-      
+
       // Redirigir después de un registro exitoso
       setTimeout(() => {
         navigate('/muestras');
@@ -769,7 +776,7 @@ const RegistroMuestras: React.FC = () => {
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message;
       setError(`Error: ${errorMessage}`);
-      
+
       // Si el error es de autenticación, redirigir al login
       if (error.response?.status === 401) {
         setTimeout(() => {
@@ -1045,6 +1052,18 @@ const RegistroMuestras: React.FC = () => {
           </Select>
         </FormControl>
 
+        {formData.tipoDeAgua.tipo === 'otra' && (
+          <TextField
+            fullWidth
+            label="Descripción del Tipo de Agua"
+            name="descripcion"
+            value={formData.tipoDeAgua.descripcion}
+            onChange={handleChange}
+            required
+            sx={{ mb: 2 }}
+          />
+        )}
+
         {formData.tipoDeAgua.tipo === "residual" && (
           <FormControl fullWidth sx={{ mb: 2 }} error={Boolean(error && error.includes('agua residual'))}>
             <InputLabel>Tipo de Agua Residual</InputLabel>
@@ -1165,7 +1184,7 @@ const RegistroMuestras: React.FC = () => {
         {formData.preservacionMuestra === 'Otro' && (
           <TextField
             fullWidth
-            label="Especificar preservación"
+            label="Descripción de la Preservación"
             name="preservacionMuestraOtra"
             value={formData.preservacionMuestraOtra}
             onChange={handleChange}
