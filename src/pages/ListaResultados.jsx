@@ -71,7 +71,7 @@ const ListaResultados = () => {
         return;
       }
 
-      const response = await axios.get('https://daniel-back-dom.onrender.com/api/ingreso-resultados/resultados', {
+      const response = await axios.get('https://backend-registro-muestras.onrender.com/api/ingreso-resultados/resultados', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -122,7 +122,7 @@ const ListaResultados = () => {
       setVerificando(true);
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `https://daniel-back-dom.onrender.com/api/ingreso-resultados/verificar/${selectedResult.idMuestra}`,
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/verificar/${selectedResult.idMuestra}`,
         { observaciones: observacionesVerificacion },
         {
           headers: {

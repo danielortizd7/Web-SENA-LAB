@@ -82,7 +82,7 @@ const Dashboard = () => {
       }
       try {
         const response = await axios.get(
-          "https://daniel-back-dom.onrender.com/api/muestras",
+          "https://backend-registro-muestras.onrender.com/api/muestras",
           {
             headers: { Authorization: `Bearer ${token}` },
           }

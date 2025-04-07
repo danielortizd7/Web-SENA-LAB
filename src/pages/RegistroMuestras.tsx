@@ -22,6 +22,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Pagination,
+  PaginationItem,
+  FormHelperText
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SignatureCanvas from 'react-signature-canvas';
@@ -29,11 +32,12 @@ import SignaturePad from '../components/SignaturePad';
 import FirmasDigitales from '../components/FirmasDigitales';
 import { muestrasService } from '../services/muestras.service';
 import { SelectChangeEvent } from '@mui/material/Select';
+import { Theme } from '@mui/material/styles';
 
 // URLs base actualizadas
 const BASE_URLS = {
   USUARIOS: 'https://backend-sena-lab-1-qpzp.onrender.com/api',
-  MUESTRAS: 'https://daniel-back-dom.onrender.com/api'
+  MUESTRAS: 'https://backend-registro-muestras.onrender.com/api'
 };
 
 // URLs específicas actualizadas
@@ -50,8 +54,16 @@ type TipoPreservacion = typeof TIPOS_PRESERVACION[number];
 const TIPOS_MUESTREO = ['Simple', 'Compuesto'] as const;
 type TipoMuestreo = typeof TIPOS_MUESTREO[number];
 
-const TIPOS_AGUA = ['potable', 'natural', 'residual domestica', 'residual no domestica', 'otra'] as const;
+const TIPOS_AGUA = ['potable', 'natural', 'residual', 'otra'] as const;
 type TipoAgua = typeof TIPOS_AGUA[number];
+
+const TIPOS_AGUA_RESIDUAL = ['domestica', 'no domestica'] as const;
+type TipoAguaResidual = typeof TIPOS_AGUA_RESIDUAL[number];
+
+const SUBTIPOS_RESIDUAL = {
+  DOMESTICA: 'Doméstica',
+  NO_DOMESTICA: 'No Doméstica'
+} as const;
 
 const TIPOS_ANALISIS = ['Fisicoquímico', 'Microbiológico'] as const;
 type TipoAnalisis = typeof TIPOS_ANALISIS[number];
@@ -63,11 +75,12 @@ interface TipoDeAgua {
   tipo: string;
   codigo: string;
   descripcion: string;
+  subtipo?: string;
 }
 
 interface FirmaData {
   firma: string;
-  fecha: Date;
+  fecha: string | Date;
 }
 
 interface MuestraFormData {
@@ -76,11 +89,11 @@ interface MuestraFormData {
   tipoMuestreo: TipoMuestreo;
   lugarMuestreo: string;
   fechaHoraMuestreo: string;
-  tipoAnalisis: string;
+  tipoAnalisis: TipoAnalisis | '';
   identificacionMuestra: string;
   planMuestreo: string;
   condicionesAmbientales: string;
-  preservacionMuestra: string;
+  preservacionMuestra: TipoPreservacion | '';
   preservacionMuestraOtra?: string;
   analisisSeleccionados: string[];
   firmas: {
@@ -132,11 +145,31 @@ interface FirmasState {
 interface AnalisisCategoria {
   nombre: string;
   unidad: string;
+  metodo?: string;
 }
 
 interface AnalisisDisponibles {
   fisicoquimico: AnalisisCategoria[];
   microbiologico: AnalisisCategoria[];
+}
+
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+}
+
+interface MuestrasResponse {
+  muestras: MuestraFormData[];
+  pagination: PaginationInfo;
+}
+
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 const initialFormData: MuestraFormData = {
@@ -178,6 +211,13 @@ const initialFirmasState: FirmasState = {
   cliente: null
 };
 
+const initialPaginationState: PaginationState = {
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 1
+};
+
 // Actualizar la configuración base de axios
 const axiosInstance = axios.create({
   headers: {
@@ -187,14 +227,13 @@ const axiosInstance = axios.create({
   withCredentials: false // Cambiado a false porque no estamos usando cookies entre dominios
 });
 
-const getTipoAguaCodigo = (tipo: string): string => {
+const getTipoAguaCodigo = (tipo: string, subtipo?: string): string => {
   switch (tipo) {
     case 'potable':
       return 'P';
     case 'natural':
       return 'N';
-    case 'residual domestica':
-    case 'residual no domestica':
+    case 'residual':
       return 'R';
     case 'otra':
       return 'O';
@@ -228,6 +267,10 @@ const RegistroMuestras: React.FC = () => {
   const [registroExito, setRegistroExito] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState<boolean>(false);
   const [analisisDisponibles, setAnalisisDisponibles] = useState<AnalisisDisponibles | null>(null);
+  const [pagination, setPagination] = useState<PaginationState>(initialPaginationState);
+  const [sortBy, setSortBy] = useState('fechaHoraMuestreo');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filters, setFilters] = useState<Record<string, string>>({});
 
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
@@ -277,54 +320,47 @@ const RegistroMuestras: React.FC = () => {
   }, [firmas]);
 
   useEffect(() => {
-    const cargarTodosLosAnalisis = async () => {
+    const cargarAnalisis = async () => {
       try {
-        setAnalisisDisponibles({
-          fisicoquimico: [],
-          microbiologico: []
-        });
-        
-        if (formData.tipoAnalisis) {
-          await cargarAnalisis(formData.tipoAnalisis);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('No se encontró el token de autenticación');
+          return;
         }
-      } catch (error) {
-        console.error('Error en la carga inicial de análisis:', error);
-        setError('No se pudieron cargar los análisis. Por favor, recargue la página.');
-      }
-    };
-    
-    cargarTodosLosAnalisis();
-  }, [formData.tipoAnalisis]);
 
-  const cargarAnalisis = async (tipo: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const endpoint = tipo === 'Fisicoquímico' 
-        ? API_URLS.ANALISIS_FISICOQUIMICOS 
-        : API_URLS.ANALISIS_MICROBIOLOGICOS;
-
-      const response = await axios.get(endpoint, {
-        headers: {
+        const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
-      });
+        };
 
-      if (tipo === 'Fisicoquímico') {
-        setAnalisisDisponibles(prev => ({
-          ...prev,
-          fisicoquimico: response.data
-        }));
-      } else {
-        setAnalisisDisponibles(prev => ({
-          ...prev,
-          microbiologico: response.data
-        }));
+        if (formData.tipoAnalisis) {
+          const endpoint = formData.tipoAnalisis === 'Fisicoquímico' 
+            ? API_URLS.ANALISIS_FISICOQUIMICOS 
+            : API_URLS.ANALISIS_MICROBIOLOGICOS;
+
+          const response = await axios.get(endpoint, { headers });
+          
+          const nuevosAnalisis: AnalisisDisponibles = {
+            fisicoquimico: formData.tipoAnalisis === 'Fisicoquímico' ? response.data : [],
+            microbiologico: formData.tipoAnalisis === 'Microbiológico' ? response.data : []
+          };
+
+          setAnalisisDisponibles(prev => ({
+            fisicoquimico: formData.tipoAnalisis === 'Fisicoquímico' ? response.data : (prev?.fisicoquimico || []),
+            microbiologico: formData.tipoAnalisis === 'Microbiológico' ? response.data : (prev?.microbiologico || [])
+          }));
+        }
+      } catch (error) {
+        console.error('Error al cargar análisis:', error);
+        setError('Error al cargar los análisis disponibles');
       }
-    } catch (error) {
-      console.error('Error al cargar análisis:', error);
-      setError('Error al cargar los análisis disponibles');
-    }
+    };
+
+    cargarAnalisis();
+  }, [formData.tipoAnalisis]);
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPagination(prev => ({ ...prev, page: value }));
   };
 
   const validarFormulario = (data: MuestraFormData): Record<string, string> => {
@@ -334,11 +370,14 @@ const RegistroMuestras: React.FC = () => {
     if (!data.documento) errores.documento = 'El documento es requerido';
     if (!data.tipoDeAgua.tipo) errores.tipoDeAgua = 'El tipo de agua es requerido';
     
+    // Validación específica para agua residual
+    if (data.tipoDeAgua.tipo === 'residual' && !data.tipoDeAgua.subtipo) {
+      errores.tipoAguaResidual = 'Debe especificar si el agua residual es doméstica o no doméstica';
+    }
+    
     // Solo validar descripción si el tipo es "otra"
-    if (data.tipoDeAgua.tipo === 'otra') {
-      if (!data.tipoDeAgua.descripcion) {
-        errores.descripcion = 'La descripción es requerida para otro tipo de agua';
-      }
+    if (data.tipoDeAgua.tipo === 'otra' && !data.tipoDeAgua.descripcion) {
+      errores.descripcion = 'La descripción es requerida para otro tipo de agua';
     }
 
     if (!data.tipoMuestreo) errores.tipoMuestreo = 'El tipo de muestreo es requerido';
@@ -376,13 +415,24 @@ const RegistroMuestras: React.FC = () => {
           ...prev.tipoDeAgua,
           tipo: value,
           codigo: codigo,
-          descripcion: value === 'otra' ? '' : value
+          descripcion: value === 'otra' ? '' : value,
+          subtipo: value === 'residual' ? prev.tipoDeAgua.subtipo : undefined
+        }
+      }));
+    } else if (name === "tipoAguaResidual") {
+      setFormData(prev => ({
+        ...prev,
+        tipoDeAgua: {
+          ...prev.tipoDeAgua,
+          subtipo: value,
+          subtipoResidual: value,
+          descripcion: `Agua residual ${value}`
         }
       }));
     } else if (name === "preservacionMuestra") {
-      setFormData(prev => ({ ...prev, preservacionMuestra: value }));
+      setFormData(prev => ({ ...prev, preservacionMuestra: value as TipoPreservacion }));
     } else if (name === "tipoMuestreo") {
-      setFormData(prev => ({ ...prev, tipoMuestreo: value }));
+      setFormData(prev => ({ ...prev, tipoMuestreo: value as TipoMuestreo }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -505,7 +555,7 @@ const RegistroMuestras: React.FC = () => {
       }
       setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaAdministrador: { firma, fecha: new Date() } }
+        firmas: { ...prev.firmas, firmaAdministrador: { firma, fecha: new Date().toISOString() } }
       }));
       setError(null);
     } catch (error: any) {
@@ -529,7 +579,7 @@ const RegistroMuestras: React.FC = () => {
       }
       setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaCliente: { firma, fecha: new Date() } }
+        firmas: { ...prev.firmas, firmaCliente: { firma, fecha: new Date().toISOString() } }
       }));
       setError(null);
       setSuccess('✔ Firma del cliente guardada correctamente');
@@ -555,8 +605,8 @@ const RegistroMuestras: React.FC = () => {
   const cargarMuestraExistente = async (id: string) => {
     try {
       const response = await muestrasService.obtenerMuestra(id);
-      if (response.data && response.data.muestra) {
-        const muestra = response.data.muestra;
+      if (response.data) {
+        const muestra = response.data;
         setFormData({
           documento: muestra.documento,
           tipoDeAgua: muestra.tipoDeAgua || { tipo: '', codigo: '', descripcion: '' },
@@ -567,12 +617,12 @@ const RegistroMuestras: React.FC = () => {
           identificacionMuestra: muestra.identificacionMuestra,
           planMuestreo: muestra.planMuestreo,
           condicionesAmbientales: muestra.condicionesAmbientales,
-          preservacionMuestra: muestra.preservacionMuestra,
+          preservacionMuestra: muestra.preservacionMuestra as TipoPreservacion,
           preservacionMuestraOtra: muestra.preservacionMuestraOtra || '',
           analisisSeleccionados: muestra.analisisSeleccionados || [],
           firmas: muestra.firmas || {
-            firmaAdministrador: { firma: '', fecha: new Date() },
-            firmaCliente: { firma: '', fecha: new Date() }
+            firmaAdministrador: { firma: '', fecha: new Date().toISOString() },
+            firmaCliente: { firma: '', fecha: new Date().toISOString() }
           },
           observaciones: muestra.observaciones || ''
         });
@@ -647,12 +697,20 @@ const RegistroMuestras: React.FC = () => {
         return;
       }
 
+      // Validar que el tipo de agua residual esté seleccionado si corresponde
+      if (formData.tipoDeAgua.tipo === 'residual' && !formData.tipoDeAgua.subtipo) {
+        setError('Debe seleccionar el tipo de agua residual');
+        setLoading(false);
+        return;
+      }
+
       const muestraData = {
         documento: formData.documento,
         tipoDeAgua: {
           tipo: formData.tipoDeAgua.tipo,
           codigo: formData.tipoDeAgua.codigo,
-          descripcion: formData.tipoDeAgua.descripcion
+          descripcion: formData.tipoDeAgua.descripcion,
+          subtipoResidual: formData.tipoDeAgua.subtipo
         },
         tipoMuestreo: formData.tipoMuestreo,
         lugarMuestreo: formData.lugarMuestreo,
@@ -674,7 +732,8 @@ const RegistroMuestras: React.FC = () => {
             fecha: new Date().toISOString()
           }
         },
-        observaciones: formData.observaciones || ''
+        observaciones: formData.observaciones || '',
+        estado: isRejected ? 'Rechazada' : 'Recibida'
       };
 
       const token = localStorage.getItem('token');
@@ -702,9 +761,21 @@ const RegistroMuestras: React.FC = () => {
 
       setSuccess(isUpdating ? '✔ Muestra actualizada exitosamente' : '✔ Muestra registrada exitosamente');
       limpiarEstado();
+      
+      // Redirigir después de un registro exitoso
+      setTimeout(() => {
+        navigate('/muestras');
+      }, 2000);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message;
       setError(`Error: ${errorMessage}`);
+      
+      // Si el error es de autenticación, redirigir al login
+      if (error.response?.status === 401) {
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -967,33 +1038,30 @@ const RegistroMuestras: React.FC = () => {
           >
             {TIPOS_AGUA.map(tipo => (
               <MenuItem key={tipo} value={tipo}>
-                {tipo.charAt(0).toUpperCase() + tipo.slice(1)} ({getTipoAguaCodigo(tipo)})
+                {tipo === 'residual' ? 'Residual' :
+                 tipo.charAt(0).toUpperCase() + tipo.slice(1)} ({getTipoAguaCodigo(tipo)})
               </MenuItem>
             ))}
           </Select>
         </FormControl>
-        {formData.tipoDeAgua.tipo === "otra" && (
-          <>
-            <TextField
-              fullWidth
-              label="Código"
-              name="codigo"
-              value={formData.tipoDeAgua.codigo}
-              disabled
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="Descripción"
-              name="descripcion"
-              value={formData.tipoDeAgua.descripcion}
+
+        {formData.tipoDeAgua.tipo === "residual" && (
+          <FormControl fullWidth sx={{ mb: 2 }} error={Boolean(error && error.includes('agua residual'))}>
+            <InputLabel>Tipo de Agua Residual</InputLabel>
+            <Select
+              name="tipoAguaResidual"
+              value={formData.tipoDeAgua.subtipo || ''}
               onChange={handleChange}
-              sx={{ mb: 2 }}
-              multiline
-              rows={2}
+              label="Tipo de Agua Residual"
               required
-            />
-          </>
+            >
+              <MenuItem value={SUBTIPOS_RESIDUAL.DOMESTICA}>Doméstica</MenuItem>
+              <MenuItem value={SUBTIPOS_RESIDUAL.NO_DOMESTICA}>No Doméstica</MenuItem>
+            </Select>
+            {error && error.includes('agua residual') && (
+              <FormHelperText error>{error}</FormHelperText>
+            )}
+          </FormControl>
         )}
 
         <FormControl fullWidth sx={{ mb: 2 }}>

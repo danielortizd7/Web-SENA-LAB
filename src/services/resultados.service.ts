@@ -36,7 +36,7 @@ interface ResultadosData {
 }
 
 class ResultadosService {
-  private API_URL = 'https://daniel-back-dom.onrender.com/api/ingreso-resultados';
+  private API_URL = 'https://backend-registro-muestras.onrender.com/api/ingreso-resultados';
 
   private getHeaders() {
     const token = localStorage.getItem('token');
