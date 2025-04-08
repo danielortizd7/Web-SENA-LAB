@@ -727,20 +727,15 @@ const RegistroMuestras: React.FC = () => {
         planMuestreo: formData.planMuestreo,
         condicionesAmbientales: formData.condicionesAmbientales,
         preservacionMuestra: formData.preservacionMuestra,
-        descripcion: formData.preservacionMuestra === 'Otro' ? formData.preservacionMuestraOtra : undefined,
         analisisSeleccionados: formData.analisisSeleccionados,
-        firmas: {
-          firmaAdministrador: {
-            firma: formData.firmas.firmaAdministrador.firma,
-            fecha: new Date().toISOString()
-          },
-          firmaCliente: {
-            firma: formData.firmas.firmaCliente.firma,
-            fecha: new Date().toISOString()
-          }
-        },
         observaciones: isRejected ? observacionRechazo : formData.observaciones || '',
-        estado: isRejected ? 'Rechazada' : 'Recibida'
+        estado: isRejected ? 'Rechazada' : 'Recibida',
+        rechazoMuestra: isRejected
+          ? {
+              rechazada: true,
+              motivo: observacionRechazo
+            }
+          : undefined
       };
 
       const token = localStorage.getItem('token');
@@ -766,7 +761,7 @@ const RegistroMuestras: React.FC = () => {
         );
       }
 
-      setSuccess(isUpdating ? '✔ Muestra actualizada exitosamente' : '✔ Muestra registrada exitosamente');
+      setSuccess(isRejected ? '✔ Muestra rechazada exitosamente' : '✔ Muestra registrada exitosamente');
       limpiarEstado();
 
       // Redirigir después de un registro exitoso

@@ -534,23 +534,10 @@ const Muestras = () => {
           console.log('Procesando muestra individual:', muestra);
           
           // Formatear la fecha y hora
-          let fechaHoraFormateada = "N/A";
-          if (muestra.fechaHoraMuestreo) {
-            try {
-              const fecha = new Date(muestra.fechaHoraMuestreo);
-              if (!isNaN(fecha.getTime())) {
-                fechaHoraFormateada = fecha.toLocaleString('es-ES', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                });
-              }
-            } catch (error) {
-              console.error('Error al formatear fecha:', error);
-            }
-          }
+          const fechaHoraMuestreo =
+            muestra.fechaHoraMuestreo?.fecha && muestra.fechaHoraMuestreo?.hora
+              ? `${muestra.fechaHoraMuestreo.fecha} ${muestra.fechaHoraMuestreo.hora}`
+              : "N/A";
 
           // Asegurar que tenemos los datos correctos de tipo de análisis y análisis seleccionados
           const tipoAnalisis = muestra.tipoAnalisis || "N/A";
@@ -583,7 +570,7 @@ const Muestras = () => {
             },
             tipoMuestreo: muestra.tipoMuestreo || "Simple",
             lugarMuestreo: muestra.lugarMuestreo?.trim() || "N/A",
-            fechaHoraMuestreo: fechaHoraFormateada,
+            fechaHoraMuestreo: fechaHoraMuestreo,
             tipoAnalisis: tipoAnalisis,
             identificacionMuestra: muestra.identificacionMuestra || "N/A",
             planMuestreo: muestra.planMuestreo || "N/A",

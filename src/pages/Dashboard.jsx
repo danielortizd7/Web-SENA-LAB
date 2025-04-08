@@ -87,20 +87,25 @@ const Dashboard = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
+
+        console.log("Respuesta del backend (muestras):", response.data);
+
         let samples = [];
-        if (response.data && response.data.data && response.data.data.muestras) {
-          samples = response.data.data.muestras;
-        } else if (Array.isArray(response.data)) {
-          samples = response.data;
+        if (response.data && response.data.data && Array.isArray(response.data.data.data)) {
+          samples = response.data.data.data; // Ajuste para manejar la estructura correcta
+        } else {
+          console.warn("Estructura inesperada en la respuesta de muestras:", response.data);
         }
+
         setAllSamples(samples);
+
         const totalSamples = samples.length;
-        // Se asume que las muestras con estado "recibida" son pendientes
         const pendingSamples = samples.filter(
           (s) => s.estado && s.estado.toLowerCase() === "recibida"
         ).length;
         const verifiedSamples = totalSamples - pendingSamples;
         const typeDistribution = generateTypeDistribution(samples);
+
         setSampleStats({
           totalSamples,
           pendingSamples,
@@ -133,16 +138,19 @@ const Dashboard = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
+
+        console.log("Respuesta del backend (usuarios):", response.data);
+
         let users = [];
         if (Array.isArray(response.data)) {
           users = response.data;
         } else if (response.data && response.data.usuarios) {
           users = response.data.usuarios;
         } else {
-          users = response.data;
+          console.warn("Estructura inesperada en la respuesta de usuarios:", response.data);
         }
+
         const totalUsers = users.length;
-        // Calculamos la distribución por rol, omitiendo aquellos sin rol definido
         const roleCounts = {};
         users.forEach((user) => {
           const role = user.rol?.nombre;
@@ -150,10 +158,12 @@ const Dashboard = () => {
             roleCounts[role] = (roleCounts[role] || 0) + 1;
           }
         });
+
         const roleDistribution = Object.keys(roleCounts).map((role) => ({
           role,
           count: roleCounts[role],
         }));
+
         setUserStats({ totalUsers, roleDistribution });
       } catch (err) {
         console.error("Error al cargar usuarios:", err);
@@ -184,10 +194,6 @@ const Dashboard = () => {
     );
   }
 
-  if (sampleError || userError) {
-    return <Alert severity="error">{sampleError || userError}</Alert>;
-  }
-
   // Colores para el gráfico de pastel
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28"];
 
@@ -199,6 +205,30 @@ const Dashboard = () => {
 
   return (
     <Grid container spacing={3}>
+      {/* Mostrar errores si los hay */}
+      {sampleError && (
+        <Grid item xs={12}>
+          <Alert severity="error">{sampleError}</Alert>
+        </Grid>
+      )}
+      {userError && (
+        <Grid item xs={12}>
+          <Alert severity="error">{userError}</Alert>
+        </Grid>
+      )}
+
+      {/* Mostrar un mensaje si no hay datos */}
+      {!loadingSamples && !sampleError && sampleStats?.totalSamples === 0 && (
+        <Grid item xs={12}>
+          <Alert severity="info">No hay muestras registradas.</Alert>
+        </Grid>
+      )}
+      {!loadingUsers && !userError && userStats?.totalUsers === 0 && (
+        <Grid item xs={12}>
+          <Alert severity="info">No hay usuarios registrados.</Alert>
+        </Grid>
+      )}
+
       {/* Título general */}
       <Grid item xs={12}>
         <Typography variant="h4" gutterBottom>
