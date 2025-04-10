@@ -41,7 +41,7 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import AuthContext from "../context/AuthContext";
 import { muestrasService } from "../services/muestras.service";
 
-// ----- URLs para las peticiones (ajusta si las tuyas son distintas) -----
+// ----- URLs para las peticiones -----
 const BASE_URLS = {
   USUARIOS: "https://backend-sena-lab-1-qpzp.onrender.com/api",
   MUESTRAS: "https://backend-registro-muestras.onrender.com/api",
@@ -55,19 +55,20 @@ const API_URLS = {
 };
 
 /**
- * Función auxiliar para formatear la fecha y la hora (detalle y PDF).
- * Si el objeto tiene propiedades { fecha, hora } se forma un string ISO y se crea un objeto Date,
- * devolviendo el valor con fecha y hora completa.
+ * Formatea la fecha y la hora completa (para el detalle y PDF).
+ * – Si fechaHoraMuestreo tiene propiedades { fecha, hora } y la fecha viene en formato "dd/MM/yyyy",
+ *   la convierte a "yyyy-MM-dd" y forma un string ISO para crear un objeto Date.
  */
 function formatFechaHora(fechaHoraMuestreo) {
   if (!fechaHoraMuestreo) return "N/A";
   if (fechaHoraMuestreo.fecha && fechaHoraMuestreo.hora) {
     let { fecha, hora } = fechaHoraMuestreo;
-    // Si la fecha viene con barras, reordena de dd/MM/yyyy a yyyy-MM-dd
     if (fecha.includes("/")) {
       const [dd, MM, yyyy] = fecha.split("/");
       fecha = `${yyyy}-${MM}-${dd}`;
     }
+    // Nota: El string "10:00 AM" no es ISO; new Date() podría interpretarlo de forma distinta.
+    // Se usará toLocaleString() para mostrarlo.
     const isoDate = `${fecha}T${hora}`;
     const d = new Date(isoDate);
     return isNaN(d) ? `${fechaHoraMuestreo.fecha} ${fechaHoraMuestreo.hora}` : d.toLocaleString();
@@ -78,17 +79,17 @@ function formatFechaHora(fechaHoraMuestreo) {
 }
 
 /**
- * Función auxiliar para formatear la fecha (solo fecha) para la tabla.
+ * Formatea únicamente la fecha (sin hora) para la tabla.
  */
 function formatFecha(fechaHoraMuestreo) {
   if (!fechaHoraMuestreo) return "N/A";
   if (fechaHoraMuestreo.fecha && fechaHoraMuestreo.hora) {
-    let { fecha, hora } = fechaHoraMuestreo;
+    let { fecha } = fechaHoraMuestreo;
     if (fecha.includes("/")) {
       const [dd, MM, yyyy] = fecha.split("/");
       fecha = `${yyyy}-${MM}-${dd}`;
     }
-    const d = new Date(`${fecha}T${hora}`);
+    const d = new Date(`${fecha}T00:00`);
     return isNaN(d) ? fechaHoraMuestreo.fecha : d.toLocaleDateString();
   } else {
     const d = new Date(fechaHoraMuestreo);
@@ -96,7 +97,26 @@ function formatFecha(fechaHoraMuestreo) {
   }
 }
 
-// Componente personalizado para los botones de acción
+/**
+ * Convierte fechaHoraMuestreo en formato ISO (yyyy-mm-dd) para comparar con el input de tipo "date".
+ * Aquí se usa únicamente la propiedad "fecha" del objeto.
+ */
+function convertFechaToISO(fechaHoraMuestreo) {
+  if (!fechaHoraMuestreo) return "";
+  if (fechaHoraMuestreo.fecha) {
+    let fecha = fechaHoraMuestreo.fecha;
+    if (fecha.includes("/")) {
+      const [dd, MM, yyyy] = fecha.split("/");
+      fecha = `${yyyy}-${MM}-${dd}`;
+    }
+    return fecha;
+  }
+  return "";
+}
+
+/**
+ * Componente para el botón con tooltip.
+ */
 const ActionButton = ({ tooltip, onClick, IconComponent }) => (
   <Tooltip title={tooltip} placement="top" arrow>
     <IconButton
@@ -106,10 +126,7 @@ const ActionButton = ({ tooltip, onClick, IconComponent }) => (
       }}
       sx={{
         transition: "transform 0.2s",
-        "&:hover": {
-          transform: "scale(1.1)",
-          backgroundColor: "rgba(57, 169, 0, 0.2)",
-        },
+        "&:hover": { transform: "scale(1.1)", backgroundColor: "rgba(57, 169, 0, 0.2)" },
       }}
     >
       <IconComponent />
@@ -117,7 +134,9 @@ const ActionButton = ({ tooltip, onClick, IconComponent }) => (
   </Tooltip>
 );
 
-// Función para obtener propiedades del Chip según el estado
+/**
+ * Retorna las propiedades para el Chip según el estado.
+ */
 const getEstadoChipProps = (estado) => {
   switch (estado) {
     case "Recibida":
@@ -135,7 +154,7 @@ const getEstadoChipProps = (estado) => {
   }
 };
 
-// ------------------ Modal para ver detalles de la Muestra (Detalle Completo) ------------------
+/* Modal de Detalle Completo: Muestra toda la información */
 const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
   <Modal open={selectedMuestra !== null} onClose={onClose}>
     <Box sx={modalStyle}>
@@ -153,19 +172,13 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
-                  <TableCell>
-                    {selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}
-                  </TableCell>
+                  <TableCell>{selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}</TableCell>
                 </TableRow>
               )}
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell>
-                    {selectedMuestra.nombreCliente ||
-                      selectedMuestra.cliente?.nombre ||
-                      "No encontrado"}
-                  </TableCell>
+                  <TableCell>{selectedMuestra.nombreCliente || selectedMuestra.cliente?.nombre || "No encontrado"}</TableCell>
                 </TableRow>
               )}
               <TableRow>
@@ -206,7 +219,6 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   <TableCell>{selectedMuestra.preservacionMuestraOtra || "N/A"}</TableCell>
                 </TableRow>
               )}
-              {/* En el detalle mostramos el Tipo de Agua */}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Tipo de Agua</TableCell>
                 <TableCell>
@@ -215,7 +227,6 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                     "N/A"}
                 </TableCell>
               </TableRow>
-              {/* En el detalle mostramos los Análisis Seleccionados */}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
                 <TableCell>
@@ -248,23 +259,19 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   <TableRow>
                     <TableCell sx={{ fontWeight: "bold" }}>Último cambio por</TableCell>
                     <TableCell>
-                      {selectedMuestra.historial[selectedMuestra.historial.length - 1]
-                        .nombreadministrador || "N/A"}
+                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].nombreadministrador || "N/A"}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: "bold" }}>Fecha de cambio</TableCell>
                     <TableCell>
-                      {new Date(
-                        selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio
-                      ).toLocaleString()}
+                      {new Date(selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio).toLocaleString()}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: "bold" }}>Observaciones Hist.</TableCell>
                     <TableCell>
-                      {selectedMuestra.historial[selectedMuestra.historial.length - 1]
-                        .observaciones || "N/A"}
+                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].observaciones || "N/A"}
                     </TableCell>
                   </TableRow>
                 </>
@@ -277,7 +284,7 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
   </Modal>
 );
 
-// ------------------ Modal para Editar la Muestra (Carga Dinámica) ------------------
+/* Modal para Editar Muestra (no se realizaron cambios relevantes al filtro por fecha) */
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
   const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
 
@@ -296,11 +303,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (Array.isArray(response.data)) {
-        setAnalisisDisponibles(response.data);
-      } else {
-        setAnalisisDisponibles([]);
-      }
+      setAnalisisDisponibles(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error al cargar análisis:", error);
       setAnalisisDisponibles([]);
@@ -351,7 +354,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
             <MenuItem value="Microbiológico">Microbiológico</MenuItem>
           </Select>
-
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
             fullWidth
@@ -363,7 +365,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Simple">Simple</MenuItem>
             <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
-
           <TextField
             fullWidth
             label="Fecha y Hora de Muestreo"
@@ -378,16 +379,14 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, fechaHoraMuestreo: e.target.value })
             }
           />
-
           <TextField
             fullWidth
             label="Lugar de Muestreo"
             value={editingMuestra.lugarMuestreo || ""}
             onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, lugarMuestreo: e.target.value })
+              setEditingMuestrea({ ...editingMuestra, lugarMuestreo: e.target.value })
             }
           />
-
           <TextField
             fullWidth
             label="Identificación de Muestra"
@@ -396,7 +395,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, identificacionMuestra: e.target.value })
             }
           />
-
           <TextField
             fullWidth
             label="Plan de Muestreo"
@@ -405,7 +403,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, planMuestreo: e.target.value })
             }
           />
-
           <TextField
             fullWidth
             label="Condiciones Ambientales"
@@ -416,7 +413,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, condicionesAmbientales: e.target.value })
             }
           />
-
           <Typography variant="subtitle2">Preservación de Muestra</Typography>
           <Select
             fullWidth
@@ -440,7 +436,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               }
             />
           )}
-
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
             Análisis a Realizar
           </Typography>
@@ -452,9 +447,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <Accordion defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography>
-                  {editingMuestra.tipoAnalisis === "Fisicoquímico"
-                    ? "Análisis Fisicoquímicos"
-                    : "Análisis Microbiológicos"}
+                  {editingMuestra.tipoAnalisis === "Fisicoquímico" ? "Análisis Fisicoquímicos" : "Análisis Microbiológicos"}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -480,7 +473,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               </AccordionDetails>
             </Accordion>
           )}
-
           <TextField
             fullWidth
             label="Observaciones"
@@ -491,7 +483,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, observaciones: e.target.value })
             }
           />
-
           <Button variant="contained" color="primary" fullWidth onClick={onSave} sx={{ mt: 2 }}>
             Guardar Cambios
           </Button>
@@ -501,12 +492,14 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
   );
 };
 
-// ------------------ Componente Principal Muestras ------------------
+// Componente Principal Muestras
 const Muestras = () => {
   const [muestras, setMuestras] = useState([]);
+  const [filteredMuestras, setFilteredMuestras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("todos");
+  const [filterDate, setFilterDate] = useState("");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -541,16 +534,38 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
-  const fetchMuestras = async (page = 1, limit = 10, sortBy = "createdAt", sortOrder = "desc", tipo = filterType) => {
+  // Aplica los filtros de búsqueda, tipo y fecha
+  const applyFilters = () => {
+    let filtered = [...muestras];
+    if (search.trim() !== "") {
+      filtered = filtered.filter((muestra) =>
+        (muestra.id_muestra?.toLowerCase().includes(search.toLowerCase()) ||
+         muestra.cliente?.nombre?.toLowerCase().includes(search.toLowerCase()))
+      );
+    }
+    if (filterDate !== "") {
+      filtered = filtered.filter((muestra) => {
+        const fechaISO = convertFechaToISO(muestra.fechaHoraMuestreo);
+        return fechaISO === filterDate;
+      });
+    }
+    setFilteredMuestras(filtered);
+  };
+
+  useEffect(() => {
+    applyFilters();
+  }, [muestras, search, filterDate]);
+
+  const fetchMuestras = async (
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+    tipo = filterType
+  ) => {
     try {
       setLoading(true);
-      const params = {
-        page,
-        limit,
-        sortBy,
-        sortOrder,
-        ...(tipo !== "todos" && { tipoAnalisis: tipo }),
-      };
+      const params = { page, limit, sortBy, sortOrder, ...(tipo !== "todos" && { tipoAnalisis: tipo }) };
       const queryParams = new URLSearchParams(params).toString();
       console.log("Fetching muestras with query:", queryParams);
       const response = await axios.get(`${API_URLS.MUESTRAS}?${queryParams}`, {
@@ -566,6 +581,7 @@ const Muestras = () => {
         const muestrasData = response.data.data.data;
         const paginationData = response.data.data.pagination;
         setMuestras(muestrasData);
+        setFilteredMuestras(muestrasData);
         setPagination({
           page: paginationData.currentPage,
           limit: paginationData.limit,
@@ -575,6 +591,7 @@ const Muestras = () => {
       } else {
         console.warn("Unexpected response structure:", response.data);
         setMuestras([]);
+        setFilteredMuestras([]);
         setPagination({ page: 1, limit, total: 0, totalPages: 1 });
       }
     } catch (error) {
@@ -583,6 +600,7 @@ const Muestras = () => {
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
       setMuestras([]);
+      setFilteredMuestras([]);
     } finally {
       setLoading(false);
     }
@@ -604,18 +622,22 @@ const Muestras = () => {
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
-    const searchTerm = e.target.value.toLowerCase();
-    const filteredResults = muestras.filter((muestra) =>
-      muestra.id_muestra?.toLowerCase().includes(searchTerm) ||
-      muestra.cliente?.nombre?.toLowerCase().includes(searchTerm)
-    );
-    setMuestras(filteredResults);
   };
 
-  // Función para generar PDF con información completa (detalle)
+  const handleDateChange = (e) => {
+    setFilterDate(e.target.value);
+  };
+
+  const handleClearFilters = () => {
+    setFilterType("todos");
+    setFilterDate("");
+    setSearch("");
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", "todos");
+  };
+
+  // Función para generar PDF con detalle completo
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
-    // Agregar logo y título
     doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
@@ -635,12 +657,9 @@ const Muestras = () => {
       ["Plan de Muestreo", muestra.planMuestreo || "N/A"],
       ["Condiciones Ambientales", muestra.condicionesAmbientales || "N/A"],
       ["Preservación de Muestra", muestra.preservacionMuestra || "N/A"],
-      // Mostrar tipo de agua en detalle
       [
         "Tipo de Agua",
-        muestra.tipoDeAgua?.descripcionCompleta ||
-          muestra.tipoDeAgua?.tipo ||
-          "N/A",
+        muestra.tipoDeAgua?.descripcionCompleta || muestra.tipoDeAgua?.tipo || "N/A",
       ],
     ];
 
@@ -676,14 +695,11 @@ const Muestras = () => {
     });
 
     let currentY = doc.lastAutoTable.finalY + 20;
-
-    // Agregar firmas: Se busca primero firmaAdministrador; si no, firmaLaboratorista.
     if (muestra.firmas) {
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       doc.text("Firmas", 14, currentY);
       currentY += 10;
-
       let adminFirma = null;
       let adminLabel = "Administrador";
       if (muestra.firmas.firmaAdministrador) {
@@ -708,7 +724,6 @@ const Muestras = () => {
           console.error("Error al agregar firma del " + adminLabel + ":", error);
         }
       }
-
       let clienteFirma = null;
       if (muestra.firmas.firmaCliente) {
         clienteFirma =
@@ -728,7 +743,6 @@ const Muestras = () => {
       }
       currentY += 50;
     }
-
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
     if (preview) {
@@ -752,9 +766,7 @@ const Muestras = () => {
         condicionesAmbientales: editingMuestra.condicionesAmbientales,
         preservacionMuestra: editingMuestra.preservacionMuestra,
         preservacionMuestraOtra:
-          editingMuestra.preservacionMuestra === "Otro"
-            ? editingMuestra.preservacionMuestraOtra
-            : "",
+          editingMuestra.preservacionMuestra === "Otro" ? editingMuestra.preservacionMuestraOtra : "",
         analisisSeleccionados: editingMuestra.analisisSeleccionados,
         observaciones: editingMuestra.observaciones,
       };
@@ -775,35 +787,23 @@ const Muestras = () => {
           ? { ...m, ...updateData }
           : m
       );
-
       setMuestras(updatedMuestras);
+      setFilteredMuestras(updatedMuestras);
       setEditingMuestra(null);
-
       setSnackbarMessage("Muestra actualizada exitosamente");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
     } catch (error) {
       console.error("Error al actualizar la muestra:", error);
-      setSnackbarMessage(
-        "Error al actualizar la muestra: " +
-          (error.response?.data?.message || error.message)
-      );
+      setSnackbarMessage("Error al actualizar la muestra: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
   };
 
-  const handleViewDetails = (muestra) => {
-    setSelectedMuestra(muestra);
-  };
-
-  const handleDownloadPDF = (muestra) => {
-    generarPDFMuestra(muestra);
-  };
-
-  const handleEditClick = (muestra) => {
-    handleEditMuestra(muestra);
-  };
+  const handleViewDetails = (muestra) => setSelectedMuestra(muestra);
+  const handleDownloadPDF = (muestra) => generarPDFMuestra(muestra);
+  const handleEditClick = (muestra) => handleEditMuestra(muestra);
 
   if (loading)
     return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
@@ -813,7 +813,41 @@ const Muestras = () => {
       <Typography variant="h4" align="center" sx={{ marginBottom: 2, fontWeight: "bold" }}>
         Muestras Registradas
       </Typography>
-      {/* Tabla resumida sin Tipo de Agua y Análisis Seleccionados */}
+      {/* Controles de Filtro y Búsqueda */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={3}>
+          <Select value={filterType} onChange={handleFilterChange} fullWidth>
+            <MenuItem value="todos">Todos</MenuItem>
+            <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
+            <MenuItem value="Microbiológico">Microbiológico</MenuItem>
+          </Select>
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            type="date"
+            label="Filtrar por Fecha"
+            fullWidth
+            value={filterDate}
+            onChange={handleDateChange}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Buscar (ID o Cliente)"
+            variant="outlined"
+            fullWidth
+            value={search}
+            onChange={handleSearchChange}
+          />
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <Button variant="outlined" fullWidth onClick={handleClearFilters}>
+            Limpiar Filtros
+          </Button>
+        </Grid>
+      </Grid>
+      {/* Tabla Resumida */}
       <TableContainer>
         <Table>
           <TableHead sx={{ backgroundColor: "#39A900" }}>
@@ -829,9 +863,9 @@ const Muestras = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {muestras.map((muestra) => (
+            {filteredMuestras.map((muestra) => (
               <TableRow
-                key={muestra._id || muestra.id_muestra}
+                key={muestra.id_muestra || muestra._id}
                 sx={{
                   transition: "transform 0.2s",
                   "&:hover": { transform: "scale(1.02)" },
@@ -848,10 +882,7 @@ const Muestras = () => {
                   {muestra.cliente?.documento || "N/A"}
                 </TableCell>
                 <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  <Chip
-                    label={muestra.estado}
-                    sx={getEstadoChipProps(muestra.estado).sx}
-                  />
+                  <Chip label={muestra.estado} sx={getEstadoChipProps(muestra.estado).sx} />
                 </TableCell>
                 <TableCell onClick={() => setSelectedMuestra(muestra)}>
                   {formatFecha(muestra.fechaHoraMuestreo)}
@@ -903,31 +934,22 @@ const Muestras = () => {
           color="primary"
           sx={{
             "& .MuiPaginationItem-root": { color: "#39A900" },
-            "& .Mui-selected": {
-              backgroundColor: "#39A900",
-              color: "white",
-              "&:hover": { backgroundColor: "#2d8000" },
-            },
+            "& .Mui-selected": { backgroundColor: "#39A900", color: "white", "&:hover": { backgroundColor: "#2d8000" } },
           }}
         />
       </Box>
-
-      {/* Modal de Detalle Completo */}
       <DetailMuestraModal
         selectedMuestra={selectedMuestra}
         onClose={() => setSelectedMuestra(null)}
         modalStyle={modalStyle}
         hideClientData={tipoUsuario === "laboratorista"}
       />
-
-      {/* Modal de Edición */}
       <EditMuestraModal
         editingMuestra={editingMuestra}
         setEditingMuestra={setEditingMuestra}
         onSave={handleSaveEdit}
         modalStyle={modalStyle}
       />
-
       <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
         <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
           {snackbarMessage}
