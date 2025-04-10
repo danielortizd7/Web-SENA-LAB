@@ -46,18 +46,23 @@ const ListaResultados = () => {
   const [observacionesVerificacion, setObservacionesVerificacion] = useState('');
   const [dialogoVerificacion, setDialogoVerificacion] = useState(false);
   const [verificando, setVerificando] = useState(false);
-  const itemsPerPage = 10;
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
   useEffect(() => {
     cargarResultados();
   }, []);
 
-  const cargarResultados = async () => {
+  const cargarResultados = async (page = 1, limit = 10) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      
+
       if (!token) {
         setError('No tienes autorización. Inicia sesión.');
         navigate('/login');
@@ -71,24 +76,49 @@ const ListaResultados = () => {
         return;
       }
 
-      const response = await axios.get('https://backend-registro-muestras.onrender.com/api/ingreso-resultados/resultados', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const params = {
+        page,
+        limit,
+        ...(searchTerm.trim() && { search: searchTerm.trim() }),
+      };
 
-      if (response.data && Array.isArray(response.data)) {
-        setResultados(response.data);
-      } else if (response.data && response.data.data && Array.isArray(response.data.data.resultados)) {
-        setResultados(response.data.data.resultados);
-      } else if (response.data && Array.isArray(response.data.resultados)) {
-        setResultados(response.data.resultados);
+      const queryParams = new URLSearchParams(params).toString();
+      console.log("Parámetros enviados al backend:", queryParams);
+
+      const response = await axios.get(
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/resultados?${queryParams}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log("Respuesta del backend (resultados):", response.data);
+
+      if (response.data && response.data.data && response.data.data.data && response.data.data.pagination) {
+        setResultados(response.data.data.data); // Array de resultados
+        setPagination({
+          page: response.data.data.pagination.currentPage,
+          limit: response.data.data.pagination.limit,
+          total: response.data.data.pagination.total,
+          totalPages: response.data.data.pagination.totalPages,
+        });
       } else {
+        console.warn("Estructura inesperada en la respuesta de resultados:", response.data);
         setResultados([]);
+        setPagination({
+          page: 1,
+          limit,
+          total: 0,
+          totalPages: 1,
+        });
       }
     } catch (err) {
       console.error('Error al cargar resultados:', err);
+      console.error('Detalles del error:', err.response?.data || err.message);
+
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Sesión expirada. Por favor, inicia sesión nuevamente.');
         localStorage.removeItem('token');
@@ -103,8 +133,13 @@ const ListaResultados = () => {
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
-    // Si se cambia el término de búsqueda, reseteamos la página
     setCurrentPage(1);
+    cargarResultados(1, pagination.limit);
+  };
+
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    cargarResultados(value, pagination.limit);
   };
 
   const handleVerificarResultados = async () => {
@@ -154,19 +189,39 @@ const ListaResultados = () => {
     }
   };
 
-  // Filtrar solo por idMuestra
-  const filteredResultados = resultados.filter((resultado) =>
-    resultado.idMuestra.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleVerDetalles = async (resultado) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/muestra/${resultado.idMuestra}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-  const handleVerDetalles = (resultado) => {
-    setSelectedResult(resultado);
+      console.log("Detalles de la muestra:", response.data);
+
+      if (response.data && response.data.data) {
+        setSelectedResult(response.data.data);
+      } else {
+        console.warn("Estructura inesperada en la respuesta de detalles:", response.data);
+        setSelectedResult(null);
+      }
+    } catch (err) {
+      console.error('Error al obtener detalles de la muestra:', err);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar los detalles de la muestra. Por favor, intenta más tarde.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentResults = filteredResultados.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredResultados.length / itemsPerPage);
 
   return (
     <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
@@ -209,7 +264,7 @@ const ListaResultados = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {currentResults.map((resultado) => (
+                {resultados.map((resultado) => (
                   <TableRow 
                     key={resultado._id}
                     sx={{
@@ -222,9 +277,9 @@ const ListaResultados = () => {
                     }}
                   >
                     <TableCell>{resultado.idMuestra}</TableCell>
-                    <TableCell>{resultado.nombreCliente}</TableCell>
+                    <TableCell>{resultado.cliente?.nombre || 'Sin nombre'}</TableCell>
                     <TableCell>
-                      {new Date(resultado.fechaHora).toLocaleString()}
+                      {new Date(resultado.fechaHoraMuestreo).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -259,13 +314,12 @@ const ListaResultados = () => {
             </Table>
           </TableContainer>
 
-          {/* Paginador personalizado */}
-          {filteredResultados.length > itemsPerPage && (
+          {pagination.total > pagination.limit && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
               <Pagination
-                count={totalPages}
-                page={currentPage}
-                onChange={(event, value) => setCurrentPage(value)}
+                count={pagination.totalPages}
+                page={pagination.page}
+                onChange={handlePageChange}
                 color="primary"
                 sx={{
                   '& .MuiPaginationItem-root': {
@@ -314,8 +368,8 @@ const ListaResultados = () => {
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
                             <Typography><strong>ID Muestra:</strong> {selectedResult.idMuestra}</Typography>
-                            <Typography><strong>Cliente:</strong> {selectedResult.nombreCliente}</Typography>
-                            <Typography><strong>Fecha:</strong> {new Date(selectedResult.fechaHora).toLocaleString()}</Typography>
+                            <Typography><strong>Cliente:</strong> {selectedResult.cliente?.nombre || 'Sin nombre'}</Typography>
+                            <Typography><strong>Fecha:</strong> {new Date(selectedResult.fechaHoraMuestreo).toLocaleString()}</Typography>
                           </Grid>
                           <Grid item xs={6}>
                             <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Verificado" : "Pendiente"}</Typography>
@@ -331,18 +385,13 @@ const ListaResultados = () => {
                           Resultados de Análisis
                         </Typography>
                         <Grid container spacing={2}>
-                          {Object.entries(selectedResult)
-                            .filter(([key, value]) => 
-                              ['pH', 'turbidez', 'oxigenoDisuelto', 'nitratos', 'solidosSuspendidos', 'fosfatos']
-                              .includes(key) && value)
-                            .map(([key, value]) => (
-                              <Grid item xs={6} key={key}>
-                                <Typography>
-                                  <strong>{key}:</strong> {value.valor} {value.unidad}
-                                </Typography>
-                              </Grid>
-                            ))
-                          }
+                          {Object.entries(selectedResult.resultados || {}).map(([key, value]) => (
+                            <Grid item xs={6} key={key}>
+                              <Typography>
+                                <strong>{key}:</strong> {value.valor} {value.unidad}
+                              </Typography>
+                            </Grid>
+                          ))}
                         </Grid>
                       </Paper>
                     </Grid>
@@ -385,52 +434,18 @@ const ListaResultados = () => {
                                         </TableRow>
                                       </TableHead>
                                       <TableBody>
-                                        {Object.entries(cambio.cambiosRealizados || {}).map(([param, valores], i) => {
-                                          if (param === '_id') return null;
-                                          return (
-                                            <TableRow key={i}>
-                                              <TableCell>{param}</TableCell>
-                                              <TableCell>
-                                                {valores.valorAnterior === 'No registrado' ? (
-                                                  <Chip 
-                                                    label="No registrado" 
-                                                    size="small" 
-                                                    sx={{ bgcolor: '#ffebee', color: '#c62828' }}
-                                                  />
-                                                ) : valores.valorAnterior}
-                                              </TableCell>
-                                              <TableCell>
-                                                <Typography sx={{ color: '#2e7d32', fontWeight: 'bold' }}>
-                                                  {valores.valorNuevo}
-                                                </Typography>
-                                              </TableCell>
-                                              <TableCell>{valores.unidad || '-'}</TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
+                                        {Object.entries(cambio.cambiosRealizados.resultados || {}).map(([param, valores], i) => (
+                                          <TableRow key={i}>
+                                            <TableCell>{param}</TableCell>
+                                            <TableCell>{valores.valorAnterior}</TableCell>
+                                            <TableCell>{valores.valorNuevo}</TableCell>
+                                            <TableCell>{valores.unidad || '-'}</TableCell>
+                                          </TableRow>
+                                        ))}
                                       </TableBody>
                                     </Table>
                                   </TableContainer>
                                 </Grid>
-                                {cambio.cambiosRealizados?.observaciones && (
-                                  <Grid item xs={12}>
-                                    <Paper 
-                                      variant="outlined" 
-                                      sx={{ 
-                                        p: 1.5, 
-                                        bgcolor: '#fff3e0',
-                                        borderColor: '#ffe0b2'
-                                      }}
-                                    >
-                                      <Typography variant="subtitle2" sx={{ color: '#e65100' }}>
-                                        Observaciones:
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ color: '#f57c00' }}>
-                                        {cambio.cambiosRealizados.observaciones.valorNuevo}
-                                      </Typography>
-                                    </Paper>
-                                  </Grid>
-                                )}
                               </Grid>
                             </Box>
                           ))}

@@ -498,103 +498,40 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
-  const fetchMuestras = async (page = 1, limit = 10, tipo = filterType) => {
+  const fetchMuestras = async (page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', tipo = filterType) => {
     try {
       setLoading(true);
-      console.log('Fetching muestras with params:', { page, limit, tipo });
-      
+
       const params = {
         page,
         limit,
+        sortBy,
+        sortOrder,
         ...(tipo !== "todos" && { tipoAnalisis: tipo })
       };
 
-      console.log('Calling muestrasService with params:', params);
-      const response = await muestrasService.obtenerMuestras(params);
-      console.log('Response from muestrasService:', response);
-      
-      if (response?.data) {
-        let muestrasData;
-        if (response.data.data?.muestra) {
-          // Si es una sola muestra
-          muestrasData = [response.data.data.muestra];
-        } else if (Array.isArray(response.data.data)) {
-          // Si es un array de muestras
-          muestrasData = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          // Si la respuesta es directamente un array
-          muestrasData = response.data;
-        } else {
-          muestrasData = [];
-        }
-                            
-        console.log('Muestras data antes de procesar:', muestrasData);
+      const queryParams = new URLSearchParams(params).toString();
+      console.log("Fetching muestras with query:", queryParams);
 
-        const muestrasCompletas = muestrasData.map((muestra) => {
-          console.log('Procesando muestra individual:', muestra);
-          
-          // Formatear la fecha y hora
-          const fechaHoraMuestreo =
-            muestra.fechaHoraMuestreo?.fecha && muestra.fechaHoraMuestreo?.hora
-              ? `${muestra.fechaHoraMuestreo.fecha} ${muestra.fechaHoraMuestreo.hora}`
-              : "N/A";
+      const response = await axios.get(`${API_URLS.MUESTRAS}?${queryParams}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+      });
 
-          // Asegurar que tenemos los datos correctos de tipo de análisis y análisis seleccionados
-          const tipoAnalisis = muestra.tipoAnalisis || "N/A";
-          let analisisSeleccionados = [];
-          
-          if (muestra.analisisSeleccionados) {
-            if (Array.isArray(muestra.analisisSeleccionados)) {
-              analisisSeleccionados = muestra.analisisSeleccionados;
-            } else if (typeof muestra.analisisSeleccionados === 'string') {
-              analisisSeleccionados = [muestra.analisisSeleccionados];
-            }
-          }
+      console.log("Response from backend:", response.data);
 
-          console.log('Tipo de análisis procesado:', tipoAnalisis);
-          console.log('Análisis seleccionados procesados:', analisisSeleccionados);
+      if (response.data && response.data.data && response.data.data.data && response.data.data.pagination) {
+        const muestrasData = response.data.data.data; // Array de muestras
+        const paginationData = response.data.data.pagination; // Datos de paginación
 
-          return {
-            _id: muestra._id,
-            id_muestra: muestra.id_muestra,
-            cliente: {
-              nombre: muestra.cliente?.nombre || "No identificado",
-              documento: muestra.cliente?.documento || "N/A"
-            },
-            tipoDeAgua: {
-              tipo: muestra.tipoDeAgua?.tipo || "N/A",
-              codigo: muestra.tipoDeAgua?.codigo || "N/A",
-              descripcion: muestra.tipoDeAgua?.descripcion || "N/A",
-              subtipoResidual: muestra.tipoDeAgua?.subtipoResidual || "",
-              descripcionCompleta: muestra.tipoDeAgua?.descripcion || "N/A"
-            },
-            tipoMuestreo: muestra.tipoMuestreo || "Simple",
-            lugarMuestreo: muestra.lugarMuestreo?.trim() || "N/A",
-            fechaHoraMuestreo: fechaHoraMuestreo,
-            tipoAnalisis: tipoAnalisis,
-            identificacionMuestra: muestra.identificacionMuestra || "N/A",
-            planMuestreo: muestra.planMuestreo || "N/A",
-            condicionesAmbientales: muestra.condicionesAmbientales || "N/A",
-            preservacionMuestra: muestra.preservacionMuestra || "N/A",
-            analisisSeleccionados: analisisSeleccionados,
-            estado: muestra.estado || "No especificado",
-            historial: muestra.historial || [],
-            firmas: muestra.firmas || {},
-            rechazoMuestra: muestra.rechazoMuestra || { rechazada: false, observaciones: "" }
-          };
-        });
-
-        console.log('Muestras procesadas finales:', muestrasCompletas);
-        setMuestras(muestrasCompletas);
-        
+        setMuestras(muestrasData);
         setPagination({
-          page: response.data.currentPage || page,
-          limit: response.data.itemsPerPage || limit,
-          total: response.data.totalItems || muestrasCompletas.length,
-          totalPages: response.data.totalPages || Math.ceil(muestrasCompletas.length / limit)
+          page: paginationData.currentPage,
+          limit: paginationData.limit,
+          total: paginationData.total,
+          totalPages: paginationData.totalPages
         });
       } else {
-        console.warn('No se recibieron datos de muestras:', response);
+        console.warn("Unexpected response structure:", response.data);
         setMuestras([]);
         setPagination({
           page: 1,
@@ -604,7 +541,7 @@ const Muestras = () => {
         });
       }
     } catch (error) {
-      console.error("Error al cargar las muestras:", error);
+      console.error("Error fetching muestras:", error);
       setSnackbarMessage("Error al cargar las muestras: " + (error.response?.data?.message || error.message));
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -619,13 +556,13 @@ const Muestras = () => {
   }, []);
 
   const handlePageChange = (event, value) => {
-    fetchMuestras(value, pagination.limit);
+    fetchMuestras(value, pagination.limit, 'createdAt', 'desc', filterType);
   };
 
   const handleFilterChange = (e) => {
     const newType = e.target.value;
     setFilterType(newType);
-    fetchMuestras(1, pagination.limit, newType);
+    fetchMuestras(1, pagination.limit, 'createdAt', 'desc', newType);
   };
 
   const handleSearchChange = (e) => {
@@ -878,7 +815,11 @@ const Muestras = () => {
                         sx={getEstadoChipProps(muestra.estado).sx}
                       />
                     </TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.fechaHoraMuestreo}</TableCell>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      {muestra.fechaHoraMuestreo?.fecha && muestra.fechaHoraMuestreo?.hora
+                        ? `${muestra.fechaHoraMuestreo.fecha} ${muestra.fechaHoraMuestreo.hora}`
+                        : "N/A"}
+                    </TableCell>
                     <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.lugarMuestreo}</TableCell>
                     <TableCell onClick={() => setSelectedMuestra(muestra)}>
                       <Typography variant="subtitle1" color="text.primary">

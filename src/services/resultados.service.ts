@@ -35,21 +35,30 @@ interface ResultadosData {
   observaciones: string;
 }
 
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
 class ResultadosService {
   private API_URL = 'https://backend-registro-muestras.onrender.com/api/ingreso-resultados';
 
   private getHeaders() {
     const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No se encontró el token de autenticación. Por favor, inicia sesión.');
+    }
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     };
   }
 
-  async obtenerMuestrasPendientes() {
+  async obtenerMuestrasPendientes(): Promise<ApiResponse<any>> {
     try {
-      const response = await axios.get(
-        `${this.API_URL}/resultados`,
+      const response = await axios.get<ApiResponse<any>>(
+        `${this.API_URL}/pendientes`,
         { headers: this.getHeaders() }
       );
       return response.data;
@@ -59,10 +68,10 @@ class ResultadosService {
     }
   }
 
-  async registrarResultados(resultados: ResultadosData) {
+  async registrarResultados(resultados: ResultadosData): Promise<ApiResponse<any>> {
     try {
-      const response = await axios.post(
-        `${this.API_URL}/resultados`,
+      const response = await axios.post<ApiResponse<any>>(
+        `${this.API_URL}`,
         resultados,
         { headers: this.getHeaders() }
       );
@@ -73,10 +82,10 @@ class ResultadosService {
     }
   }
 
-  async obtenerResultados(idMuestra: string) {
+  async obtenerResultados(idMuestra: string): Promise<ApiResponse<any>> {
     try {
-      const response = await axios.get(
-        `${this.API_URL}/resultados/${idMuestra}`,
+      const response = await axios.get<ApiResponse<any>>(
+        `${this.API_URL}/${idMuestra}`,
         { headers: this.getHeaders() }
       );
       return response.data;
@@ -86,10 +95,10 @@ class ResultadosService {
     }
   }
 
-  async verificarResultados(idMuestra: string, verificacion: { observaciones: string }) {
+  async verificarResultados(idMuestra: string, verificacion: { observaciones: string }): Promise<ApiResponse<any>> {
     try {
-      const response = await axios.post(
-        `${this.API_URL}/resultados/${idMuestra}/verificar`,
+      const response = await axios.post<ApiResponse<any>>(
+        `${this.API_URL}/${idMuestra}/verificar`,
         verificacion,
         { headers: this.getHeaders() }
       );
@@ -101,4 +110,4 @@ class ResultadosService {
   }
 }
 
-export const resultadosService = new ResultadosService(); 
+export const resultadosService = new ResultadosService();

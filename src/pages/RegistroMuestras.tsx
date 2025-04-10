@@ -676,7 +676,6 @@ const RegistroMuestras: React.FC = () => {
     // Si no se están mostrando las firmas, mostrarlas y no enviar el formulario
     if (!mostrarFirmas && !isRejected) {
       const errores = validarFormulario(formData);
-      // Filtrar errores de firma ya que aún no se muestran
       const erroresSinFirmas = Object.entries(errores).reduce((acc, [key, value]) => {
         if (!key.includes('firma')) {
           acc[key] = value;
@@ -704,7 +703,6 @@ const RegistroMuestras: React.FC = () => {
         return;
       }
 
-      // Validar que el tipo de agua residual esté seleccionado si corresponde
       if (formData.tipoDeAgua.tipo === 'residual' && !formData.tipoDeAgua.subtipo) {
         setError('Debe seleccionar el tipo de agua residual');
         setLoading(false);
@@ -735,7 +733,17 @@ const RegistroMuestras: React.FC = () => {
               rechazada: true,
               motivo: observacionRechazo
             }
-          : undefined
+          : undefined,
+        firmas: {
+          firmaAdministrador: {
+            firma: formData.firmas.firmaAdministrador.firma,
+            fecha: formData.firmas.firmaAdministrador.fecha
+          },
+          firmaCliente: {
+            firma: formData.firmas.firmaCliente.firma,
+            fecha: formData.firmas.firmaCliente.fecha
+          }
+        }
       };
 
       const token = localStorage.getItem('token');
@@ -772,7 +780,6 @@ const RegistroMuestras: React.FC = () => {
       const errorMessage = error.response?.data?.message || error.message;
       setError(`Error: ${errorMessage}`);
 
-      // Si el error es de autenticación, redirigir al login
       if (error.response?.status === 401) {
         setTimeout(() => {
           navigate('/login');
