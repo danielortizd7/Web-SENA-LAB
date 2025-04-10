@@ -31,7 +31,7 @@ import {
   Pagination,
   Snackbar,
   Alert,
-  Grid
+  Grid,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import GetAppIcon from "@mui/icons-material/GetApp";
@@ -54,11 +54,56 @@ const API_URLS = {
   ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`,
 };
 
+/**
+ * Función auxiliar para formatear la fecha y la hora (detalle y PDF).
+ * Si el objeto tiene propiedades { fecha, hora } se forma un string ISO y se crea un objeto Date,
+ * devolviendo el valor con fecha y hora completa.
+ */
+function formatFechaHora(fechaHoraMuestreo) {
+  if (!fechaHoraMuestreo) return "N/A";
+  if (fechaHoraMuestreo.fecha && fechaHoraMuestreo.hora) {
+    let { fecha, hora } = fechaHoraMuestreo;
+    // Si la fecha viene con barras, reordena de dd/MM/yyyy a yyyy-MM-dd
+    if (fecha.includes("/")) {
+      const [dd, MM, yyyy] = fecha.split("/");
+      fecha = `${yyyy}-${MM}-${dd}`;
+    }
+    const isoDate = `${fecha}T${hora}`;
+    const d = new Date(isoDate);
+    return isNaN(d) ? `${fechaHoraMuestreo.fecha} ${fechaHoraMuestreo.hora}` : d.toLocaleString();
+  } else {
+    const d = new Date(fechaHoraMuestreo);
+    return isNaN(d) ? fechaHoraMuestreo : d.toLocaleString();
+  }
+}
+
+/**
+ * Función auxiliar para formatear la fecha (solo fecha) para la tabla.
+ */
+function formatFecha(fechaHoraMuestreo) {
+  if (!fechaHoraMuestreo) return "N/A";
+  if (fechaHoraMuestreo.fecha && fechaHoraMuestreo.hora) {
+    let { fecha, hora } = fechaHoraMuestreo;
+    if (fecha.includes("/")) {
+      const [dd, MM, yyyy] = fecha.split("/");
+      fecha = `${yyyy}-${MM}-${dd}`;
+    }
+    const d = new Date(`${fecha}T${hora}`);
+    return isNaN(d) ? fechaHoraMuestreo.fecha : d.toLocaleDateString();
+  } else {
+    const d = new Date(fechaHoraMuestreo);
+    return isNaN(d) ? fechaHoraMuestreo : d.toLocaleDateString();
+  }
+}
+
 // Componente personalizado para los botones de acción
 const ActionButton = ({ tooltip, onClick, IconComponent }) => (
   <Tooltip title={tooltip} placement="top" arrow>
     <IconButton
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       sx={{
         transition: "transform 0.2s",
         "&:hover": {
@@ -90,7 +135,7 @@ const getEstadoChipProps = (estado) => {
   }
 };
 
-// ------------------ Modal para ver detalles de la Muestra ------------------
+// ------------------ Modal para ver detalles de la Muestra (Detalle Completo) ------------------
 const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
   <Modal open={selectedMuestra !== null} onClose={onClose}>
     <Box sx={modalStyle}>
@@ -103,18 +148,24 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
             <TableBody>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>ID Muestra</TableCell>
-                <TableCell>{selectedMuestra.id_muestra || "N/A"}</TableCell>
+                <TableCell>{selectedMuestra.id_muestra || selectedMuestra._id || "N/A"}</TableCell>
               </TableRow>
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
-                  <TableCell>{selectedMuestra.documento || "N/A"}</TableCell>
+                  <TableCell>
+                    {selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}
+                  </TableCell>
                 </TableRow>
               )}
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell>{selectedMuestra.nombreCliente || "No encontrado"}</TableCell>
+                  <TableCell>
+                    {selectedMuestra.nombreCliente ||
+                      selectedMuestra.cliente?.nombre ||
+                      "No encontrado"}
+                  </TableCell>
                 </TableRow>
               )}
               <TableRow>
@@ -127,11 +178,7 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Fecha y Hora de Muestreo</TableCell>
-                <TableCell>
-                  {selectedMuestra.fechaHoraMuestreo
-                    ? new Date(selectedMuestra.fechaHoraMuestreo).toLocaleString()
-                    : "N/A"}
-                </TableCell>
+                <TableCell>{formatFechaHora(selectedMuestra.fechaHoraMuestreo)}</TableCell>
               </TableRow>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
@@ -159,10 +206,22 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   <TableCell>{selectedMuestra.preservacionMuestraOtra || "N/A"}</TableCell>
                 </TableRow>
               )}
+              {/* En el detalle mostramos el Tipo de Agua */}
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Agua</TableCell>
+                <TableCell>
+                  {selectedMuestra.tipoDeAgua?.descripcionCompleta ||
+                    selectedMuestra.tipoDeAgua?.tipo ||
+                    "N/A"}
+                </TableCell>
+              </TableRow>
+              {/* En el detalle mostramos los Análisis Seleccionados */}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
                 <TableCell>
-                  {selectedMuestra.analisisSeleccionados?.join(", ") || "Ninguno"}
+                  {Array.isArray(selectedMuestra.analisisSeleccionados)
+                    ? selectedMuestra.analisisSeleccionados.join(", ")
+                    : "Ninguno"}
                 </TableCell>
               </TableRow>
               <TableRow>
@@ -218,12 +277,10 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
   </Modal>
 );
 
-// ------------------ Modal para Editar la Muestra (CARGA DINÁMICA) ------------------
+// ------------------ Modal para Editar la Muestra (Carga Dinámica) ------------------
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
-  // Aquí guardamos la lista de análisis disponibles que llegan desde el backend
   const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
 
-  // Función que llama a los endpoints para cargar la lista de análisis
   const cargarAnalisis = async (tipo) => {
     try {
       const token = localStorage.getItem("token");
@@ -239,11 +296,9 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
       const response = await axios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Asumiendo que el endpoint devuelve un array de objetos { nombre, unidad, ... }
       if (Array.isArray(response.data)) {
         setAnalisisDisponibles(response.data);
       } else {
-        // Ajusta según la forma real en que tu backend devuelve los datos
         setAnalisisDisponibles([]);
       }
     } catch (error) {
@@ -252,7 +307,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
     }
   };
 
-  // Efecto que se dispara cuando el usuario abre/cambia el tipo de análisis en el modal
   useEffect(() => {
     if (editingMuestra && editingMuestra.tipoAnalisis) {
       cargarAnalisis(editingMuestra.tipoAnalisis);
@@ -263,7 +317,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
 
   if (!editingMuestra) return null;
 
-  // Manejo de checkboxes para los análisis seleccionados
   const handleAnalisisChange = (analisisNombre) => {
     setEditingMuestra((prev) => {
       const alreadySelected = prev.analisisSeleccionados?.includes(analisisNombre);
@@ -283,13 +336,11 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
           Editar Muestra
         </Typography>
         <Box component="form" noValidate autoComplete="off" sx={{ "& .MuiTextField-root": { mb: 2 } }}>
-          {/* Tipo de Análisis */}
           <Typography variant="subtitle2">Tipo de Análisis</Typography>
           <Select
             fullWidth
             value={editingMuestra.tipoAnalisis || ""}
             onChange={(e) =>
-              // Al cambiar se reinician los análisis seleccionados
               setEditingMuestra({
                 ...editingMuestra,
                 tipoAnalisis: e.target.value,
@@ -301,18 +352,18 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Microbiológico">Microbiológico</MenuItem>
           </Select>
 
-          {/* Tipo de Muestreo */}
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
             fullWidth
             value={editingMuestra.tipoMuestreo || ""}
-            onChange={(e) => setEditingMuestra({ ...editingMuestra, tipoMuestreo: e.target.value })}
+            onChange={(e) =>
+              setEditingMuestra({ ...editingMuestra, tipoMuestreo: e.target.value })
+            }
           >
             <MenuItem value="Simple">Simple</MenuItem>
             <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
 
-          {/* Fecha y Hora de Muestreo */}
           <TextField
             fullWidth
             label="Fecha y Hora de Muestreo"
@@ -328,7 +379,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             }
           />
 
-          {/* Lugar de Muestreo */}
           <TextField
             fullWidth
             label="Lugar de Muestreo"
@@ -338,7 +388,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             }
           />
 
-          {/* Identificación de Muestra */}
           <TextField
             fullWidth
             label="Identificación de Muestra"
@@ -348,7 +397,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             }
           />
 
-          {/* Plan de Muestreo */}
           <TextField
             fullWidth
             label="Plan de Muestreo"
@@ -358,7 +406,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             }
           />
 
-          {/* Condiciones Ambientales */}
           <TextField
             fullWidth
             label="Condiciones Ambientales"
@@ -370,7 +417,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             }
           />
 
-          {/* Preservación de Muestra */}
           <Typography variant="subtitle2">Preservación de Muestra</Typography>
           <Select
             fullWidth
@@ -395,11 +441,9 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             />
           )}
 
-          {/* Análisis a Realizar (dinámico, cargado desde el backend) */}
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
             Análisis a Realizar
           </Typography>
-
           {analisisDisponibles.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2 }}>
               No hay análisis disponibles para este tipo (o aún no se han cargado).
@@ -437,7 +481,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             </Accordion>
           )}
 
-          {/* Observaciones */}
           <TextField
             fullWidth
             label="Observaciones"
@@ -468,7 +511,7 @@ const Muestras = () => {
     page: 1,
     limit: 10,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
   });
   const [selectedMuestra, setSelectedMuestra] = useState(null);
   const [editingMuestra, setEditingMuestra] = useState(null);
@@ -498,47 +541,41 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
-  const fetchMuestras = async (page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', tipo = filterType) => {
+  const fetchMuestras = async (page = 1, limit = 10, sortBy = "createdAt", sortOrder = "desc", tipo = filterType) => {
     try {
       setLoading(true);
-
       const params = {
         page,
         limit,
         sortBy,
         sortOrder,
-        ...(tipo !== "todos" && { tipoAnalisis: tipo })
+        ...(tipo !== "todos" && { tipoAnalisis: tipo }),
       };
-
       const queryParams = new URLSearchParams(params).toString();
       console.log("Fetching muestras with query:", queryParams);
-
       const response = await axios.get(`${API_URLS.MUESTRAS}?${queryParams}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-
       console.log("Response from backend:", response.data);
-
-      if (response.data && response.data.data && response.data.data.data && response.data.data.pagination) {
-        const muestrasData = response.data.data.data; // Array de muestras
-        const paginationData = response.data.data.pagination; // Datos de paginación
-
+      if (
+        response.data &&
+        response.data.data &&
+        response.data.data.data &&
+        response.data.data.pagination
+      ) {
+        const muestrasData = response.data.data.data;
+        const paginationData = response.data.data.pagination;
         setMuestras(muestrasData);
         setPagination({
           page: paginationData.currentPage,
           limit: paginationData.limit,
           total: paginationData.total,
-          totalPages: paginationData.totalPages
+          totalPages: paginationData.totalPages,
         });
       } else {
         console.warn("Unexpected response structure:", response.data);
         setMuestras([]);
-        setPagination({
-          page: 1,
-          limit,
-          total: 0,
-          totalPages: 1
-        });
+        setPagination({ page: 1, limit, total: 0, totalPages: 1 });
       }
     } catch (error) {
       console.error("Error fetching muestras:", error);
@@ -556,29 +593,29 @@ const Muestras = () => {
   }, []);
 
   const handlePageChange = (event, value) => {
-    fetchMuestras(value, pagination.limit, 'createdAt', 'desc', filterType);
+    fetchMuestras(value, pagination.limit, "createdAt", "desc", filterType);
   };
 
   const handleFilterChange = (e) => {
     const newType = e.target.value;
     setFilterType(newType);
-    fetchMuestras(1, pagination.limit, 'createdAt', 'desc', newType);
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", newType);
   };
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
-    // Implementar búsqueda local si es necesario
     const searchTerm = e.target.value.toLowerCase();
-    const filteredResults = muestras.filter(muestra => 
+    const filteredResults = muestras.filter((muestra) =>
       muestra.id_muestra?.toLowerCase().includes(searchTerm) ||
       muestra.cliente?.nombre?.toLowerCase().includes(searchTerm)
     );
     setMuestras(filteredResults);
   };
 
-  // Generar PDF
+  // Función para generar PDF con información completa (detalle)
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
+    // Agregar logo y título
     doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
     doc.setFontSize(18);
     doc.setTextColor(255, 255, 255);
@@ -587,33 +624,32 @@ const Muestras = () => {
     doc.text("Detalles de la Muestra", 14, 42);
 
     const detallesMuestra = [
-      ["ID Muestra", muestra.id_muestra || "N/A"],
-      ["Documento", muestra.documento || "N/A"],
-      ["Nombre del Cliente", muestra.cliente?.nombre || "No encontrado"],
+      ["ID Muestra", muestra.id_muestra || muestra._id || "N/A"],
+      ["Documento", muestra.documento || muestra.cliente?.documento || "N/A"],
+      ["Nombre del Cliente", muestra.nombreCliente || muestra.cliente?.nombre || "No encontrado"],
       ["Tipo de Análisis", muestra.tipoAnalisis || "N/A"],
       ["Tipo de Muestreo", muestra.tipoMuestreo || "N/A"],
-      [
-        "Fecha y Hora de Muestreo",
-        muestra.fechaHoraMuestreo
-          ? new Date(muestra.fechaHoraMuestreo).toLocaleString()
-          : "N/A",
-      ],
+      ["Fecha y Hora de Muestreo", formatFechaHora(muestra.fechaHoraMuestreo)],
       ["Lugar de Muestreo", muestra.lugarMuestreo || "N/A"],
       ["Identificación de Muestra", muestra.identificacionMuestra || "N/A"],
       ["Plan de Muestreo", muestra.planMuestreo || "N/A"],
       ["Condiciones Ambientales", muestra.condicionesAmbientales || "N/A"],
       ["Preservación de Muestra", muestra.preservacionMuestra || "N/A"],
+      // Mostrar tipo de agua en detalle
+      [
+        "Tipo de Agua",
+        muestra.tipoDeAgua?.descripcionCompleta ||
+          muestra.tipoDeAgua?.tipo ||
+          "N/A",
+      ],
     ];
 
     if (muestra.preservacionMuestra === "Otro") {
-      detallesMuestra.push([
-        "Detalle de Preservación",
-        muestra.preservacionMuestraOtra || "N/A",
-      ]);
+      detallesMuestra.push(["Detalle de Preservación", muestra.preservacionMuestraOtra || "N/A"]);
     }
 
     detallesMuestra.push(
-      ["Análisis Seleccionados", muestra.analisisSeleccionados?.join(", ") || "Ninguno"],
+      ["Análisis Seleccionados", Array.isArray(muestra.analisisSeleccionados) ? muestra.analisisSeleccionados.join(", ") : "Ninguno"],
       ["Observaciones", muestra.observaciones || "N/A"],
       ["Estado", muestra.estado || "No especificado"]
     );
@@ -641,27 +677,51 @@ const Muestras = () => {
 
     let currentY = doc.lastAutoTable.finalY + 20;
 
+    // Agregar firmas: Se busca primero firmaAdministrador; si no, firmaLaboratorista.
     if (muestra.firmas) {
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
       doc.text("Firmas", 14, currentY);
       currentY += 10;
 
+      let adminFirma = null;
+      let adminLabel = "Administrador";
       if (muestra.firmas.firmaAdministrador) {
+        adminFirma =
+          typeof muestra.firmas.firmaAdministrador === "object"
+            ? muestra.firmas.firmaAdministrador.firma
+            : muestra.firmas.firmaAdministrador;
+      } else if (muestra.firmas.firmaLaboratorista) {
+        adminFirma =
+          typeof muestra.firmas.firmaLaboratorista === "object"
+            ? muestra.firmas.firmaLaboratorista.firma
+            : muestra.firmas.firmaLaboratorista;
+        adminLabel = "Laboratorista";
+      }
+      if (adminFirma) {
+        const adminCedula = muestra.firmas.cedulaAdministrador || muestra.firmas.cedulaLaboratorista || "";
         try {
-          doc.addImage(muestra.firmas.firmaAdministrador, "PNG", 20, currentY, 70, 30);
+          doc.addImage(adminFirma, "PNG", 20, currentY, 70, 30);
           doc.setFontSize(10);
-          doc.text("Administrador", 20, currentY + 35);
+          doc.text(adminLabel + (adminCedula ? ` (${adminCedula})` : ""), 20, currentY + 35);
         } catch (error) {
-          console.error("Error al agregar firma del administrador:", error);
+          console.error("Error al agregar firma del " + adminLabel + ":", error);
         }
       }
 
+      let clienteFirma = null;
       if (muestra.firmas.firmaCliente) {
+        clienteFirma =
+          typeof muestra.firmas.firmaCliente === "object"
+            ? muestra.firmas.firmaCliente.firma
+            : muestra.firmas.firmaCliente;
+      }
+      if (clienteFirma) {
+        const clienteCedula = muestra.firmas.cedulaCliente || "";
         try {
-          doc.addImage(muestra.firmas.firmaCliente, "PNG", 120, currentY, 70, 30);
+          doc.addImage(clienteFirma, "PNG", 120, currentY, 70, 30);
           doc.setFontSize(10);
-          doc.text("Cliente", 120, currentY + 35);
+          doc.text("Cliente" + (clienteCedula ? ` (${clienteCedula})` : ""), 120, currentY + 35);
         } catch (error) {
           console.error("Error al agregar firma del cliente:", error);
         }
@@ -671,15 +731,13 @@ const Muestras = () => {
 
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-
     if (preview) {
       window.open(doc.output("bloburl"), "_blank");
     } else {
-      doc.save(`Muestra_${muestra.id_muestra}.pdf`);
+      doc.save(`Muestra_${muestra.id_muestra || muestra._id}.pdf`);
     }
   };
 
-  // Edición de la muestra
   const handleEditMuestra = (muestra) => setEditingMuestra(muestra);
 
   const handleSaveEdit = async () => {
@@ -702,7 +760,7 @@ const Muestras = () => {
       };
 
       await axios.put(
-        `${API_URLS.MUESTRAS}/${editingMuestra.id_muestra}`,
+        `${API_URLS.MUESTRAS}/${editingMuestra.id_muestra || editingMuestra._id}`,
         updateData,
         {
           headers: {
@@ -713,7 +771,9 @@ const Muestras = () => {
       );
 
       const updatedMuestras = muestras.map((m) =>
-        m.id_muestra === editingMuestra.id_muestra ? { ...m, ...updateData } : m
+        (m.id_muestra === editingMuestra.id_muestra || m._id === editingMuestra._id)
+          ? { ...m, ...updateData }
+          : m
       );
 
       setMuestras(updatedMuestras);
@@ -733,17 +793,14 @@ const Muestras = () => {
     }
   };
 
-  // Para ver los detalles
   const handleViewDetails = (muestra) => {
     setSelectedMuestra(muestra);
   };
 
-  // Para descargar PDF
   const handleDownloadPDF = (muestra) => {
     generarPDFMuestra(muestra);
   };
 
-  // Click en botón "Editar"
   const handleEditClick = (muestra) => {
     handleEditMuestra(muestra);
   };
@@ -756,146 +813,106 @@ const Muestras = () => {
       <Typography variant="h4" align="center" sx={{ marginBottom: 2, fontWeight: "bold" }}>
         Muestras Registradas
       </Typography>
+      {/* Tabla resumida sin Tipo de Agua y Análisis Seleccionados */}
+      <TableContainer>
+        <Table>
+          <TableHead sx={{ backgroundColor: "#39A900" }}>
+            <TableRow>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID Muestra</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Análisis</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {muestras.map((muestra) => (
+              <TableRow
+                key={muestra._id || muestra.id_muestra}
+                sx={{
+                  transition: "transform 0.2s",
+                  "&:hover": { transform: "scale(1.02)" },
+                  cursor: "pointer",
+                }}
+              >
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  {muestra.id_muestra || muestra._id}
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  {muestra.cliente?.nombre || "N/A"}
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  {muestra.cliente?.documento || "N/A"}
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  <Chip
+                    label={muestra.estado}
+                    sx={getEstadoChipProps(muestra.estado).sx}
+                  />
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  {formatFecha(muestra.fechaHoraMuestreo)}
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  {muestra.lugarMuestreo}
+                </TableCell>
+                <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                  <Typography variant="subtitle1" color="text.primary">
+                    {muestra.tipoAnalisis || "N/A"}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: "flex", gap: 1 }} onClick={(e) => e.stopPropagation()}>
+                    <ActionButton
+                      tooltip="Ver Detalles"
+                      onClick={() => handleViewDetails(muestra)}
+                      IconComponent={VisibilityIcon}
+                    />
+                    <ActionButton
+                      tooltip="Descargar PDF"
+                      onClick={() => handleDownloadPDF(muestra)}
+                      IconComponent={GetAppIcon}
+                    />
+                    <ActionButton
+                      tooltip="Editar Muestra"
+                      onClick={() => handleEditClick(muestra)}
+                      IconComponent={EditIcon}
+                    />
+                    <ActionButton
+                      tooltip="Registrar Resultados"
+                      onClick={() =>
+                        navigate(`/registrar-resultados/${muestra.id_muestra || muestra._id}`)
+                      }
+                      IconComponent={AssignmentIcon}
+                    />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+        <Pagination
+          count={pagination.totalPages}
+          page={pagination.page}
+          onChange={handlePageChange}
+          color="primary"
+          sx={{
+            "& .MuiPaginationItem-root": { color: "#39A900" },
+            "& .Mui-selected": {
+              backgroundColor: "#39A900",
+              color: "white",
+              "&:hover": { backgroundColor: "#2d8000" },
+            },
+          }}
+        />
+      </Box>
 
-      {/* Filtros y búsqueda */}
-      <Select value={filterType} onChange={handleFilterChange} fullWidth sx={{ marginBottom: 2 }}>
-        <MenuItem value="todos">Todos</MenuItem>
-        <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
-        <MenuItem value="Microbiológico">Microbiológico</MenuItem>
-      </Select>
-
-      <TextField
-        label="Buscar muestra (ID o cliente)"
-        variant="outlined"
-        fullWidth
-        sx={{ marginBottom: 2 }}
-        onChange={handleSearchChange}
-        value={search}
-      />
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : muestras.length > 0 ? (
-        <>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ backgroundColor: "#39A900" }}>
-                <TableRow>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID Muestra</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Agua</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha y Hora</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Análisis</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {muestras.map((muestra) => (
-                  <TableRow
-                    key={muestra._id || muestra.id_muestra}
-                    sx={{
-                      transition: "transform 0.2s",
-                      "&:hover": { transform: "scale(1.02)" },
-                      cursor: "pointer",
-                    }}
-                  >
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.id_muestra}</TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.cliente.nombre}</TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.cliente.documento}</TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.tipoDeAgua?.descripcionCompleta}</TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      <Chip
-                        label={muestra.estado}
-                        sx={getEstadoChipProps(muestra.estado).sx}
-                      />
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      {muestra.fechaHoraMuestreo?.fecha && muestra.fechaHoraMuestreo?.hora
-                        ? `${muestra.fechaHoraMuestreo.fecha} ${muestra.fechaHoraMuestreo.hora}`
-                        : "N/A"}
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>{muestra.lugarMuestreo}</TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      <Typography variant="subtitle1" color="text.primary">
-                        {muestra.tipoAnalisis || "N/A"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        {Array.isArray(muestra.analisisSeleccionados) && muestra.analisisSeleccionados.length > 0 ? (
-                          muestra.analisisSeleccionados.map((analisis, index) => (
-                            <Typography key={index} variant="body2" color="text.primary" sx={{ mb: 0.5 }}>
-                              • {analisis}
-                            </Typography>
-                          ))
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            N/A
-                          </Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 1 }} onClick={(e) => e.stopPropagation()}>
-                        <ActionButton
-                          tooltip="Ver Detalles"
-                          onClick={() => handleViewDetails(muestra)}
-                          IconComponent={VisibilityIcon}
-                        />
-                        <ActionButton
-                          tooltip="Descargar PDF"
-                          onClick={() => handleDownloadPDF(muestra)}
-                          IconComponent={GetAppIcon}
-                        />
-                        <ActionButton
-                          tooltip="Editar Muestra"
-                          onClick={() => handleEditClick(muestra)}
-                          IconComponent={EditIcon}
-                        />
-                        <ActionButton
-                          tooltip="Registrar Resultados"
-                          onClick={() => navigate(`/registrar-resultados/${muestra.id_muestra}`)}
-                          IconComponent={AssignmentIcon}
-                        />
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Paginación actualizada */}
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-            <Pagination
-              count={pagination.totalPages}
-              page={pagination.page}
-              onChange={handlePageChange}
-              color="primary"
-              sx={{
-                "& .MuiPaginationItem-root": { color: "#39A900" },
-                "& .Mui-selected": {
-                  backgroundColor: "#39A900",
-                  color: "white",
-                  "&:hover": { backgroundColor: "#2d8000" },
-                },
-              }}
-            />
-          </Box>
-        </>
-      ) : (
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          No se encontraron muestras con los filtros aplicados
-        </Typography>
-      )}
-
-      {/* Modal de Detalles */}
+      {/* Modal de Detalle Completo */}
       <DetailMuestraModal
         selectedMuestra={selectedMuestra}
         onClose={() => setSelectedMuestra(null)}
@@ -903,7 +920,7 @@ const Muestras = () => {
         hideClientData={tipoUsuario === "laboratorista"}
       />
 
-      {/* Modal de Edición (usa carga dinámica de análisis) */}
+      {/* Modal de Edición */}
       <EditMuestraModal
         editingMuestra={editingMuestra}
         setEditingMuestra={setEditingMuestra}
