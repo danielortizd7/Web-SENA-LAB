@@ -276,6 +276,38 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   </TableRow>
                 </>
               )}
+              {selectedMuestra.firmas && (
+                <>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Firma del Administrador</TableCell>
+                    <TableCell>
+                      {selectedMuestra.firmas.administrador?.firmaAdministrador ? (
+                        <img
+                          src={selectedMuestra.firmas.administrador.firmaAdministrador}
+                          alt="Firma del Administrador"
+                          style={{ maxWidth: "200px", maxHeight: "100px" }}
+                        />
+                      ) : (
+                        "No disponible"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Firma del Cliente</TableCell>
+                    <TableCell>
+                      {selectedMuestra.firmas.cliente?.firmaCliente ? (
+                        <img
+                          src={selectedMuestra.firmas.cliente.firmaCliente}
+                          alt="Firma del Cliente"
+                          style={{ maxWidth: "200px", maxHeight: "100px" }}
+                        />
+                      ) : (
+                        "No disponible"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
