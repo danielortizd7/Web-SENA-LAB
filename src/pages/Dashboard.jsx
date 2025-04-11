@@ -14,7 +14,7 @@ import {
   TableHead,
   TableRow,
   Modal,
-  Box,
+  Box
 } from "@mui/material";
 import {
   ResponsiveContainer,
@@ -52,22 +52,17 @@ const Dashboard = () => {
   const [selectedSample, setSelectedSample] = useState(null);
   const [openModal, setOpenModal] = useState(false);
 
-  // Función para generar la distribución por tipo de muestra (Agua, Suelo, Otros)
-  const generateTypeDistribution = (samples) => {
-    const typeCounts = { Agua: 0, Suelo: 0, Otros: 0 };
+  // Función para generar la distribución por tipo de análisis
+  const generateAnalysisTypeDistribution = (samples) => {
+    const analysisCounts = {};
     samples.forEach((sample) => {
-      const type = sample.tipoMuestra ? sample.tipoMuestra.toLowerCase() : "otros";
-      if (type === "agua") {
-        typeCounts.Agua += 1;
-      } else if (type === "suelo") {
-        typeCounts.Suelo += 1;
-      } else {
-        typeCounts.Otros += 1;
-      }
+      // Si no se define, se asigna "Sin Especificar"
+      const analysisType = sample.tipoAnalisis ? sample.tipoAnalisis : "Sin Especificar";
+      analysisCounts[analysisType] = (analysisCounts[analysisType] || 0) + 1;
     });
-    return Object.keys(typeCounts).map((key) => ({
-      type: key,
-      count: typeCounts[key],
+    return Object.keys(analysisCounts).map((key) => ({
+      analysisType: key,
+      count: analysisCounts[key],
     }));
   };
 
@@ -81,22 +76,20 @@ const Dashboard = () => {
         return;
       }
       try {
+        // Agregamos el query parameter `limit` para solicitar más muestras
         const response = await axios.get(
-          "https://backend-registro-muestras.onrender.com/api/muestras",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          "https://backend-registro-muestras.onrender.com/api/muestras?limit=290",
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         console.log("Respuesta del backend (muestras):", response.data);
 
         let samples = [];
         if (response.data && response.data.data && Array.isArray(response.data.data.data)) {
-          samples = response.data.data.data; // Ajuste para manejar la estructura correcta
+          samples = response.data.data.data;
         } else {
           console.warn("Estructura inesperada en la respuesta de muestras:", response.data);
         }
-
         setAllSamples(samples);
 
         const totalSamples = samples.length;
@@ -104,13 +97,13 @@ const Dashboard = () => {
           (s) => s.estado && s.estado.toLowerCase() === "recibida"
         ).length;
         const verifiedSamples = totalSamples - pendingSamples;
-        const typeDistribution = generateTypeDistribution(samples);
+        const analysisDistribution = generateAnalysisTypeDistribution(samples);
 
         setSampleStats({
           totalSamples,
           pendingSamples,
           verifiedSamples,
-          typeDistribution,
+          analysisDistribution,
         });
       } catch (err) {
         console.error("Error al cargar muestras:", err);
@@ -134,11 +127,8 @@ const Dashboard = () => {
       try {
         const response = await axios.get(
           "https://backend-sena-lab-1-qpzp.onrender.com/api/usuarios",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-
         console.log("Respuesta del backend (usuarios):", response.data);
 
         let users = [];
@@ -158,12 +148,10 @@ const Dashboard = () => {
             roleCounts[role] = (roleCounts[role] || 0) + 1;
           }
         });
-
         const roleDistribution = Object.keys(roleCounts).map((role) => ({
           role,
           count: roleCounts[role],
         }));
-
         setUserStats({ totalUsers, roleDistribution });
       } catch (err) {
         console.error("Error al cargar usuarios:", err);
@@ -194,8 +182,8 @@ const Dashboard = () => {
     );
   }
 
-  // Colores para el gráfico de pastel
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28"];
+  // Colores para el gráfico de pastel (se pueden ampliar si existen más tipos)
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
   // Cálculo de las últimas 5 muestras (ordenadas por fecha, las más recientes primero)
   const recentSamples = [...allSamples]
@@ -217,7 +205,7 @@ const Dashboard = () => {
         </Grid>
       )}
 
-      {/* Mostrar un mensaje si no hay datos */}
+      {/* Mostrar mensaje si no hay datos */}
       {!loadingSamples && !sampleError && sampleStats?.totalSamples === 0 && (
         <Grid item xs={12}>
           <Alert severity="info">No hay muestras registradas.</Alert>
@@ -256,22 +244,22 @@ const Dashboard = () => {
         </Paper>
       </Grid>
 
-      {/* Gráfica: Distribución por Tipo de Muestra */}
+      {/* Gráfica: Distribución por Tipo de Análisis */}
       <Grid item xs={12} md={6}>
         <Paper elevation={3} sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Distribución por Tipo de Muestra
+            Distribución por Tipo de Análisis
           </Typography>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={sampleStats.typeDistribution}
+                data={sampleStats.analysisDistribution}
                 dataKey="count"
-                nameKey="type"
+                nameKey="analysisType"
                 outerRadius={100}
-                label={({ type, count }) => `${type}: ${count}`}
+                label={({ analysisType, count }) => `${analysisType}: ${count}`}
               >
-                {sampleStats.typeDistribution.map((entry, index) => (
+                {sampleStats.analysisDistribution.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -293,7 +281,7 @@ const Dashboard = () => {
                 <TableRow>
                   <TableCell>ID Muestra</TableCell>
                   <TableCell>Fecha</TableCell>
-                  <TableCell>Tipo</TableCell>
+                  <TableCell>Tipo de Análisis</TableCell>
                   <TableCell>Estado</TableCell>
                 </TableRow>
               </TableHead>
@@ -306,10 +294,8 @@ const Dashboard = () => {
                     sx={{ cursor: "pointer" }}
                   >
                     <TableCell>{sample.id_muestra}</TableCell>
-                    <TableCell>
-                      {new Date(sample.fechaHora).toLocaleString()}
-                    </TableCell>
-                    <TableCell>{sample.tipoMuestra}</TableCell>
+                    <TableCell>{new Date(sample.fechaHora).toLocaleString()}</TableCell>
+                    <TableCell>{sample.tipoAnalisis}</TableCell>
                     <TableCell>{sample.estado}</TableCell>
                   </TableRow>
                 ))}
@@ -319,7 +305,7 @@ const Dashboard = () => {
         </Paper>
       </Grid>
 
-      {/* Información de Usuarios (sin gráficos) */}
+      {/* Información de Usuarios */}
       <Grid item xs={12}>
         <Paper elevation={3} sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
@@ -348,16 +334,14 @@ const Dashboard = () => {
                 <strong>ID Muestra:</strong> {selectedSample.id_muestra}
               </Typography>
               <Typography variant="body2">
-                <strong>Fecha:</strong>{" "}
-                {new Date(selectedSample.fechaHora).toLocaleString()}
+                <strong>Fecha:</strong> {new Date(selectedSample.fechaHora).toLocaleString()}
               </Typography>
               <Typography variant="body2">
-                <strong>Tipo:</strong> {selectedSample.tipoMuestra}
+                <strong>Tipo de Análisis:</strong> {selectedSample.tipoAnalisis}
               </Typography>
               <Typography variant="body2">
                 <strong>Estado:</strong> {selectedSample.estado}
               </Typography>
-              {/* Puedes agregar más detalles aquí según los campos disponibles */}
             </>
           )}
         </Box>
