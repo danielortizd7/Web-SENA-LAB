@@ -9,29 +9,29 @@ import {
   Toolbar,
   Box,
   Divider,
-  Chip,
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
 
-// Iconos
+// Iconos para el menú
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import ScienceIcon from "@mui/icons-material/Science";
 import BiotechIcon from "@mui/icons-material/Biotech";
 import AssignmentIcon from "@mui/icons-material/Assignment";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
-import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
-import PersonIcon from "@mui/icons-material/Person";
 
 // Logo SENA
 import senaLogo from "../assets/sena-logo.png";
+
+// Importación de componentes
+import UserProfile from "./UserProfile";
+import EditProfileDialog from "./EditProfileDialog";
 
 // Ancho del Drawer
 const drawerWidth = 240;
 
 const Sidebar = () => {
   const [userRole, setUserRole] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -84,56 +84,11 @@ const Sidebar = () => {
     return item.roles.includes(userRole);
   };
 
-  const renderUserRoleChip = (role) => {
-    switch (role) {
-      case "super_admin":
-        return (
-          <Chip
-            icon={<VerifiedUserIcon />}
-            label="Super Administrador"
-            sx={{ backgroundColor: "#00324D", color: "white", fontWeight: "bold" }}
-          />
-        );
-      case "administrador":
-        return (
-          <Chip
-            icon={<AdminPanelSettingsIcon />}
-            label="Administrador"
-            sx={{ backgroundColor: "#1565C0", color: "white", fontWeight: "bold" }}
-          />
-        );
-      case "laboratorista":
-        return (
-          <Chip
-            icon={<BiotechIcon />}
-            label="Laboratorista"
-            sx={{ backgroundColor: "#4CAF50", color: "white", fontWeight: "bold" }}
-          />
-        );
-      case "cliente":
-        return (
-          <Chip
-            icon={<PersonIcon />}
-            label="Cliente"
-            sx={{ backgroundColor: "#FF9800", color: "white", fontWeight: "bold" }}
-          />
-        );
-      default:
-        return (
-          <Chip
-            icon={<SupervisorAccountIcon />}
-            label="Sin Rol"
-            sx={{ backgroundColor: "#9E9E9E", color: "white", fontWeight: "bold" }}
-          />
-        );
-    }
-  };
-
   const drawerContent = (
     <Box
       sx={{
         height: "100%",
-        backgroundColor: "#fff", // Fondo blanco limpio
+        backgroundColor: "#fff",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -146,7 +101,10 @@ const Sidebar = () => {
           </Box>
         </Toolbar>
 
-        <Box sx={{ p: 2, textAlign: "center" }}>{renderUserRoleChip(userRole)}</Box>
+        {/* Sección de perfil: al hacer clic en la foto se abre el diálogo de edición */}
+        <Box sx={{ p: 2, textAlign: "center" }}>
+          <UserProfile onEdit={() => setEditOpen(true)} />
+        </Box>
 
         <Divider sx={{ mb: 1 }} />
 
@@ -181,7 +139,9 @@ const Sidebar = () => {
                     }),
                   }}
                 >
-                  <ListItemIcon sx={{ color: "inherit" }}>{item.icon}</ListItemIcon>
+                  <ListItemIcon sx={{ color: "inherit" }}>
+                    {item.icon}
+                  </ListItemIcon>
                   <ListItemText
                     primary={item.text}
                     primaryTypographyProps={{ fontWeight: "bold" }}
@@ -196,6 +156,8 @@ const Sidebar = () => {
       <Box sx={{ p: 2, textAlign: "center", fontSize: "12px", color: "#777" }}>
         © {new Date().getFullYear()} SENA
       </Box>
+      {/* Diálogo para editar perfil */}
+      <EditProfileDialog open={editOpen} handleClose={() => setEditOpen(false)} />
     </Box>
   );
 
