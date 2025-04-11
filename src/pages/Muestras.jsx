@@ -55,9 +55,9 @@ const API_URLS = {
 };
 
 /**
- * Formatea la fecha y la hora completa (para el detalle y PDF).
- * – Si fechaHoraMuestreo tiene propiedades { fecha, hora } y la fecha viene en formato "dd/MM/yyyy",
- *   la convierte a "yyyy-MM-dd" y forma un string ISO para crear un objeto Date.
+ * Formatea la fecha y hora completa (para detalle y PDF).
+ * Si el objeto fechaHoraMuestreo es { fecha, hora } con fecha en formato "dd/MM/yyyy",
+ * lo transforma a un string ISO y lo muestra en formato local.
  */
 function formatFechaHora(fechaHoraMuestreo) {
   if (!fechaHoraMuestreo) return "N/A";
@@ -67,8 +67,6 @@ function formatFechaHora(fechaHoraMuestreo) {
       const [dd, MM, yyyy] = fecha.split("/");
       fecha = `${yyyy}-${MM}-${dd}`;
     }
-    // Nota: El string "10:00 AM" no es ISO; new Date() podría interpretarlo de forma distinta.
-    // Se usará toLocaleString() para mostrarlo.
     const isoDate = `${fecha}T${hora}`;
     const d = new Date(isoDate);
     return isNaN(d) ? `${fechaHoraMuestreo.fecha} ${fechaHoraMuestreo.hora}` : d.toLocaleString();
@@ -79,7 +77,7 @@ function formatFechaHora(fechaHoraMuestreo) {
 }
 
 /**
- * Formatea únicamente la fecha (sin hora) para la tabla.
+ * Formatea solamente la fecha (sin hora) para mostrar en la tabla.
  */
 function formatFecha(fechaHoraMuestreo) {
   if (!fechaHoraMuestreo) return "N/A";
@@ -98,8 +96,7 @@ function formatFecha(fechaHoraMuestreo) {
 }
 
 /**
- * Convierte fechaHoraMuestreo en formato ISO (yyyy-mm-dd) para comparar con el input de tipo "date".
- * Aquí se usa únicamente la propiedad "fecha" del objeto.
+ * Convierte fechaHoraMuestreo en formato ISO (yyyy-mm-dd) a partir de la propiedad "fecha".
  */
 function convertFechaToISO(fechaHoraMuestreo) {
   if (!fechaHoraMuestreo) return "";
@@ -112,6 +109,44 @@ function convertFechaToISO(fechaHoraMuestreo) {
     return fecha;
   }
   return "";
+}
+
+/**
+ * Convierte un string ISO (formato "yyyy-MM-ddThh:mm") al objeto que espera el backend,
+ * con formato: { fecha: "dd/MM/yyyy", hora: "hh:mm AM/PM" }.
+ * Si ya es un objeto con { fecha, hora } o una instancia de Date, se maneja correctamente.
+ */
+function convertISOToFechaHoraObject(isoInput) {
+  if (!isoInput) return null;
+  if (typeof isoInput === "object") {
+    if (isoInput.fecha && isoInput.hora) return isoInput;
+    if (isoInput instanceof Date) {
+      const dd = String(isoInput.getDate()).padStart(2, "0");
+      const MM = String(isoInput.getMonth() + 1).padStart(2, "0");
+      const yyyy = isoInput.getFullYear();
+      const fecha = `${dd}/${MM}/${yyyy}`;
+      let hours = isoInput.getHours();
+      const minutes = String(isoInput.getMinutes()).padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      let hours12 = hours % 12;
+      if (hours12 === 0) hours12 = 12;
+      const hora = `${hours12}:${minutes} ${ampm}`;
+      return { fecha, hora };
+    }
+  }
+  if (typeof isoInput !== "string") return null;
+  const parts = isoInput.split("T");
+  if (parts.length < 2) return null;
+  const [datePart, timePart] = parts;
+  const [yyyy, MM, dd] = datePart.split("-");
+  const fecha = `${dd}/${MM}/${yyyy}`;
+  let [hours, minutes] = timePart.split(":");
+  hours = parseInt(hours, 10);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  let hours12 = hours % 12;
+  if (hours12 === 0) hours12 = 12;
+  const hora = `${hours12}:${minutes} ${ampm}`;
+  return { fecha, hora };
 }
 
 /**
@@ -154,7 +189,9 @@ const getEstadoChipProps = (estado) => {
   }
 };
 
-/* Modal de Detalle Completo: Muestra toda la información */
+/* ======================== MODALES ======================== */
+
+/* Modal de Detalle Completo: se muestran todos los datos */
 const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
   <Modal open={selectedMuestra !== null} onClose={onClose}>
     <Box sx={modalStyle}>
@@ -172,13 +209,17 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
-                  <TableCell>{selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}</TableCell>
+                  <TableCell>
+                    {selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}
+                  </TableCell>
                 </TableRow>
               )}
               {!hideClientData && (
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell>{selectedMuestra.nombreCliente || selectedMuestra.cliente?.nombre || "No encontrado"}</TableCell>
+                  <TableCell>
+                    {selectedMuestra.nombreCliente || selectedMuestra.cliente?.nombre || "No encontrado"}
+                  </TableCell>
                 </TableRow>
               )}
               <TableRow>
@@ -257,15 +298,17 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
               {selectedMuestra.historial && selectedMuestra.historial.length > 0 && (
                 <>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Último cambio por</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>Muestra creada por:</TableCell>
                     <TableCell>
-                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].nombreadministrador || "N/A"}
+                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].administrador?.nombre || "N/A"}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: "bold" }}>Fecha de cambio</TableCell>
                     <TableCell>
-                      {new Date(selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio).toLocaleString()}
+                      {new Date(
+                        selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio
+                      ).toLocaleString()}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -284,7 +327,8 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
   </Modal>
 );
 
-/* Modal para Editar Muestra (no se realizaron cambios relevantes al filtro por fecha) */
+/* ======================== MODAL DE EDICIÓN ======================== */
+/* Se utiliza la función convertISOToFechaHoraObject para transformar el valor del input antes de enviarlo */
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
   const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
 
@@ -320,6 +364,44 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
 
   if (!editingMuestra) return null;
 
+  // Obtener el valor para el input "datetime-local"
+  const fechaInputValue = (() => {
+    const fh = editingMuestra.fechaHoraMuestreo;
+    if (!fh) return "";
+    if (typeof fh === "string") {
+      return fh.substring(0, 16);
+    }
+    if (typeof fh === "object" && fh.fecha && fh.hora) {
+      let fecha = fh.fecha;
+      if (fecha.includes("/")) {
+        const [dd, MM, yyyy] = fecha.split("/");
+        fecha = `${yyyy}-${MM}-${dd}`;
+      }
+      // Función para convertir la hora de 12h a 24h:
+      const convertTimeTo24 = (timeStr) => {
+        if (!timeStr) return "";
+        const parts = timeStr.trim().split(" ");
+        if (parts.length !== 2) return timeStr;
+        const [time, modifier] = parts;
+        let [hours, minutes] = time.split(":");
+        hours = parseInt(hours, 10);
+        if (modifier.toUpperCase() === "PM" && hours !== 12) {
+          hours += 12;
+        }
+        if (modifier.toUpperCase() === "AM" && hours === 12) {
+          hours = 0;
+        }
+        return `${hours < 10 ? "0" + hours : hours}:${minutes}`;
+      };
+      const time24 = convertTimeTo24(fh.hora);
+      return `${fecha}T${time24}`;
+    }
+    return "";
+  })();
+
+  // Convierte el string ISO al objeto que espera el backend.
+  const convertedFechaHora = convertISOToFechaHoraObject(editingMuestra.fechaHoraMuestreo);
+
   const handleAnalisisChange = (analisisNombre) => {
     setEditingMuestra((prev) => {
       const alreadySelected = prev.analisisSeleccionados?.includes(analisisNombre);
@@ -339,6 +421,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
           Editar Muestra
         </Typography>
         <Box component="form" noValidate autoComplete="off" sx={{ "& .MuiTextField-root": { mb: 2 } }}>
+          {/* Tipo de Análisis */}
           <Typography variant="subtitle2">Tipo de Análisis</Typography>
           <Select
             fullWidth
@@ -354,6 +437,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
             <MenuItem value="Microbiológico">Microbiológico</MenuItem>
           </Select>
+          {/* Tipo de Muestreo */}
           <Typography variant="subtitle2">Tipo de Muestreo</Typography>
           <Select
             fullWidth
@@ -365,28 +449,27 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <MenuItem value="Simple">Simple</MenuItem>
             <MenuItem value="Compuesto">Compuesto</MenuItem>
           </Select>
+          {/* Fecha y Hora de Muestreo */}
           <TextField
             fullWidth
             label="Fecha y Hora de Muestreo"
             type="datetime-local"
             InputLabelProps={{ shrink: true }}
-            value={
-              editingMuestra.fechaHoraMuestreo
-                ? editingMuestra.fechaHoraMuestreo.substring(0, 16)
-                : ""
-            }
+            value={fechaInputValue}
             onChange={(e) =>
               setEditingMuestra({ ...editingMuestra, fechaHoraMuestreo: e.target.value })
             }
           />
+          {/* Lugar de Muestreo */}
           <TextField
             fullWidth
             label="Lugar de Muestreo"
             value={editingMuestra.lugarMuestreo || ""}
             onChange={(e) =>
-              setEditingMuestrea({ ...editingMuestra, lugarMuestreo: e.target.value })
+              setEditingMuestra({ ...editingMuestra, lugarMuestreo: e.target.value })
             }
           />
+          {/* Identificación de Muestra */}
           <TextField
             fullWidth
             label="Identificación de Muestra"
@@ -395,6 +478,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, identificacionMuestra: e.target.value })
             }
           />
+          {/* Plan de Muestreo */}
           <TextField
             fullWidth
             label="Plan de Muestreo"
@@ -403,6 +487,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, planMuestreo: e.target.value })
             }
           />
+          {/* Condiciones Ambientales */}
           <TextField
             fullWidth
             label="Condiciones Ambientales"
@@ -413,10 +498,11 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               setEditingMuestra({ ...editingMuestra, condicionesAmbientales: e.target.value })
             }
           />
+          {/* Preservación de Muestra */}
           <Typography variant="subtitle2">Preservación de Muestra</Typography>
           <Select
             fullWidth
-            value={editingMuestra.preservacionMuestra || ""}
+            value={editingMuestra.preservacionMuestrea || editingMuestra.preservacionMuestra || ""}
             onChange={(e) =>
               setEditingMuestra({ ...editingMuestra, preservacionMuestra: e.target.value })
             }
@@ -436,6 +522,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               }
             />
           )}
+          {/* Análisis a Realizar */}
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
             Análisis a Realizar
           </Typography>
@@ -447,7 +534,9 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
             <Accordion defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography>
-                  {editingMuestra.tipoAnalisis === "Fisicoquímico" ? "Análisis Fisicoquímicos" : "Análisis Microbiológicos"}
+                  {editingMuestra.tipoAnalisis === "Fisicoquímico"
+                    ? "Análisis Fisicoquímicos"
+                    : "Análisis Microbiológicos"}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails>
@@ -473,6 +562,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
               </AccordionDetails>
             </Accordion>
           )}
+          {/* Observaciones */}
           <TextField
             fullWidth
             label="Observaciones"
@@ -492,7 +582,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
   );
 };
 
-// Componente Principal Muestras
+/* =================== COMPONENTE PRINCIPAL: Muestras =================== */
 const Muestras = () => {
   const [muestras, setMuestras] = useState([]);
   const [filteredMuestras, setFilteredMuestras] = useState([]);
@@ -510,6 +600,8 @@ const Muestras = () => {
   const [editingMuestra, setEditingMuestra] = useState(null);
   const navigate = useNavigate();
   const { tipoUsuario } = useContext(AuthContext);
+  // Define la variable que indica si se debe ocultar la información del cliente
+  const hideClientData = tipoUsuario === "laboratorista";
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -534,13 +626,13 @@ const Muestras = () => {
     overflowY: "auto",
   };
 
-  // Aplica los filtros de búsqueda, tipo y fecha
+  // Aplica los filtros (búsqueda y fecha)
   const applyFilters = () => {
     let filtered = [...muestras];
     if (search.trim() !== "") {
       filtered = filtered.filter((muestra) =>
         (muestra.id_muestra?.toLowerCase().includes(search.toLowerCase()) ||
-         muestra.cliente?.nombre?.toLowerCase().includes(search.toLowerCase()))
+          muestra.cliente?.nombre?.toLowerCase().includes(search.toLowerCase()))
       );
     }
     if (filterDate !== "") {
@@ -596,7 +688,9 @@ const Muestras = () => {
       }
     } catch (error) {
       console.error("Error fetching muestras:", error);
-      setSnackbarMessage("Error al cargar las muestras: " + (error.response?.data?.message || error.message));
+      setSnackbarMessage(
+        "Error al cargar las muestras: " + (error.response?.data?.message || error.message)
+      );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
       setMuestras([]);
@@ -635,7 +729,7 @@ const Muestras = () => {
     fetchMuestras(1, pagination.limit, "createdAt", "desc", "todos");
   };
 
-  // Función para generar PDF con detalle completo
+  // Función para generar PDF (detalle completo)
   const generarPDFMuestra = (muestra, preview = false) => {
     const doc = new jsPDF();
     doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
@@ -646,7 +740,7 @@ const Muestras = () => {
     doc.text("Detalles de la Muestra", 14, 42);
 
     const detallesMuestra = [
-      ["ID Muestra", muestra.id_muestra || muestra._id || "N/A"],
+      ["ID Muestra", muestra.id_muestrea || muestra.id_muestra || muestra._id || "N/A"],
       ["Documento", muestra.documento || muestra.cliente?.documento || "N/A"],
       ["Nombre del Cliente", muestra.nombreCliente || muestra.cliente?.nombre || "No encontrado"],
       ["Tipo de Análisis", muestra.tipoAnalisis || "N/A"],
@@ -676,7 +770,7 @@ const Muestras = () => {
     if (muestra.historial && muestra.historial.length > 0) {
       const ultimoCambio = muestra.historial[muestra.historial.length - 1];
       detallesMuestra.push(
-        ["Último cambio por", ultimoCambio.nombreadministrador || "N/A"],
+        ["Último cambio por", ultimoCambio.administrador?.nombre || "N/A"],
         ["Fecha de cambio", new Date(ultimoCambio.fechaCambio).toLocaleString()],
         ["Observaciones Hist.", ultimoCambio.observaciones || "N/A"]
       );
@@ -748,18 +842,20 @@ const Muestras = () => {
     if (preview) {
       window.open(doc.output("bloburl"), "_blank");
     } else {
-      doc.save(`Muestra_${muestra.id_muestra || muestra._id}.pdf`);
+      doc.save(`Muestra_${muestra.id_muestrea || muestra.id_muestra || muestra._id}.pdf`);
     }
   };
 
   const handleEditMuestra = (muestra) => setEditingMuestra(muestra);
 
+  // Al guardar, convertir el valor del input (en formato ISO) al objeto que espera el backend.
   const handleSaveEdit = async () => {
     try {
       const updateData = {
         tipoAnalisis: editingMuestra.tipoAnalisis,
         tipoMuestreo: editingMuestra.tipoMuestreo,
-        fechaHoraMuestreo: editingMuestra.fechaHoraMuestreo,
+        // Se transforma el string ISO del input al objeto esperado por el backend
+        fechaHoraMuestreo: convertISOToFechaHoraObject(editingMuestra.fechaHoraMuestreo),
         lugarMuestreo: editingMuestra.lugarMuestreo,
         identificacionMuestra: editingMuestra.identificacionMuestra,
         planMuestreo: editingMuestra.planMuestreo,
@@ -770,6 +866,9 @@ const Muestras = () => {
         analisisSeleccionados: editingMuestra.analisisSeleccionados,
         observaciones: editingMuestra.observaciones,
       };
+
+      // Imprime en consola el objeto updateData para verificar el formato
+      console.log("updateData a enviar:", updateData);
 
       await axios.put(
         `${API_URLS.MUESTRAS}/${editingMuestra.id_muestra || editingMuestra._id}`,
@@ -783,7 +882,7 @@ const Muestras = () => {
       );
 
       const updatedMuestras = muestras.map((m) =>
-        (m.id_muestra === editingMuestra.id_muestra || m._id === editingMuestra._id)
+        (m.id_muestra === editingMuestra.id_muestrea || m.id_muestrea === editingMuestra.id_muestrea || m.id_muestra === editingMuestra.id_muestra || m._id === editingMuestra._id)
           ? { ...m, ...updateData }
           : m
       );
@@ -853,8 +952,12 @@ const Muestras = () => {
           <TableHead sx={{ backgroundColor: "#39A900" }}>
             <TableRow>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID Muestra</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+              {!hideClientData && (
+                <>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+                </>
+              )}
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
@@ -865,7 +968,7 @@ const Muestras = () => {
           <TableBody>
             {filteredMuestras.map((muestra) => (
               <TableRow
-                key={muestra.id_muestra || muestra._id}
+                key={muestra.id_muestrea || muestra.id_muestra || muestra._id}
                 sx={{
                   transition: "transform 0.2s",
                   "&:hover": { transform: "scale(1.02)" },
@@ -873,14 +976,18 @@ const Muestras = () => {
                 }}
               >
                 <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {muestra.id_muestra || muestra._id}
+                  {muestra.id_muestrea || muestra.id_muestra || muestra._id}
                 </TableCell>
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {muestra.cliente?.nombre || "N/A"}
-                </TableCell>
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {muestra.cliente?.documento || "N/A"}
-                </TableCell>
+                {!hideClientData && (
+                  <>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      {muestra.cliente?.nombre || "N/A"}
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      {muestra.cliente?.documento || "N/A"}
+                    </TableCell>
+                  </>
+                )}
                 <TableCell onClick={() => setSelectedMuestra(muestra)}>
                   <Chip label={muestra.estado} sx={getEstadoChipProps(muestra.estado).sx} />
                 </TableCell>
@@ -915,7 +1022,7 @@ const Muestras = () => {
                     <ActionButton
                       tooltip="Registrar Resultados"
                       onClick={() =>
-                        navigate(`/registrar-resultados/${muestra.id_muestra || muestra._id}`)
+                        navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestrea || muestra.id_muestrea || muestra._id}`)
                       }
                       IconComponent={AssignmentIcon}
                     />
@@ -934,7 +1041,11 @@ const Muestras = () => {
           color="primary"
           sx={{
             "& .MuiPaginationItem-root": { color: "#39A900" },
-            "& .Mui-selected": { backgroundColor: "#39A900", color: "white", "&:hover": { backgroundColor: "#2d8000" } },
+            "& .Mui-selected": {
+              backgroundColor: "#39A900",
+              color: "white",
+              "&:hover": { backgroundColor: "#2d8000" },
+            },
           }}
         />
       </Box>
@@ -942,7 +1053,7 @@ const Muestras = () => {
         selectedMuestra={selectedMuestra}
         onClose={() => setSelectedMuestra(null)}
         modalStyle={modalStyle}
-        hideClientData={tipoUsuario === "laboratorista"}
+        hideClientData={hideClientData}
       />
       <EditMuestraModal
         editingMuestra={editingMuestra}
