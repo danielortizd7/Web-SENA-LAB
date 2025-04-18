@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import senaLogo from "../assets/logo-sena.png";
 import { useNavigate } from "react-router-dom";
+import { PDFService } from '../services/pdfGenerator';
 import {
   Table,
   TableBody,
@@ -38,20 +36,21 @@ import GetAppIcon from "@mui/icons-material/GetApp";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AuthContext from "../context/AuthContext";
 import { muestrasService } from "../services/muestras.service";
 
 // ----- URLs para las peticiones -----
 const BASE_URLS = {
   USUARIOS: "https://backend-sena-lab-1-qpzp.onrender.com/api",
-  MUESTRAS: "https://backend-registro-muestras.onrender.com/api",
+  MUESTRAS: "https://backend-registro-muestras.onrender.com/api"
 };
 
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
-  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimicos`,
-  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`,
+  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimico`,
+  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologico`
 };
 
 /**
@@ -192,172 +191,191 @@ const getEstadoChipProps = (estado) => {
 /* ======================== MODALES ======================== */
 
 /* Modal de Detalle Completo: se muestran todos los datos */
-const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => (
-  <Modal open={selectedMuestra !== null} onClose={onClose}>
-    <Box sx={modalStyle}>
-      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-        Detalles de la Muestra
-      </Typography>
-      {selectedMuestra && (
-        <TableContainer component={Paper} sx={{ maxWidth: "100%" }}>
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>ID Muestra</TableCell>
-                <TableCell>{selectedMuestra.id_muestra || selectedMuestra._id || "N/A"}</TableCell>
-              </TableRow>
-              {!hideClientData && (
+const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => {
+  const handleViewPDF = async () => {
+    if (!selectedMuestra) return;
+    try {
+      await PDFService.generarPDFMuestra(selectedMuestra.id_muestra || selectedMuestra.id_muestrea || selectedMuestra._id);
+    } catch (error) {
+      console.error("Error al ver PDF:", error);
+    }
+  };
+
+  return (
+    <Modal open={selectedMuestra !== null} onClose={onClose}>
+      <Box sx={modalStyle}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">Detalles de la Muestra</Typography>
+          <Button
+            variant="contained"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={handleViewPDF}
+            sx={{ backgroundColor: '#39A900', '&:hover': { backgroundColor: '#2d8000' } }}
+          >
+            Ver PDF
+          </Button>
+        </Box>
+        {selectedMuestra && (
+          <TableContainer component={Paper} sx={{ maxWidth: "100%" }}>
+            <Table>
+              <TableBody>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>ID Muestra</TableCell>
+                  <TableCell>{selectedMuestra.id_muestra || selectedMuestra._id || "N/A"}</TableCell>
+                </TableRow>
+                {!hideClientData && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Documento</TableCell>
+                    <TableCell>
+                      {selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!hideClientData && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
+                    <TableCell>
+                      {selectedMuestra.nombreCliente || selectedMuestra.cliente?.nombre || "No encontrado"}
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Tipo de Análisis</TableCell>
+                  <TableCell>{selectedMuestra.tipoAnalisis || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Tipo de Muestreo</TableCell>
+                  <TableCell>{selectedMuestra.tipoMuestreo || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Fecha y Hora de Muestreo</TableCell>
+                  <TableCell>{formatFechaHora(selectedMuestra.fechaHoraMuestreo)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
+                  <TableCell>{selectedMuestra.lugarMuestreo || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Identificación de Muestra</TableCell>
+                  <TableCell>{selectedMuestra.identificacionMuestra || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Plan de Muestreo</TableCell>
+                  <TableCell>{selectedMuestra.planMuestreo || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Condiciones Ambientales</TableCell>
+                  <TableCell>{selectedMuestra.condicionesAmbientales || "N/A"}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Preservación de Muestra</TableCell>
+                  <TableCell>{selectedMuestra.preservacionMuestra || "N/A"}</TableCell>
+                </TableRow>
+                {selectedMuestra.preservacionMuestra === "Otro" && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Detalle de Preservación</TableCell>
+                    <TableCell>{selectedMuestra.preservacionMuestraOtra || "N/A"}</TableCell>
+                  </TableRow>
+                )}
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Tipo de Agua</TableCell>
                   <TableCell>
-                    {selectedMuestra.documento || selectedMuestra.cliente?.documento || "N/A"}
+                    {selectedMuestra.tipoDeAgua?.descripcionCompleta ||
+                      selectedMuestra.tipoDeAgua?.tipo ||
+                      "N/A"}
                   </TableCell>
                 </TableRow>
-              )}
-              {!hideClientData && (
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Cliente</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
                   <TableCell>
-                    {selectedMuestra.nombreCliente || selectedMuestra.cliente?.nombre || "No encontrado"}
+                    {Array.isArray(selectedMuestra.analisisSeleccionados)
+                      ? selectedMuestra.analisisSeleccionados.join(", ")
+                      : "Ninguno"}
                   </TableCell>
                 </TableRow>
-              )}
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Análisis</TableCell>
-                <TableCell>{selectedMuestra.tipoAnalisis || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Muestreo</TableCell>
-                <TableCell>{selectedMuestra.tipoMuestreo || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Fecha y Hora de Muestreo</TableCell>
-                <TableCell>{formatFechaHora(selectedMuestra.fechaHoraMuestreo)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
-                <TableCell>{selectedMuestra.lugarMuestreo || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Identificación de Muestra</TableCell>
-                <TableCell>{selectedMuestra.identificacionMuestra || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Plan de Muestreo</TableCell>
-                <TableCell>{selectedMuestra.planMuestreo || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Condiciones Ambientales</TableCell>
-                <TableCell>{selectedMuestra.condicionesAmbientales || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Preservación de Muestra</TableCell>
-                <TableCell>{selectedMuestra.preservacionMuestra || "N/A"}</TableCell>
-              </TableRow>
-              {selectedMuestra.preservacionMuestra === "Otro" && (
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Detalle de Preservación</TableCell>
-                  <TableCell>{selectedMuestra.preservacionMuestraOtra || "N/A"}</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>Observaciones</TableCell>
+                  <TableCell>{selectedMuestra.observaciones || "N/A"}</TableCell>
                 </TableRow>
-              )}
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Tipo de Agua</TableCell>
-                <TableCell>
-                  {selectedMuestra.tipoDeAgua?.descripcionCompleta ||
-                    selectedMuestra.tipoDeAgua?.tipo ||
-                    "N/A"}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
-                <TableCell>
-                  {Array.isArray(selectedMuestra.analisisSeleccionados)
-                    ? selectedMuestra.analisisSeleccionados.join(", ")
-                    : "Ninguno"}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Observaciones</TableCell>
-                <TableCell>{selectedMuestra.observaciones || "N/A"}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Estado</TableCell>
-                <TableCell>
-                  {(() => {
-                    const estadoProps = getEstadoChipProps(selectedMuestra.estado);
-                    return (
-                      <Chip
-                        label={selectedMuestra.estado || "No especificado"}
-                        color={estadoProps.chipColor}
-                        sx={estadoProps.sx}
-                      />
-                    );
-                  })()}
-                </TableCell>
-              </TableRow>
-              {selectedMuestra.historial && selectedMuestra.historial.length > 0 && (
-                <>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Muestra creada por:</TableCell>
-                    <TableCell>
-                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].administrador?.nombre || "N/A"}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Fecha de cambio</TableCell>
-                    <TableCell>
-                      {new Date(
-                        selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio
-                      ).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Observaciones Hist.</TableCell>
-                    <TableCell>
-                      {selectedMuestra.historial[selectedMuestra.historial.length - 1].observaciones || "N/A"}
-                    </TableCell>
-                  </TableRow>
-                </>
-              )}
-              {selectedMuestra.firmas && (
-                <>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Firma del Administrador</TableCell>
-                    <TableCell>
-                      {selectedMuestra.firmas.administrador?.firmaAdministrador ? (
-                        <img
-                          src={selectedMuestra.firmas.administrador.firmaAdministrador}
-                          alt="Firma del Administrador"
-                          style={{ maxWidth: "200px", maxHeight: "100px" }}
+                <TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Estado</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const estadoProps = getEstadoChipProps(selectedMuestra.estado);
+                      return (
+                        <Chip
+                          label={selectedMuestra.estado || "No especificado"}
+                          color={estadoProps.chipColor}
+                          sx={estadoProps.sx}
                         />
-                      ) : (
-                        "No disponible"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold" }}>Firma del Cliente</TableCell>
-                    <TableCell>
-                      {selectedMuestra.firmas.cliente?.firmaCliente ? (
-                        <img
-                          src={selectedMuestra.firmas.cliente.firmaCliente}
-                          alt="Firma del Cliente"
-                          style={{ maxWidth: "200px", maxHeight: "100px" }}
-                        />
-                      ) : (
-                        "No disponible"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
-  </Modal>
-);
+                      );
+                    })()}
+                  </TableCell>
+                </TableRow>
+                {selectedMuestra.historial && selectedMuestra.historial.length > 0 && (
+                  <>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: "bold" }}>Muestra creada por:</TableCell>
+                      <TableCell>
+                        {selectedMuestra.historial[selectedMuestra.historial.length - 1].administrador?.nombre || "N/A"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: "bold" }}>Fecha de cambio</TableCell>
+                      <TableCell>
+                        {new Date(
+                          selectedMuestra.historial[selectedMuestra.historial.length - 1].fechaCambio
+                        ).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: "bold" }}>Observaciones Hist.</TableCell>
+                      <TableCell>
+                        {selectedMuestra.historial[selectedMuestra.historial.length - 1].observaciones || "N/A"}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+                {selectedMuestra.firmas && (
+                  <>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: "bold" }}>Firma del Administrador</TableCell>
+                      <TableCell>
+                        {selectedMuestra.firmas.administrador?.firmaAdministrador ? (
+                          <img
+                            src={selectedMuestra.firmas.administrador.firmaAdministrador}
+                            alt="Firma del Administrador"
+                            style={{ maxWidth: "200px", maxHeight: "100px" }}
+                          />
+                        ) : (
+                          "No disponible"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: "bold" }}>Firma del Cliente</TableCell>
+                      <TableCell>
+                        {selectedMuestra.firmas.cliente?.firmaCliente ? (
+                          <img
+                            src={selectedMuestra.firmas.cliente.firmaCliente}
+                            alt="Firma del Cliente"
+                            style={{ maxWidth: "200px", maxHeight: "100px" }}
+                          />
+                        ) : (
+                          "No disponible"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+    </Modal>
+  );
+};
 
 /* ======================== MODAL DE EDICIÓN ======================== */
 /* Se utiliza la función convertISOToFechaHoraObject para transformar el valor del input antes de enviarlo */
@@ -583,9 +601,13 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
                           />
                         }
                         label={
-                          analisis.unidad && analisis.unidad !== "N/A"
-                            ? `${analisis.nombre} (Unidad: ${analisis.unidad})`
-                            : analisis.nombre
+                          <span>
+                            {analisis.nombre}
+                            {analisis.unidad && analisis.unidad !== "N/A" && (
+                              <span style={{ color: 'gray' }}> (Unidad: {analisis.unidad})</span>
+                            )}
+                            <span style={{ color: 'green', marginLeft: '8px' }}> - ${analisis.precio}</span>
+                          </span>
                         }
                       />
                     </Grid>
@@ -689,39 +711,30 @@ const Muestras = () => {
   ) => {
     try {
       setLoading(true);
-      const params = { page, limit, sortBy, sortOrder, ...(tipo !== "todos" && { tipoAnalisis: tipo }) };
-      const queryParams = new URLSearchParams(params).toString();
-      console.log("Fetching muestras with query:", queryParams);
-      const response = await axios.get(`${API_URLS.MUESTRAS}?${queryParams}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      const response = await muestrasService.obtenerMuestras({
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        tipo
       });
-      console.log("Response from backend:", response.data);
-      if (
-        response.data &&
-        response.data.data &&
-        response.data.data.data &&
-        response.data.data.pagination
-      ) {
-        const muestrasData = response.data.data.data;
-        const paginationData = response.data.data.pagination;
-        setMuestras(muestrasData);
-        setFilteredMuestras(muestrasData);
+
+      if (response.success && response.data) {
+        setMuestras(response.data.items);
+        setFilteredMuestras(response.data.items);
         setPagination({
-          page: paginationData.currentPage,
-          limit: paginationData.limit,
-          total: paginationData.total,
-          totalPages: paginationData.totalPages,
+          page: response.data.page,
+          limit: response.data.limit,
+          total: response.data.total,
+          totalPages: response.data.totalPages
         });
       } else {
-        console.warn("Unexpected response structure:", response.data);
-        setMuestras([]);
-        setFilteredMuestras([]);
-        setPagination({ page: 1, limit, total: 0, totalPages: 1 });
+        throw new Error('No se pudieron obtener las muestras');
       }
     } catch (error) {
       console.error("Error fetching muestras:", error);
       setSnackbarMessage(
-        "Error al cargar las muestras: " + (error.response?.data?.message || error.message)
+        "Error al cargar las muestras: " + (error.message || 'Error desconocido')
       );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -761,120 +774,34 @@ const Muestras = () => {
     fetchMuestras(1, pagination.limit, "createdAt", "desc", "todos");
   };
 
-  // Función para generar PDF (detalle completo)
-  const generarPDFMuestra = (muestra, preview = false) => {
-    const doc = new jsPDF();
-    doc.addImage(senaLogo, "PNG", 10, 10, 40, 25);
-    doc.setFontSize(18);
-    doc.setTextColor(255, 255, 255);
-    doc.setFillColor(0, 49, 77);
-    doc.rect(0, 35, 210, 10, "F");
-    doc.text("Detalles de la Muestra", 14, 42);
-
-    const detallesMuestra = [
-      ["ID Muestra", muestra.id_muestrea || muestra.id_muestra || muestra._id || "N/A"],
-      ["Documento", muestra.documento || muestra.cliente?.documento || "N/A"],
-      ["Nombre del Cliente", muestra.nombreCliente || muestra.cliente?.nombre || "No encontrado"],
-      ["Tipo de Análisis", muestra.tipoAnalisis || "N/A"],
-      ["Tipo de Muestreo", muestra.tipoMuestreo || "N/A"],
-      ["Fecha y Hora de Muestreo", formatFechaHora(muestra.fechaHoraMuestreo)],
-      ["Lugar de Muestreo", muestra.lugarMuestreo || "N/A"],
-      ["Identificación de Muestra", muestra.identificacionMuestra || "N/A"],
-      ["Plan de Muestreo", muestra.planMuestreo || "N/A"],
-      ["Condiciones Ambientales", muestra.condicionesAmbientales || "N/A"],
-      ["Preservación de Muestra", muestra.preservacionMuestra || "N/A"],
-      [
-        "Tipo de Agua",
-        muestra.tipoDeAgua?.descripcionCompleta || muestra.tipoDeAgua?.tipo || "N/A",
-      ],
-    ];
-
-    if (muestra.preservacionMuestra === "Otro") {
-      detallesMuestra.push(["Detalle de Preservación", muestra.preservacionMuestraOtra || "N/A"]);
+  // Funciones para manejar PDFs
+  const handleViewPDF = async (muestra) => {
+    try {
+      await PDFService.generarPDFMuestra(muestra.id_muestra || muestra.id_muestrea || muestra._id);
+    } catch (error) {
+      setSnackbarMessage("Error al generar el PDF: " + error.message);
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
     }
+  };
 
-    detallesMuestra.push(
-      ["Análisis Seleccionados", Array.isArray(muestra.analisisSeleccionados) ? muestra.analisisSeleccionados.join(", ") : "Ninguno"],
-      ["Observaciones", muestra.observaciones || "N/A"],
-      ["Estado", muestra.estado || "No especificado"]
-    );
-
-    if (muestra.historial && muestra.historial.length > 0) {
-      const ultimoCambio = muestra.historial[muestra.historial.length - 1];
-      detallesMuestra.push(
-        ["Último cambio por", ultimoCambio.administrador?.nombre || "N/A"],
-        ["Fecha de cambio", new Date(ultimoCambio.fechaCambio).toLocaleString()],
-        ["Observaciones Hist.", ultimoCambio.observaciones || "N/A"]
-      );
+  const handleDownloadPDF = async (muestra) => {
+    try {
+      await PDFService.descargarPDFMuestra(muestra.id_muestra || muestra._id);
+    } catch (error) {
+      setSnackbarMessage("Error al descargar el PDF: " + error.message);
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
     }
+  };
 
-    autoTable(doc, {
-      startY: 50,
-      head: [["Campo", "Valor"]],
-      body: detallesMuestra,
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 2 },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 60 },
-        1: { cellWidth: 130 },
-      },
-    });
-
-    let currentY = doc.lastAutoTable.finalY + 20;
-    if (muestra.firmas) {
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text("Firmas", 14, currentY);
-      currentY += 10;
-      let adminFirma = null;
-      let adminLabel = "Administrador";
-      if (muestra.firmas.firmaAdministrador) {
-        adminFirma =
-          typeof muestra.firmas.firmaAdministrador === "object"
-            ? muestra.firmas.firmaAdministrador.firma
-            : muestra.firmas.firmaAdministrador;
-      } else if (muestra.firmas.firmaLaboratorista) {
-        adminFirma =
-          typeof muestra.firmas.firmaLaboratorista === "object"
-            ? muestra.firmas.firmaLaboratorista.firma
-            : muestra.firmas.firmaLaboratorista;
-        adminLabel = "Laboratorista";
-      }
-      if (adminFirma) {
-        const adminCedula = muestra.firmas.cedulaAdministrador || muestra.firmas.cedulaLaboratorista || "";
-        try {
-          doc.addImage(adminFirma, "PNG", 20, currentY, 70, 30);
-          doc.setFontSize(10);
-          doc.text(adminLabel + (adminCedula ? ` (${adminCedula})` : ""), 20, currentY + 35);
-        } catch (error) {
-          console.error("Error al agregar firma del " + adminLabel + ":", error);
-        }
-      }
-      let clienteFirma = null;
-      if (muestra.firmas.firmaCliente) {
-        clienteFirma =
-          typeof muestra.firmas.firmaCliente === "object"
-            ? muestra.firmas.firmaCliente.firma
-            : muestra.firmas.firmaCliente;
-      }
-      if (clienteFirma) {
-        const clienteCedula = muestra.firmas.cedulaCliente || "";
-        try {
-          doc.addImage(clienteFirma, "PNG", 120, currentY, 70, 30);
-          doc.setFontSize(10);
-          doc.text("Cliente" + (clienteCedula ? ` (${clienteCedula})` : ""), 120, currentY + 35);
-        } catch (error) {
-          console.error("Error al agregar firma del cliente:", error);
-        }
-      }
-      currentY += 50;
-    }
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    if (preview) {
-      window.open(doc.output("bloburl"), "_blank");
-    } else {
-      doc.save(`Muestra_${muestra.id_muestrea || muestra.id_muestra || muestra._id}.pdf`);
+  const handlePreviewPDF = async (muestra) => {
+    try {
+      await PDFService.generarPDFMuestra(muestra.id_muestra || muestra._id);
+    } catch (error) {
+      setSnackbarMessage("Error al previsualizar el PDF: " + error.message);
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
     }
   };
 
@@ -933,8 +860,6 @@ const Muestras = () => {
   };
 
   const handleViewDetails = (muestra) => setSelectedMuestra(muestra);
-  const handleDownloadPDF = (muestra) => generarPDFMuestra(muestra);
-  const handleEditClick = (muestra) => handleEditMuestra(muestra);
 
   if (loading)
     return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
@@ -1000,7 +925,7 @@ const Muestras = () => {
           <TableBody>
             {filteredMuestras.map((muestra) => (
               <TableRow
-                key={muestra.id_muestrea || muestra.id_muestra || muestra._id}
+                key={muestra.id_muestra || muestra.id_muestrea || muestra._id}
                 sx={{
                   transition: "transform 0.2s",
                   "&:hover": { transform: "scale(1.02)" },
@@ -1042,20 +967,23 @@ const Muestras = () => {
                       IconComponent={VisibilityIcon}
                     />
                     <ActionButton
+                      tooltip="Ver PDF"
+                      onClick={() => handlePreviewPDF(muestra)}
+                      IconComponent={PictureAsPdfIcon}
+                    />
+                    <ActionButton
                       tooltip="Descargar PDF"
                       onClick={() => handleDownloadPDF(muestra)}
                       IconComponent={GetAppIcon}
                     />
                     <ActionButton
                       tooltip="Editar Muestra"
-                      onClick={() => handleEditClick(muestra)}
+                      onClick={() => handleEditMuestra(muestra)}
                       IconComponent={EditIcon}
                     />
                     <ActionButton
                       tooltip="Registrar Resultados"
-                      onClick={() =>
-                        navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestrea || muestra.id_muestrea || muestra._id}`)
-                      }
+                      onClick={() => navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestra || muestra._id}`)}
                       IconComponent={AssignmentIcon}
                     />
                   </Box>

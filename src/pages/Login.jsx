@@ -41,7 +41,7 @@ const Login = () => {
     }
 
     try {
-      const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/login`;
+      const url = `${import.meta.env.VITE_BACKEND_URL || 'https://backend-sena-lab-1-qpzp.onrender.com'}/api/usuarios/login`;
       const response = await axios.post(url, credentials);
 
       if (response.data && response.data.token) {

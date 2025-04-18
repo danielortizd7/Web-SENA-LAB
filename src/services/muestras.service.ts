@@ -10,8 +10,8 @@ const BASE_URLS = {
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
-  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimicos`,
-  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`
+  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimico`,
+  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologico`
 };
 
 interface FirmaData {
@@ -104,33 +104,52 @@ export class MuestrasService {
 
   async obtenerMuestras(params: PaginationParams = { page: 1, limit: 10 }): Promise<ApiResponse<PaginationResponse>> {
     try {
-      const queryParams = new URLSearchParams();
-      
-      queryParams.append('page', params.page.toString());
-      queryParams.append('limit', params.limit.toString());
-      
-      if (params.sortBy) {
-        queryParams.append('sortBy', params.sortBy);
-      }
-      if (params.sortOrder) {
-        queryParams.append('sortOrder', params.sortOrder);
-      }
-      if (params.tipo) {
-        queryParams.append('tipo', params.tipo);
-      }
-      if (params.estado) {
-        queryParams.append('estado', params.estado);
-      }
-
-      const response = await axios.get<ApiResponse<PaginationResponse>>(
-        `${this.API_URL}?${queryParams.toString()}`,
-        { headers: this.getHeaders() }
+      const response = await axios.get(
+        `${this.API_URL}`,
+        { 
+          params: {
+            page: params.page,
+            limit: params.limit,
+            sortBy: params.sortBy || 'createdAt',
+            sortOrder: params.sortOrder || 'desc',
+            ...(params.tipo && params.tipo !== 'todos' && { tipoAnalisis: params.tipo })
+          },
+          headers: this.getHeaders()
+        }
       );
 
-      return response.data;
-    } catch (error: any) {
+      // Si la respuesta es un error, lanzar excepción
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al obtener las muestras');
+      }
+
+      // La respuesta del backend ya viene con el formato correcto
+      const { data, pagination } = response.data.data;
+
+      return {
+        success: true,
+        data: {
+          items: data,
+          total: pagination.total,
+          page: pagination.currentPage,
+          limit: pagination.limit,
+          totalPages: pagination.totalPages
+        },
+        message: response.data.message || 'Muestras obtenidas correctamente'
+      };
+    } catch (error) {
       console.error('Error en obtenerMuestras:', error);
-      throw new Error(error.response?.data?.message || 'Error al obtener las muestras');
+      return {
+        success: false,
+        data: {
+          items: [],
+          total: 0,
+          page: params.page,
+          limit: params.limit,
+          totalPages: 0
+        },
+        message: error instanceof Error ? error.message : 'Error al obtener las muestras'
+      };
     }
   }
 

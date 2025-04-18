@@ -18,6 +18,30 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 
+// URLs base actualizadas
+const BASE_URLS = {
+  USUARIOS: import.meta.env.VITE_BACKEND_URL || 'https://backend-sena-lab-1-qpzp.onrender.com/api',
+  MUESTRAS: import.meta.env.VITE_BACKEND_MUESTRAS_URL || 'https://backend-registro-muestras.onrender.com/api'
+};
+
+// URLs específicas actualizadas
+const API_URLS = {
+  USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
+  MUESTRAS: `${BASE_URLS.MUESTRAS}/api/muestras`,
+  RESULTADOS: `${BASE_URLS.MUESTRAS}/api/ingreso-resultados`
+};
+
+const formatearFecha = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+  
+  // Si la fecha viene en el formato del backend
+  if (typeof fecha === 'object' && fecha.fecha && fecha.hora) {
+    return `${fecha.fecha} ${fecha.hora}`;
+  }
+  
+  return 'Fecha inválida';
+};
+
 const RegistrarResultados = () => {
   const { idMuestra } = useParams();
   const navigate = useNavigate();
@@ -47,7 +71,7 @@ const RegistrarResultados = () => {
         
         // Obtener información de la muestra
         const muestraResponse = await axios.get(
-          `https://backend-registro-muestras.onrender.com/api/muestras/${idMuestra}`,
+          `${API_URLS.MUESTRAS}/${idMuestra}`,
           {
             headers: { Authorization: `Bearer ${token}` }
           }
@@ -60,10 +84,10 @@ const RegistrarResultados = () => {
         const muestraData = muestraResponse.data.data.muestra;
         setMuestraInfo(muestraData);
 
-        // Primero intentar obtener los resultados existentes
+        // Intentar obtener los resultados existentes
         try {
           const resultadosResponse = await axios.get(
-            `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/muestra/${idMuestra}`,
+            `${API_URLS.RESULTADOS}/muestra/${idMuestra}`,
             {
               headers: { Authorization: `Bearer ${token}` }
             }
@@ -76,20 +100,11 @@ const RegistrarResultados = () => {
 
             // Formatear valores existentes
             const resultadosExistentes = {};
-            muestraData.analisisSeleccionados.forEach(analisis => {
-              const analisisLowerCase = analisis.toLowerCase();
-              if (resultado[analisisLowerCase]) {
-                resultadosExistentes[analisis] = {
-                  valor: resultado[analisisLowerCase].valor,
-                  unidad: resultado[analisisLowerCase].unidad || 'mg/L'
-                };
-              } else {
-                // Si el análisis está seleccionado pero no tiene resultado previo
-                resultadosExistentes[analisis] = {
-                  valor: '',
-                  unidad: 'mg/L'
-                };
-              }
+            Object.entries(resultado.resultados).forEach(([nombre, datos]) => {
+              resultadosExistentes[nombre] = {
+                valor: datos.valor,
+                unidad: datos.unidad
+              };
             });
 
             setResultados({
@@ -100,9 +115,9 @@ const RegistrarResultados = () => {
             // Solo si no hay resultados previos, inicializar con valores vacíos
             const resultadosIniciales = {};
             muestraData.analisisSeleccionados.forEach(analisis => {
-              resultadosIniciales[analisis] = {
+              resultadosIniciales[analisis.nombre] = {
                 valor: '',
-                unidad: 'mg/L'
+                unidad: analisis.unidad || 'mg/L'
               };
             });
 
@@ -116,9 +131,9 @@ const RegistrarResultados = () => {
           // Solo si hay error al obtener resultados, inicializar con valores vacíos
           const resultadosIniciales = {};
           muestraData.analisisSeleccionados.forEach(analisis => {
-            resultadosIniciales[analisis] = {
+            resultadosIniciales[analisis.nombre] = {
               valor: '',
-              unidad: 'mg/L'
+              unidad: analisis.unidad || 'mg/L'
             };
           });
 
@@ -155,14 +170,31 @@ const RegistrarResultados = () => {
       const token = localStorage.getItem('token');
       
       const endpoint = resultadoExistente
-        ? `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/editar/${idMuestra}`
-        : `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/registrar/${idMuestra}`;
+        ? `${API_URLS.RESULTADOS}/editar/${idMuestra}`
+        : `${API_URLS.RESULTADOS}/registrar/${idMuestra}`;
       
       const method = resultadoExistente ? 'put' : 'post';
+
+      // Formatear los resultados para que coincidan con los nombres exactos de los análisis
+      const resultadosFormateados = {};
+      Object.entries(resultados.resultados).forEach(([nombre, datos]) => {
+        const analisisEncontrado = muestraInfo.analisisSeleccionados.find(
+          a => a.nombre === nombre
+        );
+        if (analisisEncontrado) {
+          resultadosFormateados[analisisEncontrado.nombre] = {
+            valor: datos.valor,
+            unidad: datos.unidad || analisisEncontrado.unidad
+          };
+        }
+      });
       
       const response = await axios[method](
         endpoint,
-        resultados,
+        {
+          resultados: resultadosFormateados,
+          observaciones: resultados.observaciones
+        },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -235,7 +267,7 @@ const RegistrarResultados = () => {
             Tipo de Análisis: {muestraInfo.tipoAnalisis}
           </Typography>
           <Typography variant="subtitle1">
-            Análisis Seleccionados: {muestraInfo.analisisSeleccionados?.join(', ')}
+            Análisis Seleccionados: {muestraInfo.analisisSeleccionados?.map(a => a.nombre).join(', ')}
           </Typography>
         </Box>
       )}
@@ -243,14 +275,15 @@ const RegistrarResultados = () => {
       <form onSubmit={handleSubmit}>
         <Grid container spacing={3}>
           {muestraInfo?.analisisSeleccionados?.map((analisis) => (
-            <Grid item xs={12} sm={6} key={analisis}>
+            <Grid item xs={12} sm={6} key={analisis.nombre}>
               <TextField
                 fullWidth
-                name={`${analisis}-valor`}
-                label={`${analisis} (mg/L)`}
-                value={resultados.resultados[analisis]?.valor || ''}
-                onChange={handleChange(analisis, 'valor')}
-                placeholder={`Ej: 1.5`}
+                name={`${analisis.nombre}-valor`}
+                label={`${analisis.nombre} (${analisis.unidad})`}
+                value={resultados.resultados[analisis.nombre]?.valor || ''}
+                onChange={handleChange(analisis.nombre, 'valor')}
+                placeholder={`Rango: ${analisis.rango}`}
+                helperText={`Método: ${analisis.metodo}`}
               />
             </Grid>
           ))}
@@ -299,7 +332,7 @@ const RegistrarResultados = () => {
                   Realizado por: {cambio.nombre}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Fecha: {new Date(cambio.fecha).toLocaleString()}
+                  Fecha: {formatearFecha(cambio.fecha)}
                 </Typography>
                 <Box sx={{ mt: 1 }}>
                   {cambio.cambiosRealizados.resultados && 

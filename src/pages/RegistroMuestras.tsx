@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -44,8 +44,8 @@ const BASE_URLS = {
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
-  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimicos`,
-  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologicos`
+  ANALISIS_FISICOQUIMICOS: `${BASE_URLS.MUESTRAS}/analisis/fisicoquimico`,
+  ANALISIS_MICROBIOLOGICOS: `${BASE_URLS.MUESTRAS}/analisis/microbiologico`
 };
 
 const TIPOS_PRESERVACION = ['Refrigeración', 'Congelación', 'Acidificación', 'Otro'] as const;
@@ -57,7 +57,7 @@ type TipoMuestreo = typeof TIPOS_MUESTREO[number];
 const TIPOS_AGUA = ['potable', 'natural', 'residual', 'otra'] as const;
 type TipoAgua = typeof TIPOS_AGUA[number];
 
-const TIPOS_AGUA_RESIDUAL = ['domestica', 'no domestica'] as const;
+const TIPOS_AGUA_RESIDUAL = ['Doméstica', 'No Doméstica'] as const;
 type TipoAguaResidual = typeof TIPOS_AGUA_RESIDUAL[number];
 
 const SUBTIPOS_RESIDUAL = {
@@ -83,6 +83,14 @@ interface FirmaData {
   fecha: string | Date;
 }
 
+interface AnalisisSeleccionado {
+  nombre: string;
+  precio?: number;
+  unidad?: string;
+  metodo?: string;
+  rango?: string;
+}
+
 interface MuestraFormData {
   documento: string;
   tipoDeAgua: TipoDeAgua;
@@ -97,8 +105,16 @@ interface MuestraFormData {
   preservacionMuestraOtra?: string;
   analisisSeleccionados: string[];
   firmas: {
-    firmaAdministrador: FirmaData;
-    firmaCliente: FirmaData;
+    firmaAdministrador: {
+      nombre?: string;
+      documento?: string;
+      firma: string;
+    };
+    firmaCliente: {
+      nombre?: string;
+      documento?: string;
+      firma: string;
+    };
   };
   observaciones?: string;
 }
@@ -146,6 +162,11 @@ interface AnalisisCategoria {
   nombre: string;
   unidad: string;
   metodo?: string;
+  precio?: number;
+  rango?: string;
+  matriz?: string[];
+  tipo?: string;
+  activo?: boolean;
 }
 
 interface AnalisisDisponibles {
@@ -172,6 +193,10 @@ interface PaginationState {
   totalPages: number;
 }
 
+interface AnalisisCache {
+  [key: string]: any[];
+}
+
 const initialFormData: MuestraFormData = {
   documento: '',
   tipoDeAgua: {
@@ -190,8 +215,12 @@ const initialFormData: MuestraFormData = {
   preservacionMuestraOtra: '',
   analisisSeleccionados: [],
   firmas: {
-    firmaAdministrador: { firma: '', fecha: new Date() },
-    firmaCliente: { firma: '', fecha: new Date() }
+    firmaAdministrador: {
+      firma: ''
+    },
+    firmaCliente: {
+      firma: ''
+    }
   },
   observaciones: ''
 };
@@ -242,6 +271,12 @@ const getTipoAguaCodigo = (tipo: string, subtipo?: string): string => {
   }
 };
 
+// Constantes para tipos de análisis
+const TIPOS_ANALISIS_ENUM = {
+  FISICOQUIMICO: 'Fisicoquímico',
+  MICROBIOLOGICO: 'Microbiológico'
+} as const;
+
 const RegistroMuestras: React.FC = () => {
   const navigate = useNavigate();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
@@ -271,6 +306,8 @@ const RegistroMuestras: React.FC = () => {
   const [sortBy, setSortBy] = useState('fechaHoraMuestreo');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [analisisCache, setAnalisisCache] = useState<AnalisisCache>({});
+  const [loadingAnalisis, setLoadingAnalisis] = useState(false);
 
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
@@ -320,43 +357,68 @@ const RegistroMuestras: React.FC = () => {
   }, [firmas]);
 
   useEffect(() => {
-    const cargarAnalisis = async () => {
+    const cargarAnalisis = async (signal: AbortSignal) => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setError('No se encontró el token de autenticación');
+        const tipoAnalisis = formData.tipoAnalisis;
+        
+        if (!tipoAnalisis) return;
+
+        setLoadingAnalisis(true);
+        setError(null);
+
+        const endpoint = tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO 
+          ? API_URLS.ANALISIS_FISICOQUIMICOS 
+          : API_URLS.ANALISIS_MICROBIOLOGICOS;
+        
+        console.log('Realizando petición a:', endpoint);
+        
+        const response = await axios.get(endpoint, { 
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          signal
+        });
+
+        console.log('Respuesta recibida:', response.data);
+
+        // Verificar la estructura de la respuesta
+        if (response.data && response.data.success && Array.isArray(response.data.data)) {
+          setAnalisisDisponibles(prev => ({
+            fisicoquimico: tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO ? response.data.data : (prev?.fisicoquimico || []),
+            microbiologico: tipoAnalisis === TIPOS_ANALISIS_ENUM.MICROBIOLOGICO ? response.data.data : (prev?.microbiologico || [])
+          }));
+        } else if (response.data && Array.isArray(response.data)) {
+          // Si la respuesta es directamente un array
+          setAnalisisDisponibles(prev => ({
+            fisicoquimico: tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO ? response.data : (prev?.fisicoquimico || []),
+            microbiologico: tipoAnalisis === TIPOS_ANALISIS_ENUM.MICROBIOLOGICO ? response.data : (prev?.microbiologico || [])
+          }));
+        } else {
+          console.error('Estructura de respuesta inesperada:', response.data);
+          throw new Error('Formato de respuesta inválido. Contacte al administrador.');
+        }
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log('Petición cancelada');
           return;
         }
-
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        };
-
-        if (formData.tipoAnalisis) {
-          const endpoint = formData.tipoAnalisis === 'Fisicoquímico' 
-            ? API_URLS.ANALISIS_FISICOQUIMICOS 
-            : API_URLS.ANALISIS_MICROBIOLOGICOS;
-
-          const response = await axios.get(endpoint, { headers });
-          
-          const nuevosAnalisis: AnalisisDisponibles = {
-            fisicoquimico: formData.tipoAnalisis === 'Fisicoquímico' ? response.data : [],
-            microbiologico: formData.tipoAnalisis === 'Microbiológico' ? response.data : []
-          };
-
-          setAnalisisDisponibles(prev => ({
-            fisicoquimico: formData.tipoAnalisis === 'Fisicoquímico' ? response.data : (prev?.fisicoquimico || []),
-            microbiologico: formData.tipoAnalisis === 'Microbiológico' ? response.data : (prev?.microbiologico || [])
-          }));
-        }
-      } catch (error) {
         console.error('Error al cargar análisis:', error);
-        setError('Error al cargar los análisis disponibles');
+        setError(`Error al cargar los análisis disponibles: ${error.message}`);
+        setAnalisisDisponibles(null);
+      } finally {
+        setLoadingAnalisis(false);
       }
     };
 
-    cargarAnalisis();
+    const controller = new AbortController();
+    if (formData.tipoAnalisis) {
+      cargarAnalisis(controller.signal);
+    }
+
+    return () => {
+      controller.abort();
+    };
   }, [formData.tipoAnalisis]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
@@ -430,10 +492,10 @@ const RegistroMuestras: React.FC = () => {
     } else if (name === "tipoAguaResidual") {
       setFormData(prev => ({
         ...prev,
-        tipoDeAgua: {
-          ...prev.tipoDeAgua,
+        tipoDeAgua: { 
+          ...prev.tipoDeAgua, 
           subtipo: value,
-          descripcion: `Agua residual ${value}`
+          descripcion: `Agua residual ${value}` 
         }
       }));
     } else if (name === "preservacionMuestra") {
@@ -543,56 +605,35 @@ const RegistroMuestras: React.FC = () => {
   };
 
   const guardarFirmaAdministrador = (firma: string) => {
-    try {
-      if (!adminData) {
-        setError('No se encontraron datos del administrador');
-        return;
-      }
-      if (adminData.rol !== 'administrador') {
-        setError('Solo los administradores pueden firmar en esta sección');
-        return;
-      }
-      if (!validarTamañoFirma(firma)) {
-        setError('La firma no puede exceder 2MB');
-        return;
-      }
-      if (!validarFormatoBase64(firma)) {
-        setError('Formato de firma inválido');
-        return;
-      }
-      setFormData(prev => ({
+    if (!adminData) return;
+    
+    setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaAdministrador: { firma, fecha: new Date().toISOString() } }
-      }));
-      setError(null);
-    } catch (error: any) {
-      setError(error.message || 'Error al guardar la firma del administrador');
-    }
+        firmas: {
+            ...prev.firmas,
+            firmaAdministrador: {
+                nombre: adminData.nombre,
+                documento: adminData.documento,
+                firma: firma
+            }
+        }
+    }));
   };
 
   const guardarFirmaCliente = (firma: string) => {
-    try {
-      if (!clienteEncontrado) {
-        setError('Debe validar el cliente antes de firmar');
-        return;
-      }
-      if (!validarTamañoFirma(firma)) {
-        setError('La firma no puede exceder 2MB');
-        return;
-      }
-      if (!validarFormatoBase64(firma)) {
-        setError('Formato de firma inválido');
-        return;
-      }
-      setFormData(prev => ({
+    if (!clienteEncontrado) return;
+    
+    setFormData(prev => ({
         ...prev,
-        firmas: { ...prev.firmas, firmaCliente: { firma, fecha: new Date().toISOString() } }
-      }));
-      setError(null);
-      setSuccess('✔ Firma del cliente guardada correctamente');
-    } catch (error: any) {
-      setError(error.message || 'Error al guardar la firma del cliente');
-    }
+        firmas: {
+            ...prev.firmas,
+            firmaCliente: {
+                nombre: clienteEncontrado.nombre || clienteEncontrado.razonSocial || '',
+                documento: clienteEncontrado.documento,
+                firma: firma
+            }
+        }
+    }));
   };
 
   const validarFirmas = () => {
@@ -628,8 +669,8 @@ const RegistroMuestras: React.FC = () => {
           preservacionMuestraOtra: muestra.preservacionMuestraOtra || '',
           analisisSeleccionados: muestra.analisisSeleccionados || [],
           firmas: muestra.firmas || {
-            firmaAdministrador: { firma: '', fecha: new Date().toISOString() },
-            firmaCliente: { firma: '', fecha: new Date().toISOString() }
+            firmaAdministrador: { firma: '', fecha: '' },
+            firmaCliente: { firma: '', fecha: '' }
           },
           observaciones: muestra.observaciones || ''
         });
@@ -672,135 +713,243 @@ const RegistroMuestras: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Si no se están mostrando las firmas, mostrarlas y no enviar el formulario
-    if (!mostrarFirmas && !isRejected) {
-      const errores = validarFormulario(formData);
-      const erroresSinFirmas = Object.entries(errores).reduce((acc, [key, value]) => {
-        if (!key.includes('firma')) {
-          acc[key] = value;
+    
+    // Si la muestra está rechazada, validar y enviar directamente
+    if (isRejected) {
+        const erroresBasicos = Object.entries(validarFormulario(formData))
+            .filter(([key]) => !['firmaAdministrador', 'firmaCliente'].includes(key))
+            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+        
+        if (Object.keys(erroresBasicos).length > 0) {
+            setError(Object.values(erroresBasicos).join(' - '));
+            return;
         }
-        return acc;
-      }, {} as Record<string, string>);
+        
+        setLoading(true);
+        setError('');
+        
+        try {
+            // Preparar los análisis seleccionados
+            const analisisSeleccionadosCompletos = formData.analisisSeleccionados.map(nombre => {
+                const analisisCompleto = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
+                    ? analisisDisponibles?.fisicoquimico.find(a => a.nombre === nombre)
+                    : analisisDisponibles?.microbiologico.find(a => a.nombre === nombre);
+                
+                if (!analisisCompleto) {
+                    throw new Error(`No se encontró la información completa para el análisis: ${nombre}`);
+                }
 
-      if (Object.keys(erroresSinFirmas).length > 0) {
-        setError(Object.values(erroresSinFirmas).join(' - '));
-        return;
-      }
+                const precioNumerico = analisisCompleto.precio 
+                    ? Number(analisisCompleto.precio.replace(/[^0-9]/g, ''))
+                    : 0;
 
-      setMostrarFirmas(true);
-      return;
+                return {
+                    nombre: analisisCompleto.nombre,
+                    precio: precioNumerico,
+                    unidad: analisisCompleto.unidad || '',
+                    metodo: analisisCompleto.metodo || '',
+                    rango: analisisCompleto.rango || ''
+                };
+            });
+
+            // Preparar datos de la muestra rechazada
+            const muestraData = {
+                documento: formData.documento,
+                tipoDeAgua: {
+                    tipo: formData.tipoDeAgua.tipo,
+                    codigo: formData.tipoDeAgua.codigo,
+                    descripcion: formData.tipoDeAgua.descripcion,
+                    subtipoResidual: formData.tipoDeAgua.subtipo
+                },
+                tipoMuestreo: formData.tipoMuestreo,
+                lugarMuestreo: formData.lugarMuestreo,
+                fechaHoraMuestreo: formData.fechaHoraMuestreo,
+                tipoAnalisis: formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO ? 'Fisicoquímico' : 'Microbiológico',
+                identificacionMuestra: formData.identificacionMuestra,
+                planMuestreo: formData.planMuestreo,
+                condicionesAmbientales: formData.condicionesAmbientales,
+                preservacionMuestra: formData.preservacionMuestra,
+                preservacionMuestraOtra: formData.preservacionMuestraOtra,
+                analisisSeleccionados: analisisSeleccionadosCompletos,
+                estado: 'Rechazada',
+                observaciones: observacionRechazo
+            };
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('No se encontró el token de autenticación');
+            }
+
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+
+            await axios.post(API_URLS.MUESTRAS, muestraData, { headers });
+            setSuccess('Muestra rechazada exitosamente');
+            setTimeout(() => {
+                navigate('/muestras');
+            }, 2000);
+            return;
+        } catch (error: any) {
+            console.error('Error al registrar la muestra rechazada:', error);
+            const mensajeError = error.response?.data?.message || error.message || 'Error al registrar la muestra';
+            setError(mensajeError);
+            return;
+        } finally {
+            setLoading(false);
+        }
     }
-
+    
+    // Código existente para muestras no rechazadas
+    if (!mostrarFirmas) {
+        const erroresBasicos = Object.entries(validarFormulario(formData))
+            .filter(([key]) => !['firmaAdministrador', 'firmaCliente'].includes(key))
+            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+        
+        if (Object.keys(erroresBasicos).length > 0) {
+            setError(Object.values(erroresBasicos).join(' - '));
+            return;
+        }
+        
+        setMostrarFirmas(true);
+        return;
+    }
+    
+    const errores = validarFormulario(formData);
+    if (Object.keys(errores).length > 0) {
+        setError(Object.values(errores).join(' - '));
+        return;
+    }
+    
+    if (formData.analisisSeleccionados.length === 0) {
+        setError('Debe seleccionar al menos un análisis');
+        return;
+    }
+    
     setLoading(true);
     setError('');
-
+    
     try {
-      const errores = validarFormulario(formData);
-      if (Object.keys(errores).length > 0) {
-        setError(Object.values(errores).join(' - '));
-        setLoading(false);
-        return;
-      }
-
-      if (formData.tipoDeAgua.tipo === 'residual' && !formData.tipoDeAgua.subtipo) {
-        setError('Debe seleccionar el tipo de agua residual');
-        setLoading(false);
-        return;
-      }
-
-      const muestraData = {
-        documento: formData.documento,
-        tipoDeAgua: {
-          tipo: formData.tipoDeAgua.tipo,
-          codigo: formData.tipoDeAgua.codigo,
-          descripcion: formData.tipoDeAgua.descripcion,
-          subtipoResidual: formData.tipoDeAgua.subtipo
-        },
-        tipoMuestreo: formData.tipoMuestreo,
-        lugarMuestreo: formData.lugarMuestreo,
-        fechaHoraMuestreo: new Date(formData.fechaHoraMuestreo).toISOString(),
-        tipoAnalisis: formData.tipoAnalisis,
-        identificacionMuestra: formData.identificacionMuestra,
-        planMuestreo: formData.planMuestreo,
-        condicionesAmbientales: formData.condicionesAmbientales,
-        preservacionMuestra: formData.preservacionMuestra,
-        analisisSeleccionados: formData.analisisSeleccionados,
-        observaciones: isRejected ? observacionRechazo : formData.observaciones || '',
-        estado: isRejected ? 'Rechazada' : 'Recibida',
-        rechazoMuestra: isRejected
-          ? {
-              rechazada: true,
-              motivo: observacionRechazo
+        // Preparar los análisis seleccionados
+        const analisisSeleccionadosCompletos = formData.analisisSeleccionados.map(nombre => {
+            const analisisCompleto = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
+                ? analisisDisponibles?.fisicoquimico.find(a => a.nombre === nombre)
+                : analisisDisponibles?.microbiologico.find(a => a.nombre === nombre);
+            
+            if (!analisisCompleto) {
+                throw new Error(`No se encontró la información completa para el análisis: ${nombre}`);
             }
-          : undefined,
-        firmas: {
-          firmaAdministrador: {
-            firma: formData.firmas.firmaAdministrador.firma,
-            fecha: formData.firmas.firmaAdministrador.fecha
-          },
-          firmaCliente: {
-            firma: formData.firmas.firmaCliente.firma,
-            fecha: formData.firmas.firmaCliente.fecha
-          }
+
+            // Convertir el precio a número eliminando la coma y cualquier otro carácter no numérico
+            const precioNumerico = analisisCompleto.precio 
+                ? Number(analisisCompleto.precio.replace(/[^0-9]/g, ''))
+                : 0;
+
+            return {
+                nombre: analisisCompleto.nombre,
+                precio: precioNumerico,
+                unidad: analisisCompleto.unidad || '',
+                metodo: analisisCompleto.metodo || '',
+                rango: analisisCompleto.rango || ''
+            };
+        });
+
+        // Preparar datos de la muestra
+        const muestraData = {
+            documento: formData.documento,
+            tipoDeAgua: {
+                tipo: formData.tipoDeAgua.tipo,
+                codigo: formData.tipoDeAgua.codigo,
+                descripcion: formData.tipoDeAgua.descripcion,
+                subtipoResidual: formData.tipoDeAgua.subtipo
+            },
+            tipoMuestreo: formData.tipoMuestreo,
+            lugarMuestreo: formData.lugarMuestreo,
+            fechaHoraMuestreo: formData.fechaHoraMuestreo,
+            tipoAnalisis: formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO ? 'Fisicoquímico' : 'Microbiológico',
+            identificacionMuestra: formData.identificacionMuestra,
+            planMuestreo: formData.planMuestreo,
+            condicionesAmbientales: formData.condicionesAmbientales,
+            preservacionMuestra: formData.preservacionMuestra,
+            preservacionMuestraOtra: formData.preservacionMuestraOtra,
+            analisisSeleccionados: analisisSeleccionadosCompletos,
+            estado: isRejected ? 'Rechazada' : 'Recibida',
+            observaciones: isRejected ? observacionRechazo : formData.observaciones || '',
+            firmas: isRejected ? undefined : {
+                firmaAdministrador: {
+                    nombre: adminData?.nombre || '',
+                    documento: adminData?.documento || '',
+                    firma: formData.firmas.firmaAdministrador.firma
+                },
+                firmaCliente: {
+                    nombre: clienteEncontrado?.nombre || clienteEncontrado?.razonSocial || '',
+                    documento: clienteEncontrado?.documento || '',
+                    firma: formData.firmas.firmaCliente.firma
+                }
+            }
+        };
+
+        console.log('Datos a enviar:', JSON.stringify(muestraData, null, 2));
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No se encontró el token de autenticación');
         }
-      };
-
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('No se encontró el token de autenticación');
-
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
-
-      let response;
-      if (isUpdating && muestraId) {
-        response = await axios.put(
-          `${API_URLS.MUESTRAS}/${muestraId}`,
-          muestraData,
-          { headers }
-        );
-      } else {
-        response = await axios.post(
-          API_URLS.MUESTRAS,
-          muestraData,
-          { headers }
-        );
-      }
-
-      setSuccess(isRejected ? '✔ Muestra rechazada exitosamente' : '✔ Muestra registrada exitosamente');
-      limpiarEstado();
-
-      // Redirigir después de un registro exitoso
-      setTimeout(() => {
-        navigate('/muestras');
-      }, 2000);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message;
-      setError(`Error: ${errorMessage}`);
-
-      if (error.response?.status === 401) {
+        
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+        
+        let response;
+        if (isUpdating && muestraId) {
+            response = await axios.put(
+                `${API_URLS.MUESTRAS}/${muestraId}`, 
+                muestraData,
+                { headers }
+            );
+        } else {
+            response = await axios.post(
+                API_URLS.MUESTRAS, 
+                muestraData,
+                { headers }
+            );
+        }
+        
+        setSuccess(isRejected ? 'Muestra rechazada exitosamente' : 'Muestra registrada exitosamente');
+        
+        if (!isUpdating) {
+            limpiarEstado();
+        }
+        
         setTimeout(() => {
-          navigate('/login');
+            navigate('/muestras');
         }, 2000);
-      }
+    } catch (error: any) {
+        console.error('Error al registrar la muestra:', error);
+        const mensajeError = error.response?.data?.message || error.message || 'Error al registrar la muestra';
+        setError(mensajeError);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const volverAlFormulario = () => {
     setMostrarFirmas(false);
   };
 
   const handleAnalisisChange = (analisis: string) => {
-    setFormData(prev => ({
-      ...prev,
-      analisisSeleccionados: prev.analisisSeleccionados.includes(analisis)
+    setFormData(prev => {
+      const nuevosAnalisisSeleccionados = prev.analisisSeleccionados.includes(analisis)
         ? prev.analisisSeleccionados.filter(a => a !== analisis)
-        : [...prev.analisisSeleccionados, analisis]
-    }));
+        : [...prev.analisisSeleccionados, analisis];
+      
+      return {
+        ...prev,
+        analisisSeleccionados: nuevosAnalisisSeleccionados
+      };
+    });
   };
 
   const handleOpenModal = () => {
@@ -899,6 +1048,24 @@ const RegistroMuestras: React.FC = () => {
     setObservacionRechazo('');
   };
 
+  // Mover el cálculo del total fuera de renderAnalisisDisponibles
+  const totalSeleccionados = useMemo(() => {
+    if (!analisisDisponibles || !formData.tipoAnalisis) return 0;
+
+    const analisisAMostrar = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
+      ? analisisDisponibles.fisicoquimico || []
+      : analisisDisponibles.microbiologico || [];
+
+    return formData.analisisSeleccionados.reduce((total, nombre) => {
+      const analisis = analisisAMostrar.find(a => a.nombre === nombre);
+      if (analisis?.precio) {
+        const precioNumerico = parseFloat(analisis.precio.replace(/,/g, ''));
+        return total + precioNumerico;
+      }
+      return total;
+    }, 0);
+  }, [formData.analisisSeleccionados, analisisDisponibles, formData.tipoAnalisis]);
+
   const renderAnalisisDisponibles = () => {
     if (!formData.tipoAnalisis) {
       return (
@@ -908,22 +1075,61 @@ const RegistroMuestras: React.FC = () => {
       );
     }
 
-    const analisisAMostrar = formData.tipoAnalisis === 'Fisicoquímico' 
+    if (loadingAnalisis) {
+      return (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          p: 4,
+          gap: 2
+        }}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">
+            Cargando análisis disponibles...
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            {error}
+          </Typography>
+          <Typography variant="body2">
+            Tipo de análisis seleccionado: {formData.tipoAnalisis}
+          </Typography>
+        </Alert>
+      );
+    }
+
+    const analisisAMostrar = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
       ? analisisDisponibles?.fisicoquimico || []
       : analisisDisponibles?.microbiologico || [];
 
+    console.log('Análisis a mostrar:', {
+      tipo: formData.tipoAnalisis,
+      cantidad: analisisAMostrar.length,
+      datos: analisisAMostrar
+    });
+
     if (analisisAMostrar.length === 0) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-          <CircularProgress />
-        </Box>
+        <Alert severity="info">
+          No hay análisis disponibles para {formData.tipoAnalisis.toLowerCase()}
+        </Alert>
       );
     }
 
     return (
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography>{formData.tipoAnalisis === 'Fisicoquímico' ? 'Análisis Fisicoquímicos' : 'Análisis Microbiológicos'}</Typography>
+          <Typography>
+            {formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO ? 'Análisis Fisicoquímicos' : 'Análisis Microbiológicos'}
+            {formData.analisisSeleccionados.length > 0 && ` (${formData.analisisSeleccionados.length} seleccionados)`}
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
           <Grid container spacing={2}>
@@ -937,18 +1143,65 @@ const RegistroMuestras: React.FC = () => {
                     />
                   }
                   label={
-                    <Typography variant="body2">
-                      {analisis.nombre}
-                      <br />
-                      <small style={{ color: 'text.secondary' }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="bold">
+                        {analisis.nombre}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
                         {analisis.unidad !== 'N/A' ? `Unidad: ${analisis.unidad}` : 'Sin unidad'}
-                      </small>
-                    </Typography>
+                      </Typography>
+                      {analisis.metodo && (
+                        <Typography variant="body2" color="text.secondary">
+                          Método: {analisis.metodo}
+                        </Typography>
+                      )}
+                      {analisis.rango && (
+                        <Typography variant="body2" color="text.secondary">
+                          Rango: {analisis.rango}
+                        </Typography>
+                      )}
+                      {analisis.precio && (
+                        <Typography variant="body2" color="primary" fontWeight="bold">
+                          Precio: ${analisis.precio}
+                        </Typography>
+                      )}
+                    </Box>
                   }
                 />
               </Grid>
             ))}
           </Grid>
+          
+          {formData.analisisSeleccionados.length > 0 && (
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: 'primary.light', 
+              color: 'primary.contrastText',
+              borderRadius: 1,
+              boxShadow: 1
+            }}>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>
+                Resumen de Análisis
+              </Typography>
+              <Typography variant="body1">
+                Cantidad de análisis seleccionados: {formData.analisisSeleccionados.length}
+              </Typography>
+              <Typography variant="h5" fontWeight="bold" sx={{ mt: 1 }}>
+                Total a pagar: ${totalSeleccionados.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+              </Typography>
+              <Box sx={{ mt: 1 }}>
+                {formData.analisisSeleccionados.map((nombre) => {
+                  const analisis = analisisAMostrar.find(a => a.nombre === nombre);
+                  return (
+                    <Typography key={nombre} variant="body2">
+                      • {nombre}: ${analisis?.precio || '0'}
+                    </Typography>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
         </AccordionDetails>
       </Accordion>
     );
@@ -1209,107 +1462,67 @@ const RegistroMuestras: React.FC = () => {
         )}
 
         {mostrarFirmas ? (
-          <>
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Firmas Digitales
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Firmas Digitales
+            </Typography>
+
+            {/* Firma del Administrador */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" color="primary" gutterBottom>
+                Firma del Administrador
               </Typography>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" color="primary" gutterBottom>
-                  Firma del Administrador
-                </Typography>
-                {!adminData && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    No se encontraron datos del administrador. Por favor, inicie sesión nuevamente.
-                  </Alert>
-                )}
-                {adminData && adminData.rol !== 'administrador' && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    Solo los administradores pueden firmar en esta sección.
-                  </Alert>
-                )}
-                <SignaturePad
-                  onSave={guardarFirmaAdministrador}
-                  titulo="Firma del Administrador"
-                  disabled={!adminData || adminData.rol !== 'administrador'}
-                  firma={formData.firmas.firmaAdministrador.firma}
-                />
-                {formData.firmas.firmaAdministrador.firma && (
-                  <Alert severity="success" sx={{ mt: 1 }}>
-                    ✔ Firma del administrador guardada correctamente
-                  </Alert>
-                )}
-              </Box>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" color="primary" gutterBottom>
-                  Firma del Cliente
-                </Typography>
-                {!clienteEncontrado && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    Debe validar el cliente antes de poder firmar.
-                  </Alert>
-                )}
-                <SignaturePad
-                  onSave={guardarFirmaCliente}
-                  titulo="Firma del Cliente"
-                  disabled={!clienteEncontrado}
-                  firma={formData.firmas.firmaCliente.firma}
-                />
-                {formData.firmas.firmaCliente.firma && (
-                  <Alert severity="success" sx={{ mt: 1 }}>
-                    ✔ Firma del cliente guardada correctamente
-                  </Alert>
-                )}
-              </Box>
-              {(formData.firmas.firmaAdministrador.firma || formData.firmas.firmaCliente.firma) && (
-                <Box sx={{ mt: 2, mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Estado de las Firmas:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Alert severity={formData.firmas.firmaAdministrador.firma ? "success" : "warning"}>
-                      Firma del Administrador: {formData.firmas.firmaAdministrador.firma ? "✔ Completada" : "⚠ Pendiente"}
-                    </Alert>
-                    <Alert severity={formData.firmas.firmaCliente.firma ? "success" : "warning"}>
-                      Firma del Cliente: {formData.firmas.firmaCliente.firma ? "✔ Completada" : "⚠ Pendiente"}
-                    </Alert>
-                  </Box>
-                </Box>
-              )}
+              <SignaturePad
+                onSave={guardarFirmaAdministrador}
+                titulo="Firma del Administrador"
+                disabled={!adminData || adminData.rol !== 'administrador'}
+                firma={formData.firmas.firmaAdministrador.firma}
+              />
             </Box>
-            <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+
+            {/* Firma del Cliente */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" color="primary" gutterBottom>
+                Firma del Cliente
+              </Typography>
+              <SignaturePad
+                onSave={guardarFirmaCliente}
+                titulo="Firma del Cliente"
+                disabled={!clienteEncontrado}
+                firma={formData.firmas.firmaCliente.firma}
+              />
+            </Box>
+
+            {/* Botones */}
+            <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
               <Button
                 variant="outlined"
                 onClick={volverAlFormulario}
-                fullWidth
+                sx={{ flex: 1 }}
               >
                 Volver al Formulario
               </Button>
+              
               <Button
                 type="submit"
                 variant="contained"
                 color="primary"
-                fullWidth
-                disabled={loading}
+                sx={{ flex: 1 }}
               >
                 {loading ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CircularProgress size={24} color="inherit" />
-                    <span>Registrando muestra...</span>
-                  </Box>
+                  <CircularProgress size={24} />
                 ) : (
                   "Registrar Muestra"
                 )}
               </Button>
             </Box>
-          </>
+          </Box>
         ) : (
           <Button
             type="submit"
             variant="contained"
             color="primary"
             fullWidth
-            disabled={loading}
             sx={{ mt: 2 }}
           >
             {isRejected ? "Registrar Muestra Rechazada" : "Continuar con las Firmas"}

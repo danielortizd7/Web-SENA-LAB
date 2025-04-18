@@ -33,6 +33,30 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 
+// URLs base actualizadas
+const BASE_URLS = {
+  USUARIOS: import.meta.env.VITE_BACKEND_URL || 'https://backend-sena-lab-1-qpzp.onrender.com/api',
+  MUESTRAS: import.meta.env.VITE_BACKEND_MUESTRAS_URL || 'https://backend-registro-muestras.onrender.com'
+};
+
+// URLs específicas actualizadas
+const API_URLS = {
+  USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
+  MUESTRAS: `${BASE_URLS.MUESTRAS}/api/muestras`,
+  RESULTADOS: `${BASE_URLS.MUESTRAS}/api/ingreso-resultados`
+};
+
+const formatearFecha = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+  
+  // Si la fecha viene en el formato del backend
+  if (typeof fecha === 'object' && fecha.fecha && fecha.hora) {
+    return `${fecha.fecha} ${fecha.hora}`;
+  }
+  
+  return 'Fecha inválida';
+};
+
 const ListaResultados = () => {
   const navigate = useNavigate();
   const [resultados, setResultados] = useState([]);
@@ -86,7 +110,7 @@ const ListaResultados = () => {
       console.log("Parámetros enviados al backend:", queryParams);
 
       const response = await axios.get(
-        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/resultados?${queryParams}`,
+        `${API_URLS.RESULTADOS}/resultados?${queryParams}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -157,7 +181,7 @@ const ListaResultados = () => {
       setVerificando(true);
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/verificar/${selectedResult.idMuestra}`,
+        `${API_URLS.RESULTADOS}/verificar/${selectedResult.idMuestra}`,
         { observaciones: observacionesVerificacion },
         {
           headers: {
@@ -194,7 +218,7 @@ const ListaResultados = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/muestra/${resultado.idMuestra}`,
+        `${API_URLS.RESULTADOS}/muestra/${resultado.idMuestra}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -258,7 +282,7 @@ const ListaResultados = () => {
                 <TableRow>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ID Muestra</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Cliente</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Fecha</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Última Actualización</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
                 </TableRow>
@@ -279,7 +303,9 @@ const ListaResultados = () => {
                     <TableCell>{resultado.idMuestra}</TableCell>
                     <TableCell>{resultado.cliente?.nombre || 'Sin nombre'}</TableCell>
                     <TableCell>
-                      {new Date(resultado.fechaHoraMuestreo).toLocaleString()}
+                      {resultado.updatedAt?.fecha && resultado.updatedAt?.hora 
+                        ? `${resultado.updatedAt.fecha} ${resultado.updatedAt.hora}`
+                        : formatearFecha(resultado.updatedAt)}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -369,7 +395,7 @@ const ListaResultados = () => {
                           <Grid item xs={6}>
                             <Typography><strong>ID Muestra:</strong> {selectedResult.idMuestra}</Typography>
                             <Typography><strong>Cliente:</strong> {selectedResult.cliente?.nombre || 'Sin nombre'}</Typography>
-                            <Typography><strong>Fecha:</strong> {new Date(selectedResult.fechaHoraMuestreo).toLocaleString()}</Typography>
+                            <Typography><strong>Fecha:</strong> {formatearFecha(selectedResult.fechaHoraMuestreo)}</Typography>
                           </Grid>
                           <Grid item xs={6}>
                             <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Verificado" : "Pendiente"}</Typography>
@@ -419,7 +445,9 @@ const ListaResultados = () => {
                                     Cambio #{selectedResult.historialCambios.length - index}
                                   </Typography>
                                   <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
-                                    Realizado por: {cambio.nombre} | Fecha: {new Date(cambio.fecha).toLocaleString()}
+                                    Realizado por: {cambio.nombre} | Fecha: {cambio.fecha?.fecha && cambio.fecha?.hora 
+                                      ? `${cambio.fecha.fecha} ${cambio.fecha.hora}`
+                                      : formatearFecha(cambio.fecha)}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={12}>

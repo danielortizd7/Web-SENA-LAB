@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: env.VITE_BACKEND_URL || "https://back-usuarios-f.onrender.com",
+          target: env.VITE_BACKEND_MUESTRAS_URL || "https://back-usuarios-f.onrender.com",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, "")
         }
