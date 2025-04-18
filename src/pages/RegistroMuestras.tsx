@@ -40,7 +40,7 @@ const BASE_URLS = {
   MUESTRAS: 'https://backend-registro-muestras.onrender.com/api'
 };
 
-// URLs específicas actualizadas
+// URLs específicas actualizadass
 const API_URLS = {
   USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
   MUESTRAS: `${BASE_URLS.MUESTRAS}/muestras`,
