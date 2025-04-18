@@ -5,85 +5,54 @@ import { motion } from "framer-motion";
 import AuthContext from "../context/AuthContext";
 
 const UserProfile = ({ onEdit }) => {
-  const { user } = useContext(AuthContext);
+  const { perfil, user, loading } = useContext(AuthContext);
 
-  // Función para obtener un Chip estilizado según el rol
-  const getRoleChip = (role) => {
-    switch (role) {
-      case "super_admin":
-        return (
-          <Chip
-            label="Super Administrador"
-            sx={{
-              backgroundColor: "#00324D",
-              color: "white",
-              fontWeight: "bold",
-              mt: 1,
-            }}
-          />
-        );
-      case "administrador":
-        return (
-          <Chip
-            label="Administrador"
-            sx={{
-              backgroundColor: "#1565C0",
-              color: "white",
-              fontWeight: "bold",
-              mt: 1,
-            }}
-          />
-        );
-      case "laboratorista":
-        return (
-          <Chip
-            label="Laboratorista"
-            sx={{
-              backgroundColor: "#4CAF50",
-              color: "white",
-              fontWeight: "bold",
-              mt: 1,
-            }}
-          />
-        );
-      case "cliente":
-        return (
-          <Chip
-            label="Cliente"
-            sx={{
-              backgroundColor: "#FF9800",
-              color: "white",
-              fontWeight: "bold",
-              mt: 1,
-            }}
-          />
-        );
-      default:
-        return (
-          <Chip
-            label="Sin Rol"
-            sx={{
-              backgroundColor: "#9E9E9E",
-              color: "white",
-              fontWeight: "bold",
-              mt: 1,
-            }}
-          />
-        );
-    }
+  // 1) Mientras lee el localStorage y no sabe si hay token/user
+  if (loading) {
+    return (
+      <Box sx={{ p: 2, textAlign: "center" }}>
+        <Typography>Cargando sesión…</Typography>
+      </Box>
+    );
+  }
+
+  // 2) Si ya cargó pero no hay perfil (error o no encontrado)
+  if (!perfil) {
+    return (
+      <Box sx={{ p: 2, textAlign: "center" }}>
+        <Typography>No se encontró tu perfil.</Typography>
+      </Box>
+    );
+  }
+
+  // 3) Ya tenemos perfil, lo mostramos
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    const base = import.meta.env.VITE_BACKEND_URL || window.location.origin;
+    return `${base}${url}`;
   };
+
+  const roleConfig = {
+    super_admin: { label: "Super Administrador", color: "#00324D" },
+    administrador: { label: "Administrador", color: "#1565C0" },
+    laboratorista: { label: "Laboratorista", color: "#4CAF50" },
+    cliente: { label: "Cliente", color: "#FF9800" },
+  };
+  const rolKey = user?.rol;
+  const role = roleConfig[rolKey] || { label: "Sin Rol", color: "#9E9E9E" };
 
   return (
     <Box sx={{ p: 2, textAlign: "center" }}>
       <motion.div layoutId="profile-avatar">
-        {user && user.fotoPerfil ? (
+        {perfil.fotoPerfil ? (
           <Avatar
-            src={user.fotoPerfil}
+            src={getImageUrl(perfil.fotoPerfil)}
             onClick={onEdit}
             sx={{
-              width: { xs: 64, sm: 72, md: 80 },
-              height: { xs: 64, sm: 72, md: 80 },
-              margin: "0 auto",
+              width: 80,
+              height: 80,
+              m: "0 auto",
               transition: "transform 0.3s",
               "&:hover": { transform: "scale(1.1)", cursor: "pointer" },
             }}
@@ -91,40 +60,21 @@ const UserProfile = ({ onEdit }) => {
         ) : (
           <Avatar
             onClick={onEdit}
-            sx={{
-              width: { xs: 64, sm: 72, md: 80 },
-              height: { xs: 64, sm: 72, md: 80 },
-              margin: "0 auto",
-              transition: "transform 0.3s",
-              "&:hover": { transform: "scale(1.1)", cursor: "pointer" },
-            }}
+            sx={{ width: 80, height: 80, m: "0 auto" }}
           >
-            {user && user.nombre ? user.nombre.charAt(0).toUpperCase() : "U"}
+            {perfil.nombre.charAt(0).toUpperCase()}
           </Avatar>
         )}
       </motion.div>
 
-      <Typography
-        variant="h6"
-        sx={{ mt: 1, fontSize: { xs: "1rem", sm: "1.1rem", md: "1.2rem" } }}
-      >
-        {user ? user.nombre : "Usuario"}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" } }}
-      >
-        {user ? user.telefono : ""}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{ fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.85rem" } }}
-      >
-        {user ? user.direccion : ""}
+      <Typography variant="h6" sx={{ mt: 1 }}>
+        {perfil.nombre}
       </Typography>
 
-      {/* Mostrar rol en forma de Chip */}
-      {user && user.rol && getRoleChip(user.rol)}
+      <Chip
+        label={role.label}
+        sx={{ backgroundColor: role.color, color: "white", mt: 1 }}
+      />
     </Box>
   );
 };
