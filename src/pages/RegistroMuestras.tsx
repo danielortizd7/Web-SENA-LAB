@@ -292,7 +292,6 @@ const RegistroMuestras: React.FC = () => {
   const [firmasCompletas, setFirmasCompletas] = useState<boolean>(false);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const [muestraId, setMuestraId] = useState<string | null>(null);
-  const [currentDateTime, setCurrentDateTime] = useState(new Date().toISOString());
   const [isRejected, setIsRejected] = useState<boolean>(false);
   const [openRechazoModal, setOpenRechazoModal] = useState<boolean>(false);
   const [observacionRechazo, setObservacionRechazo] = useState<string>('');
@@ -309,15 +308,24 @@ const RegistroMuestras: React.FC = () => {
   const [analisisCache, setAnalisisCache] = useState<AnalisisCache>({});
   const [loadingAnalisis, setLoadingAnalisis] = useState(false);
 
+    // ── Función para limpiar SÓLO los campos de la muestra ──
+    const clearUniqueFields = () => {
+      setFormData(prev => ({
+        ...prev,
+        // restablece sólo los campos propios de la muestra:
+        fechaHoraMuestreo: '',
+        identificacionMuestra: '',
+        observaciones: ''
+      }));
+      // opcional: volver a ocultar firmas
+      setMostrarFirmas(false);
+    };
+  
+
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentDateTime(new Date().toISOString());
-    }, 60000);
-    return () => clearInterval(interval);
-  }, []);
+
 
   useEffect(() => {
     const verificarAdmin = async () => {
@@ -739,8 +747,8 @@ const RegistroMuestras: React.FC = () => {
                     throw new Error(`No se encontró la información completa para el análisis: ${nombre}`);
                 }
 
-                const precioNumerico = analisisCompleto.precio 
-                    ? Number(analisisCompleto.precio.replace(/[^0-9]/g, ''))
+                const precioNumerico = analisisCompleto.precio != null
+                    ? Number(analisisCompleto.precio.toString().replace(/[^0-9]/g, ''))
                     : 0;
 
                 return {
@@ -842,8 +850,8 @@ const RegistroMuestras: React.FC = () => {
             }
 
             // Convertir el precio a número eliminando la coma y cualquier otro carácter no numérico
-            const precioNumerico = analisisCompleto.precio 
-                ? Number(analisisCompleto.precio.replace(/[^0-9]/g, ''))
+            const precioNumerico = analisisCompleto.precio != null
+                ? Number(analisisCompleto.precio.toString().replace(/[^0-9]/g, ''))
                 : 0;
 
             return {
@@ -934,6 +942,83 @@ const RegistroMuestras: React.FC = () => {
         setLoading(false);
     }
 };
+
+// ── Nuevo handler: registra y deja listo para otra ──
+// ── Nuevo handler: registra y queda listo para otra ──
+const handleRegistrarOtra = async () => {
+  setError(null);
+  if (!validarFirmas()) return;   // checa que haya ambas firmas
+  setLoading(true);
+
+  try {
+    // — 1) Recrea el array de análisis igual que en handleSubmit —
+    const analisisSeleccionadosCompletos = formData.analisisSeleccionados.map(nombre => {
+      const arr = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
+        ? (analisisDisponibles?.fisicoquimico || [])
+        : (analisisDisponibles?.microbiologico || []);
+      const analisisObj = arr.find(a => a.nombre === nombre);
+
+      if (!analisisObj) {
+        throw new Error(`Análisis no encontrado: ${nombre}`);
+      }
+
+      return {
+        nombre: analisisObj.nombre,
+        precio: Number(analisisObj.precio?.toString().replace(/[^0-9]/g, '')) || 0,
+        unidad: analisisObj.unidad || '',
+        metodo: analisisObj.metodo || '',
+        rango: analisisObj.rango || ''
+      };
+    });
+
+    // — 2) Construye el objeto exactamente como en handleSubmit —
+    const muestraData = {
+      documento: formData.documento,
+      tipoDeAgua: {
+        tipo: formData.tipoDeAgua.tipo,
+        codigo: formData.tipoDeAgua.codigo,
+        descripcion: formData.tipoDeAgua.descripcion,
+        subtipoResidual: formData.tipoDeAgua.subtipo
+      },
+      tipoMuestreo: formData.tipoMuestreo,
+      lugarMuestreo: formData.lugarMuestreo,
+      fechaHoraMuestreo: formData.fechaHoraMuestreo,
+      tipoAnalisis: formData.tipoAnalisis,
+      identificacionMuestra: formData.identificacionMuestra,
+      planMuestreo: formData.planMuestreo,
+      condicionesAmbientales: formData.condicionesAmbientales,
+      preservacionMuestra: formData.preservacionMuestra,
+      preservacionMuestraOtra: formData.preservacionMuestraOtra,
+      analisisSeleccionados: analisisSeleccionadosCompletos,
+      estado: isRejected ? 'Rechazada' : 'Recibida',
+      observaciones: isRejected ? observacionRechazo : formData.observaciones,
+      firmas: {
+        firmaAdministrador: formData.firmas.firmaAdministrador,
+        firmaCliente: formData.firmas.firmaCliente
+      }
+    };
+
+    // — 3) Debug opcional —
+    console.log('handleRegistrarOtra → muestraData:', muestraData);
+
+    // — 4) Llama a la API —
+    const token = localStorage.getItem('token')!;
+    await axios.post(API_URLS.MUESTRAS, muestraData, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+
+    // — 5) Éxito: limpia sólo los campos de muestra —
+    setSuccess('Muestra registrada. Ahora puedes ingresar otra.');
+    clearUniqueFields();
+  } catch (err: any) {
+    console.error('Error en handleRegistrarOtra:', err.response ?? err);
+    setError(err.response?.data?.message || err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   const volverAlFormulario = () => {
     setMostrarFirmas(false);
@@ -1059,7 +1144,7 @@ const RegistroMuestras: React.FC = () => {
     return formData.analisisSeleccionados.reduce((total, nombre) => {
       const analisis = analisisAMostrar.find(a => a.nombre === nombre);
       if (analisis?.precio) {
-        const precioNumerico = parseFloat(analisis.precio.replace(/,/g, ''));
+        const precioNumerico = parseFloat(analisis.precio.toString().replace(/,/g, ''));
         return total + precioNumerico;
       }
       return total;
@@ -1217,21 +1302,7 @@ const RegistroMuestras: React.FC = () => {
         marginTop: 3
       }}
     >
-      <Box
-        sx={{
-          position: "absolute",
-          top: 8,
-          right: 16,
-          zIndex: 9999,
-          backgroundColor: "rgba(255,255,255,0.8)",
-          px: 1,
-          borderRadius: 1
-        }}
-      >
-        <Typography variant="caption" color="textSecondary">
-          {currentDateTime}
-        </Typography>
-      </Box>
+     
 
       <Typography variant="h5" gutterBottom>
         {isUpdating ? 'Actualizar Muestra' : 'Registro de Muestra'}
@@ -1495,27 +1566,35 @@ const RegistroMuestras: React.FC = () => {
 
             {/* Botones */}
             <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={volverAlFormulario}
-                sx={{ flex: 1 }}
-              >
-                Volver al Formulario
-              </Button>
-              
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                sx={{ flex: 1 }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  "Registrar Muestra"
-                )}
-              </Button>
-            </Box>
+  <Button variant="outlined" onClick={volverAlFormulario} sx={{ flex: 1 }}>
+    Volver al Formulario
+  </Button>
+
+  <Button
+    variant="contained"
+    color="secondary"
+    onClick={handleRegistrarOtra}
+    sx={{ flex: 1 }}
+    disabled={loading}
+  >
+    {loading
+      ? <CircularProgress size={24} />
+      : "Registrar y Agregar Otra"}
+  </Button>
+
+  <Button
+    type="submit"
+    variant="contained"
+    color="primary"
+    sx={{ flex: 1 }}
+    disabled={loading}
+  >
+    {loading
+      ? <CircularProgress size={24} />
+      : "Registrar Muestra Final"}
+  </Button>
+</Box>
+
           </Box>
         ) : (
           <Button
