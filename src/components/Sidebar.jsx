@@ -27,7 +27,7 @@ import UserProfile from "./UserProfile";
 import EditProfileDialog from "./EditProfileDialog";
 
 // Ancho del Drawer
-const drawerWidth = 240;
+const drawerWidth = 260;
 
 const Sidebar = () => {
   const [userRole, setUserRole] = useState("");
