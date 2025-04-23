@@ -43,6 +43,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import BadgeIcon from '@mui/icons-material/Badge';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
 import SignatureCanvas from 'react-signature-canvas';
 import SignaturePad from '../components/SignaturePad';
 import FirmasDigitales from '../components/FirmasDigitales';
@@ -319,6 +320,9 @@ const RegistroMuestras: React.FC = () => {
   const [loadingAnalisis, setLoadingAnalisis] = useState(false);
   const [analisisError, setAnalisisError] = useState<string | null>(null);
   const [analisisSuccess, setAnalisisSuccess] = useState<string | null>(null);
+
+  const [openEditAnalisisModal, setOpenEditAnalisisModal] = useState<boolean>(false);
+  const [selectedAnalisis, setSelectedAnalisis] = useState<AnalisisCategoria | null>(null);
 
   // Limpia solo campos de muestra
   const clearUniqueFields = () => {
@@ -1893,32 +1897,44 @@ const RegistroMuestras: React.FC = () => {
             {allAnalisis.length > 0 ? (
               <TableContainer component={Paper} sx={{ mb: 4, borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <Table>
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: '#39A900' }}>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Nombre</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Tipo</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Unidad</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Precio</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Activo</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {allAnalisis.map(analisis => (
-                      <TableRow key={analisis._id} sx={{ '&:hover': { bgcolor: '#d7f7dd' } }}>
-                        <TableCell>{analisis.nombre}</TableCell>
-                        <TableCell>{analisis.tipo.charAt(0).toUpperCase() + analisis.tipo.slice(1)}</TableCell>
-                        <TableCell>{analisis.unidad}</TableCell>
-                        <TableCell>${analisis.precio}</TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={analisis.activo}
-                            onChange={() => handleToggleAnalisisStatus(analisis._id!, analisis.activo)}
-                            color="primary"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                <TableHead>
+  <TableRow sx={{ bgcolor: '#39A900' }}>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Nombre</TableCell>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Tipo</TableCell>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Unidad</TableCell>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Precio</TableCell>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Activo</TableCell>
+    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
+  </TableRow>
+</TableHead>
+<TableBody>
+  {allAnalisis.map(analisis => (
+    <TableRow key={analisis._id} sx={{ '&:hover': { bgcolor: '#d7f7dd' } }}>
+      <TableCell>{analisis.nombre}</TableCell>
+      <TableCell>{analisis.tipo.charAt(0).toUpperCase() + analisis.tipo.slice(1)}</TableCell>
+      <TableCell>{analisis.unidad}</TableCell>
+      <TableCell>${analisis.precio}</TableCell>
+      <TableCell>
+        <Switch
+          checked={analisis.activo}
+          onChange={() => handleToggleAnalisisStatus(analisis._id!, analisis.activo)}
+          color="primary"
+        />
+      </TableCell>
+      <TableCell>
+        <IconButton
+          onClick={() => {
+            setSelectedAnalisis(analisis);
+            setOpenEditAnalisisModal(true);
+          }}
+          sx={{ color: '#39A900' }}
+        >
+          <EditIcon />
+        </IconButton>
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
                 </Table>
               </TableContainer>
             ) : (
@@ -2035,6 +2051,206 @@ const RegistroMuestras: React.FC = () => {
             >
               {registrando ? <CircularProgress size={24} /> : 'Crear Análisis'}
             </Button>
+                        {/* Modal Editar Análisis */}
+                        <Modal
+              open={openEditAnalisisModal}
+              onClose={() => setOpenEditAnalisisModal(false)}
+              closeAfterTransition
+              slots={{ backdrop: Backdrop }}
+              slotProps={{ backdrop: { timeout: 500 } }}
+            >
+              <Fade in={openEditAnalisisModal}>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 400,
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                    p: 4,
+                    borderRadius: 3,
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#39A900', mb: 3 }}>
+                    Editar Análisis
+                  </Typography>
+                  {selectedAnalisis && (
+                    <>
+                      <TextField
+                        fullWidth
+                        label="Nombre"
+                        name="nombre"
+                        value={selectedAnalisis.nombre}
+                        onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, nombre: e.target.value })}
+                        required
+                        sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Método"
+                        name="metodo"
+                        value={selectedAnalisis.metodo || ''}
+                        onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, metodo: e.target.value })}
+                        required
+                        sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Unidad"
+                        name="unidad"
+                        value={selectedAnalisis.unidad}
+                        onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, unidad: e.target.value })}
+                        required
+                        sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Rango"
+                        name="rango"
+                        value={selectedAnalisis.rango || ''}
+                        onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, rango: e.target.value })}
+                        required
+                        sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Precio"
+                        name="precio"
+                        type="number"
+                        value={selectedAnalisis.precio || ''}
+                        onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, precio: parseFloat(e.target.value) })}
+                        required
+                        sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
+                      />
+                      <FormControl fullWidth sx={{ mb: 3 }}>
+                        <InputLabel>Tipo de Análisis</InputLabel>
+                        <Select
+                          name="tipo"
+                          value={selectedAnalisis.tipo.charAt(0).toUpperCase() + selectedAnalisis.tipo.slice(1)}
+                          onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, tipo: e.target.value.toLowerCase() })}
+                          label="Tipo de Análisis"
+                          required
+                          sx={{ bgcolor: 'white', borderRadius: 2 }}
+                        >
+                          <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
+                          <MenuItem value="Microbiológico">Microbiológico</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={selectedAnalisis.activo}
+                            onChange={(e) => setSelectedAnalisis({ ...selectedAnalisis, activo: e.target.checked })}
+                            color="primary"
+                          />
+                        }
+                        label="Activo"
+                        sx={{ mb: 3 }}
+                      />
+                      {analisisError && (
+                        <Alert severity="error" sx={{ mb: 3, borderRadius: 2, boxShadow: 1 }}>
+                          {analisisError}
+                        </Alert>
+                      )}
+                      {analisisSuccess && (
+                        <Alert severity="success" sx={{ mb: 3, borderRadius: 2, boxShadow: 1 }}>
+                          {analisisSuccess}
+                        </Alert>
+                      )}
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={async () => {
+                          if (!selectedAnalisis._id) {
+                            setAnalisisError('ID de análisis no encontrado');
+                            return;
+                          }
+                          const camposReq = {
+                            nombre: 'Nombre',
+                            metodo: 'Método',
+                            unidad: 'Unidad',
+                            rango: 'Rango',
+                            precio: 'Precio',
+                            tipo: 'Tipo',
+                          };
+                          const faltantes = Object.entries(camposReq)
+                            .filter(([k]) => !selectedAnalisis[k as keyof AnalisisCategoria])
+                            .map(([, v]) => v);
+                          if (faltantes.length) {
+                            setAnalisisError(`Faltan: ${faltantes.join(', ')}`);
+                            return;
+                          }
+                          setRegistrando(true);
+                          try {
+                            const analisisData = {
+                              nombre: selectedAnalisis.nombre,
+                              metodo: selectedAnalisis.metodo,
+                              unidad: selectedAnalisis.unidad,
+                              rango: selectedAnalisis.rango,
+                              precio: Number(selectedAnalisis.precio),
+                              matriz: selectedAnalisis.matriz || ['AP', 'AS'],
+                              tipo: selectedAnalisis.tipo.toLowerCase(),
+                              activo: selectedAnalisis.activo,
+                            };
+                            const response = await axios.put(
+                              `${API_URLS.ANALISIS}/${selectedAnalisis._id}`,
+                              analisisData,
+                              {
+                                headers: {
+                                  Authorization: `Bearer ${localStorage.getItem('token')}`,
+                                  'Content-Type': 'application/json',
+                                },
+                              }
+                            );
+                            setAllAnalisis(prev =>
+                              prev.map(a =>
+                                a._id === selectedAnalisis._id ? { ...a, ...response.data } : a
+                              )
+                            );
+                            setAnalisisDisponibles(prev => ({
+                              fisicoquimico:
+                                selectedAnalisis.tipo === 'fisicoquimico' && selectedAnalisis.activo
+                                  ? [
+                                      ...(prev?.fisicoquimico.filter(a => a._id !== selectedAnalisis._id) || []),
+                                      response.data,
+                                    ]
+                                  : prev?.fisicoquimico.filter(a => a._id !== selectedAnalisis._id) || [],
+                              microbiologico:
+                                selectedAnalisis.tipo === 'microbiologico' && selectedAnalisis.activo
+                                  ? [
+                                      ...(prev?.microbiologico.filter(a => a._id !== selectedAnalisis._id) || []),
+                                      response.data,
+                                    ]
+                                  : prev?.microbiologico.filter(a => a._id !== selectedAnalisis._id) || [],
+                            }));
+                            setAnalisisSuccess('Análisis actualizado exitosamente');
+                            setOpenEditAnalisisModal(false);
+                            setSelectedAnalisis(null);
+                          } catch (err: any) {
+                            setAnalisisError(err.response?.data?.message || 'Error al actualizar');
+                          } finally {
+                            setRegistrando(false);
+                          }
+                        }}
+                        disabled={registrando}
+                        sx={{
+                          py: 1.5,
+                          borderRadius: 2,
+                          bgcolor: '#39A900',
+                          '&:hover': { bgcolor: '#2d8600', transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
+                        }}
+                      >
+                        {registrando ? <CircularProgress size={24} /> : 'Actualizar Análisis'}
+                      </Button>
+                    </>
+                  )}
+                </Box>
+              </Fade>
+            </Modal>
           </Box>
         </Fade>
       </Modal>
