@@ -183,6 +183,9 @@ const getEstadoChipProps = (estado) => {
       return { chipColor: "success", sx: { backgroundColor: "#4CAF50", color: "white" } };
     case "Rechazada":
       return { chipColor: "error", sx: { backgroundColor: "#F44336", color: "white" } };
+    case "En Cotización":
+    case "En Cotizacion": // Cubrimos ambas versiones
+      return { chipColor: "secondary", sx: { backgroundColor: "#9C27B0", color: "white" } };
     default:
       return { chipColor: "default", sx: { backgroundColor: "#666", color: "white" } };
   }
@@ -701,7 +704,6 @@ const Muestras = () => {
   useEffect(() => {
     applyFilters();
   }, [muestras, search, filterDate]);
-
   const fetchMuestras = async (
     page = 1,
     limit = 10,
@@ -718,8 +720,9 @@ const Muestras = () => {
         sortOrder,
         tipo
       });
-
+  
       if (response.success && response.data) {
+        console.log("Muestras recibidas del backend:", response.data.items); // Agregamos este log
         setMuestras(response.data.items);
         setFilteredMuestras(response.data.items);
         setPagination({
@@ -744,7 +747,6 @@ const Muestras = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchMuestras(pagination.page, pagination.limit);
   }, []);

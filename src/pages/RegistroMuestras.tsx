@@ -650,6 +650,83 @@ const RegistroMuestras: React.FC = () => {
     setIsRejected(true);
     setOpenRechazoModal(false);
   };
+  const handleCotizacion = async () => {
+    // Validar formulario (sin firmas)
+    const errores = validarFormulario(formData);
+    const erroresSinFirmas = Object.keys(errores).reduce((acc, key) => {
+      if (key !== 'firmaAdministrador' && key !== 'firmaCliente') {
+        acc[key] = errores[key];
+      }
+      return acc;
+    }, {} as Record<string, string>);
+  
+    if (Object.keys(erroresSinFirmas).length > 0) {
+      setError(Object.values(erroresSinFirmas).join(' – '));
+      return;
+    }
+  
+    setLoading(true);
+    try {
+      // Preparar datos de análisis seleccionados
+      const analisisSeleccionadosCompletos = formData.analisisSeleccionados.map(nombre => {
+        const arr = formData.tipoAnalisis === TIPOS_ANALISIS_ENUM.FISICOQUIMICO
+          ? analisisDisponibles?.fisicoquimico || []
+          : analisisDisponibles?.microbiologico || [];
+        const obj = arr.find(a => a.nombre === nombre);
+        if (!obj) throw new Error(`Análisis no encontrado: ${nombre}`);
+        return {
+          nombre: obj.nombre,
+          precio: Number(obj.precio?.toString().replace(/[^0-9]/g, '')) || 0,
+          unidad: obj.unidad || '',
+          metodo: obj.metodo || '',
+          rango: obj.rango || '',
+        };
+      });
+  
+      // Preparar datos de la muestra
+      const muestraData = {
+        documento: formData.documento,
+        tipoDeAgua: {
+          tipo: formData.tipoDeAgua.tipo,
+          codigo: formData.tipoDeAgua.codigo,
+          descripcion: formData.tipoDeAgua.descripcion,
+          subtipoResidual: formData.tipoDeAgua.subtipo,
+        },
+        tipoMuestreo: formData.tipoMuestreo,
+        lugarMuestreo: formData.lugarMuestreo,
+        fechaHoraMuestreo: formData.fechaHoraMuestreo,
+        tipoAnalisis: formData.tipoAnalisis as string,
+        identificacionMuestra: formData.identificacionMuestra,
+        planMuestreo: formData.planMuestreo,
+        condicionesAmbientales: formData.condicionesAmbientales,
+        preservacionMuestra: formData.preservacionMuestra,
+        preservacionMuestraOtra: formData.preservacionMuestraOtra,
+        analisisSeleccionados: analisisSeleccionadosCompletos,
+        estado: 'En Cotizacion', // Estado específico para cotización
+        observaciones: formData.observaciones || '',
+        // No incluimos firmas, ya que no son necesarias
+      };
+  
+      console.log("Datos enviados al backend para Cotización:", muestraData); // Agregamos este log
+  
+      // Enviar solicitud al backend
+      await axios.post(API_URLS.MUESTRAS, muestraData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      // Mostrar mensaje de éxito y redirigir
+      setSuccess('Muestra enviada a cotización exitosamente');
+      setTimeout(() => navigate('/muestras'), 2000);
+    } catch (err: any) {
+      console.error('Error al enviar a cotización:', err);
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenAnalisisModal = () => setOpenAnalisisModal(true);
   const handleCloseAnalisisModal = () => {
@@ -716,11 +793,12 @@ const RegistroMuestras: React.FC = () => {
         metodo: newAnalisisData.metodo,
         unidad: newAnalisisData.unidad,
         rango: newAnalisisData.rango,
-        precio: newAnalisisData.precio,
+        precio: Number(newAnalisisData.precio), // Convertimos precio a número
         matriz: newAnalisisData.matriz,
         tipo: newAnalisisData.tipo.toLowerCase(),
         activo: newAnalisisData.activo,
       };
+      console.log('Datos enviados al backend para crear análisis:', analisisData); // Agregamos este log
       const response = await axios.post(`${API_URLS.ANALISIS}`, analisisData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -744,7 +822,11 @@ const RegistroMuestras: React.FC = () => {
       setNewAnalisisData(initialNewAnalisisData);
     } catch (err: any) {
       console.error('Error al crear análisis:', err);
-      setAnalisisError(err.response?.data?.message || err.message);
+      setAnalisisError(
+        err.response?.data?.message ||
+          err.message ||
+          'Error desconocido al crear el análisis'
+      );
     } finally {
       setRegistrando(false);
     }
@@ -1457,22 +1539,36 @@ const RegistroMuestras: React.FC = () => {
           </Box>
 
           {!isRejected && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={handleOpenRechazoModal}
-                sx={{
-                  borderRadius: 2,
-                  px: 3,
-                  transition: 'all 0.2s',
-                  '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
-                }}
-              >
-                Rechazar Muestra
-              </Button>
-            </Box>
-          )}
+  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3, gap: 2 }}>
+    <Button
+      variant="contained"
+      color="error"
+      onClick={handleOpenRechazoModal}
+      sx={{
+        borderRadius: 2,
+        px: 3,
+        transition: 'all 0.2s',
+        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
+      }}
+    >
+      Rechazar Muestra
+    </Button>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={() => handleCotizacion()} // Función que crearemos en el siguiente paso
+      sx={{
+        borderRadius: 2,
+        px: 3,
+        transition: 'all 0.2s',
+        bgcolor: '#39A900',
+        '&:hover': { bgcolor: '#2d8600', transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
+      }}
+    >
+      Cotización
+    </Button>
+  </Box>
+)}
 
           {mostrarFirmas ? (
             <Box sx={{ mt: 4 }}>

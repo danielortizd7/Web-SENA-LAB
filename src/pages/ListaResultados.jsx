@@ -1,3 +1,4 @@
+// src/pages/ListaResultados.jsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -33,27 +34,15 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 
-// URLs base actualizadas
-const BASE_URLS = {
-  USUARIOS: import.meta.env.VITE_BACKEND_URL || 'https://backend-sena-lab-1-qpzp.onrender.com/api',
-  MUESTRAS: import.meta.env.VITE_BACKEND_MUESTRAS_URL || 'https://backend-registro-muestras.onrender.com'
-};
-
-// URLs específicas actualizadas
-const API_URLS = {
-  USUARIOS: `${BASE_URLS.USUARIOS}/usuarios`,
-  MUESTRAS: `${BASE_URLS.MUESTRAS}/api/muestras`,
-  RESULTADOS: `${BASE_URLS.MUESTRAS}/api/ingreso-resultados`
-};
-
+// Función para formatear fechas
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
-  
+
   // Si la fecha viene en el formato del backend
   if (typeof fecha === 'object' && fecha.fecha && fecha.hora) {
     return `${fecha.fecha} ${fecha.hora}`;
   }
-  
+
   return 'Fecha inválida';
 };
 
@@ -79,7 +68,14 @@ const ListaResultados = () => {
 
   useEffect(() => {
     cargarResultados();
-  }, []);
+
+    // Actualizar cada 30 segundos
+    const intervalo = setInterval(() => {
+      cargarResultados(currentPage, pagination.limit);
+    }, 30000);
+
+    return () => clearInterval(intervalo);
+  }, [currentPage, pagination.limit]);
 
   const cargarResultados = async (page = 1, limit = 10) => {
     try {
@@ -107,10 +103,9 @@ const ListaResultados = () => {
       };
 
       const queryParams = new URLSearchParams(params).toString();
-      console.log("Parámetros enviados al backend:", queryParams);
 
       const response = await axios.get(
-        `${API_URLS.RESULTADOS}/resultados?${queryParams}`,
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/resultados?${queryParams}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -119,10 +114,15 @@ const ListaResultados = () => {
         }
       );
 
-      console.log("Respuesta del backend (resultados):", response.data);
+      if (response.data?.data?.data) {
+        const resultadosFormateados = response.data.data.data.map(r => ({
+          ...r,
+          fechaHoraMuestreo: r.fechaHoraMuestreo || { fecha: 'No disponible', hora: 'No disponible' },
+          createdAt: r.createdAt || { fecha: 'No disponible', hora: 'No disponible' },
+          updatedAt: r.updatedAt || { fecha: 'No disponible', hora: 'No disponible' }
+        }));
 
-      if (response.data && response.data.data && response.data.data.data && response.data.data.pagination) {
-        setResultados(response.data.data.data); // Array de resultados
+        setResultados(resultadosFormateados);
         setPagination({
           page: response.data.data.pagination.currentPage,
           limit: response.data.data.pagination.limit,
@@ -130,19 +130,11 @@ const ListaResultados = () => {
           totalPages: response.data.data.pagination.totalPages,
         });
       } else {
-        console.warn("Estructura inesperada en la respuesta de resultados:", response.data);
         setResultados([]);
-        setPagination({
-          page: 1,
-          limit,
-          total: 0,
-          totalPages: 1,
-        });
+        setPagination({ page: 1, limit, total: 0, totalPages: 1 });
       }
     } catch (err) {
       console.error('Error al cargar resultados:', err);
-      console.error('Detalles del error:', err.response?.data || err.message);
-
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Sesión expirada. Por favor, inicia sesión nuevamente.');
         localStorage.removeItem('token');
@@ -155,13 +147,13 @@ const ListaResultados = () => {
     }
   };
 
-  const handleSearchChange = (event) => {
-    setSearchTerm(event.target.value);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
     setCurrentPage(1);
     cargarResultados(1, pagination.limit);
   };
 
-  const handlePageChange = (event, value) => {
+  const handlePageChange = (e, value) => {
     setCurrentPage(value);
     cargarResultados(value, pagination.limit);
   };
@@ -170,42 +162,29 @@ const ListaResultados = () => {
     try {
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
       if (userData.rol !== 'administrador') {
-        setSnackbar({
-          open: true,
-          message: 'Solo el administrador puede verificar resultados',
-          severity: 'error'
-        });
+        setSnackbar({ open: true, message: 'Solo el administrador puede verificar resultados', severity: 'error' });
         return;
       }
 
       setVerificando(true);
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${API_URLS.RESULTADOS}/verificar/${selectedResult.idMuestra}`,
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/verificar/${selectedResult.idMuestra}`,
         { observaciones: observacionesVerificacion },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
 
       if (response.data.success) {
         setDialogoVerificacion(false);
         setSelectedResult(null);
-        setSnackbar({
-          open: true,
-          message: 'Resultados verificados correctamente',
-          severity: 'success'
-        });
-        cargarResultados(); // Recargar la lista
+        setSnackbar({ open: true, message: 'Resultados verificados correctamente', severity: 'success' });
+        cargarResultados();
       }
-    } catch (error) {
-      console.error('Error al verificar resultados:', error);
+    } catch (err) {
+      console.error('Error al verificar resultados:', err);
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Error al verificar los resultados',
+        message: err.response?.data?.message || 'Error al verificar los resultados',
         severity: 'error'
       });
     } finally {
@@ -217,43 +196,30 @@ const ListaResultados = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const timestamp = new Date().getTime();
       const response = await axios.get(
-        `${API_URLS.RESULTADOS}/muestra/${resultado.idMuestra}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+        `https://backend-registro-muestras.onrender.com/api/ingreso-resultados/muestra/${resultado.idMuestra}?timestamp=${timestamp}`,
+        { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
 
-      console.log("Detalles de la muestra:", response.data);
-
-      if (response.data && response.data.data) {
+      if (response.data?.data) {
         setSelectedResult(response.data.data);
+        cargarResultados(currentPage, pagination.limit);
       } else {
-        console.warn("Estructura inesperada en la respuesta de detalles:", response.data);
+        console.warn('Estructura inesperada en detalles:', response.data);
         setSelectedResult(null);
       }
     } catch (err) {
       console.error('Error al obtener detalles de la muestra:', err);
-      setSnackbar({
-        open: true,
-        message: 'Error al cargar los detalles de la muestra. Por favor, intenta más tarde.',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: 'Error al cargar detalles. Intenta más tarde.', severity: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
-      <Typography variant="h4" align="center" gutterBottom sx={{ 
-        color: '#333',
-        fontWeight: 'bold',
-        mb: 3
-      }}>
+    <Paper sx={{ p: 4, mx: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
+      <Typography variant="h4" align="center" gutterBottom sx={{ color: '#333', fontWeight: 'bold', mb: 3 }}>
         Lista de Resultados
       </Typography>
 
@@ -272,47 +238,47 @@ const ListaResultados = () => {
         </Box>
       ) : (
         <>
-          <TableContainer component={Paper} sx={{ 
-            boxShadow: 3,
-            borderRadius: 2,
-            overflow: 'hidden'
-          }}>
+          <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2, overflow: 'hidden' }}>
             <Table>
               <TableHead sx={{ bgcolor: '#39A900' }}>
                 <TableRow>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ID Muestra</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Cliente</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Última Actualización</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Fecha</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estado Muestra</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {resultados.map((resultado) => (
-                  <TableRow 
+                  <TableRow
                     key={resultado._id}
                     sx={{
                       transition: 'background-color 0.3s',
-                      '&:hover': {
-                        bgcolor: 'rgba(57, 169, 0, 0.04)',
-                        transform: 'scale(1.01)',
-                      },
+                      '&:hover': { bgcolor: 'rgba(57,169,0,0.04)', transform: 'scale(1.01)' },
                       cursor: 'pointer'
                     }}
                   >
                     <TableCell>{resultado.idMuestra}</TableCell>
                     <TableCell>{resultado.cliente?.nombre || 'Sin nombre'}</TableCell>
                     <TableCell>
-                      {resultado.updatedAt?.fecha && resultado.updatedAt?.hora 
-                        ? `${resultado.updatedAt.fecha} ${resultado.updatedAt.hora}`
-                        : formatearFecha(resultado.updatedAt)}
+                      {resultado.fechaHoraMuestreo?.fecha && resultado.fechaHoraMuestreo?.hora
+                        ? `${resultado.fechaHoraMuestreo.fecha} ${resultado.fechaHoraMuestreo.hora}`
+                        : 'Fecha no disponible'}
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={resultado.verificado ? "Verificado" : "Pendiente"}
-                        color={resultado.verificado ? "success" : "warning"}
+                        label={resultado.estado || 'No definido'}
+                        color={
+                          resultado.estado === 'Finalizada' ? 'success' :
+                          resultado.estado === 'En análisis' ? 'info' :
+                          'default'
+                        }
                         sx={{
-                          bgcolor: resultado.verificado ? '#39A900' : '#FF9800',
+                          bgcolor:
+                            resultado.estado === 'Finalizada' ? '#39A900' :
+                            resultado.estado === 'En análisis' ? '#2196F3' :
+                            '#757575',
                           color: 'white'
                         }}
                       />
@@ -323,12 +289,7 @@ const ListaResultados = () => {
                           variant="contained"
                           size="small"
                           onClick={() => handleVerDetalles(resultado)}
-                          sx={{
-                            bgcolor: '#39A900',
-                            '&:hover': {
-                              bgcolor: '#2d8000',
-                            }
-                          }}
+                          sx={{ bgcolor: '#39A900', '&:hover': { bgcolor: '#2d8000' } }}
                         >
                           Ver Detalles
                         </Button>
@@ -348,38 +309,17 @@ const ListaResultados = () => {
                 onChange={handlePageChange}
                 color="primary"
                 sx={{
-                  '& .MuiPaginationItem-root': {
-                    color: '#39A900',
-                  },
-                  '& .Mui-selected': {
-                    backgroundColor: '#39A900',
-                    color: 'white',
-                    '&:hover': {
-                      backgroundColor: '#2d8000',
-                    }
-                  }
+                  '& .MuiPaginationItem-root': { color: '#39A900' },
+                  '& .Mui-selected': { backgroundColor: '#39A900', color: 'white', '&:hover': { backgroundColor: '#2d8000' } }
                 }}
               />
             </Box>
           )}
 
-          <Modal
-            open={selectedResult !== null}
-            onClose={() => setSelectedResult(null)}
-          >
-            <Box sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 800,
-              bgcolor: 'background.paper',
-              boxShadow: 24,
-              p: 4,
-              borderRadius: 2,
-              maxHeight: '90vh',
-              overflowY: 'auto'
-            }}>
+          <Modal open={selectedResult !== null} onClose={() => setSelectedResult(null)}>
+            <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                       width: 800, bgcolor: 'background.paper', boxShadow: 24, p: 4, borderRadius: 2,
+                       maxHeight: '90vh', overflowY: 'auto' }}>
               {selectedResult && (
                 <>
                   <Typography variant="h5" gutterBottom sx={{ color: '#39A900', textAlign: 'center' }}>
@@ -388,17 +328,15 @@ const ListaResultados = () => {
                   <Grid container spacing={3}>
                     <Grid item xs={12}>
                       <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                        <Typography variant="h6" gutterBottom>
-                          Información General
-                        </Typography>
+                        <Typography variant="h6" gutterBottom>Información General</Typography>
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
                             <Typography><strong>ID Muestra:</strong> {selectedResult.idMuestra}</Typography>
                             <Typography><strong>Cliente:</strong> {selectedResult.cliente?.nombre || 'Sin nombre'}</Typography>
-                            <Typography><strong>Fecha:</strong> {formatearFecha(selectedResult.fechaHoraMuestreo)}</Typography>
+                            <Typography><strong>Fecha:</strong> {`${selectedResult.fechaHoraMuestreo.fecha} ${selectedResult.fechaHoraMuestreo.hora}`}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Verificado" : "Pendiente"}</Typography>
+                            <Typography><strong>Estado:</strong> {selectedResult.estado}</Typography>
                             <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista}</Typography>
                           </Grid>
                         </Grid>
@@ -407,15 +345,11 @@ const ListaResultados = () => {
 
                     <Grid item xs={12}>
                       <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                        <Typography variant="h6" gutterBottom>
-                          Resultados de Análisis
-                        </Typography>
+                        <Typography variant="h6" gutterBottom>Resultados de Análisis</Typography>
                         <Grid container spacing={2}>
                           {Object.entries(selectedResult.resultados || {}).map(([key, value]) => (
                             <Grid item xs={6} key={key}>
-                              <Typography>
-                                <strong>{key}:</strong> {value.valor} {value.unidad}
-                              </Typography>
+                              <Typography><strong>{key}:</strong> {value.valor} {value.unidad}</Typography>
                             </Grid>
                           ))}
                         </Grid>
@@ -428,26 +362,15 @@ const ListaResultados = () => {
                           <Typography variant="h6" gutterBottom sx={{ color: '#39A900' }}>
                             Historial de Cambios
                           </Typography>
-                          {selectedResult.historialCambios.map((cambio, index) => (
-                            <Box 
-                              key={index} 
-                              sx={{ 
-                                mb: 2, 
-                                p: 2, 
-                                bgcolor: 'white', 
-                                borderRadius: 1,
-                                border: '1px solid #e0e0e0'
-                              }}
-                            >
+                          {selectedResult.historialCambios.map((cambio, idx) => (
+                            <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid #e0e0e0' }}>
                               <Grid container spacing={2}>
                                 <Grid item xs={12}>
                                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#39A900' }}>
-                                    Cambio #{selectedResult.historialCambios.length - index}
+                                    Cambio #{selectedResult.historialCambios.length - idx}
                                   </Typography>
                                   <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
-                                    Realizado por: {cambio.nombre} | Fecha: {cambio.fecha?.fecha && cambio.fecha?.hora 
-                                      ? `${cambio.fecha.fecha} ${cambio.fecha.hora}`
-                                      : formatearFecha(cambio.fecha)}
+                                    Realizado por: {cambio.nombre} | Fecha: {`${cambio.fecha.fecha} ${cambio.fecha.hora}`}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={12}>
@@ -462,12 +385,12 @@ const ListaResultados = () => {
                                         </TableRow>
                                       </TableHead>
                                       <TableBody>
-                                        {Object.entries(cambio.cambiosRealizados.resultados || {}).map(([param, valores], i) => (
+                                        {Object.entries(cambio.cambiosRealizados.resultados || {}).map(([param, val], i) => (
                                           <TableRow key={i}>
                                             <TableCell>{param}</TableCell>
-                                            <TableCell>{valores.valorAnterior}</TableCell>
-                                            <TableCell>{valores.valorNuevo}</TableCell>
-                                            <TableCell>{valores.unidad || '-'}</TableCell>
+                                            <TableCell>{val.valorAnterior}</TableCell>
+                                            <TableCell>{val.valorNuevo}</TableCell>
+                                            <TableCell>{val.unidad || '-'}</TableCell>
                                           </TableRow>
                                         ))}
                                       </TableBody>
@@ -483,22 +406,25 @@ const ListaResultados = () => {
                   </Grid>
 
                   <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                    {!selectedResult.verificado && JSON.parse(localStorage.getItem('user') || '{}').rol === 'administrador' && (
+                    {!selectedResult.verificado && selectedResult.estado === 'En análisis' && JSON.parse(localStorage.getItem('user') || '{}').rol === 'administrador' && (
                       <Button
                         variant="contained"
                         onClick={() => setDialogoVerificacion(true)}
-                        sx={{
-                          backgroundColor: '#39A900',
-                          '&:hover': { backgroundColor: '#2d8000' }
-                        }}
+                        sx={{ backgroundColor: '#39A900', '&:hover': { backgroundColor: '#2d8000' } }}
                       >
                         Verificar Resultados
                       </Button>
                     )}
-                    <Button 
-                      variant="outlined"
-                      onClick={() => setSelectedResult(null)}
-                    >
+                    {!selectedResult.verificado && selectedResult.estado !== 'En análisis' && JSON.parse(localStorage.getItem('user') || '{}').rol === 'administrador' && (
+                      <Tooltip title="Solo se pueden verificar resultados de muestras En análisis">
+                        <span>
+                          <Button variant="contained" disabled sx={{ backgroundColor: '#cccccc' }}>
+                            Verificar Resultados
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
+                    <Button variant="outlined" onClick={() => setSelectedResult(null)}>
                       Cerrar
                     </Button>
                   </Box>
@@ -507,15 +433,16 @@ const ListaResultados = () => {
             </Box>
           </Modal>
 
-          <Dialog
-            open={dialogoVerificacion}
-            onClose={() => setDialogoVerificacion(false)}
-          >
+          <Dialog open={dialogoVerificacion} onClose={() => setDialogoVerificacion(false)}>
             <DialogTitle>Verificar Resultados</DialogTitle>
             <DialogContent>
               <DialogContentText>
+                Al verificar los resultados, la muestra pasará a estado "Finalizada". 
                 Por favor, ingrese las observaciones de la verificación:
               </DialogContentText>
+              <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+                Esta acción es irreversible y cambiará el estado de la muestra a "Finalizada".
+              </Alert>
               <TextField
                 autoFocus
                 margin="dense"
@@ -530,20 +457,14 @@ const ListaResultados = () => {
               />
             </DialogContent>
             <DialogActions>
-              <Button 
-                onClick={() => setDialogoVerificacion(false)}
-                color="inherit"
-              >
+              <Button onClick={() => setDialogoVerificacion(false)} color="inherit">
                 Cancelar
               </Button>
-              <Button 
+              <Button
                 onClick={handleVerificarResultados}
                 variant="contained"
                 disabled={verificando || !observacionesVerificacion.trim()}
-                sx={{
-                  backgroundColor: '#39A900',
-                  '&:hover': { backgroundColor: '#2d8000' }
-                }}
+                sx={{ backgroundColor: '#39A900', '&:hover': { backgroundColor: '#2d8000' } }}
               >
                 {verificando ? <CircularProgress size={24} /> : 'Verificar'}
               </Button>
@@ -557,7 +478,7 @@ const ListaResultados = () => {
         autoHideDuration={6000}
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
       >
-        <Alert 
+        <Alert
           onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
