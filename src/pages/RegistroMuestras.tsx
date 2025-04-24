@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -83,7 +84,7 @@ const SUBTIPOS_RESIDUAL = {
   NO_DOMESTICA: 'No Doméstica',
 } as const;
 
-const TIPOS_ANALISIS = ['Fisicoquímico', 'Microbiológico'] as const;
+const TIPOS_ANALISIS = ['Fisicoquimico', 'Microbiologico'] as const;
 type TipoAnalisis = typeof TIPOS_ANALISIS[number];
 
 const ESTADOS_VALIDOS = ['Recibida', 'En análisis', 'Pendiente de resultados', 'Finalizada', 'Rechazada'] as const;
@@ -284,8 +285,8 @@ const getTipoAguaCodigo = (tipo: string): string => {
 };
 
 const TIPOS_ANALISIS_ENUM = {
-  FISICOQUIMICO: 'Fisicoquímico',
-  MICROBIOLOGICO: 'Microbiológico',
+  FISICOQUIMICO: 'Fisicoquimico',
+  MICROBIOLOGICO: 'Microbiologico',
 } as const;
 
 const RegistroMuestras: React.FC = () => {
@@ -332,6 +333,7 @@ const RegistroMuestras: React.FC = () => {
 
   const firmaAdministradorRef = useRef<SignatureCanvas | null>(null);
   const firmaClienteRef = useRef<SignatureCanvas | null>(null);
+  const modalFocusRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const verificarAdmin = async () => {
@@ -425,8 +427,10 @@ const RegistroMuestras: React.FC = () => {
           },
         });
         if (Array.isArray(response.data)) {
+          console.log('allAnalisis IDs:', response.data.map(a => a._id));
           setAllAnalisis(response.data);
         } else if (response.data && response.data.success && Array.isArray(response.data.data)) {
+          console.log('allAnalisis IDs:', response.data.data.map(a => a._id));
           setAllAnalisis(response.data.data);
         } else {
           throw new Error('Formato de respuesta inválido.');
@@ -437,6 +441,12 @@ const RegistroMuestras: React.FC = () => {
       }
     };
     if (openAnalisisModal) cargarTodosAnalisis();
+  }, [openAnalisisModal]);
+  
+  useEffect(() => {
+    if (openAnalisisModal && modalFocusRef.current) {
+      modalFocusRef.current.focus();
+    }
   }, [openAnalisisModal]);
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
@@ -607,13 +617,14 @@ const RegistroMuestras: React.FC = () => {
       const res = await muestrasService.obtenerMuestra(id);
       if (res.data) {
         const m = res.data;
+        console.log('Datos de la muestra:', m);
         setFormData({
           documento: m.documento,
           tipoDeAgua: m.tipoDeAgua || { tipo: '', codigo: '', descripcion: '' },
           tipoMuestreo: m.tipoMuestreo || 'Simple',
           lugarMuestreo: m.lugarMuestreo,
           fechaHoraMuestreo: m.fechaHoraMuestreo,
-          tipoAnalisis: m.tipoAnalisis || '',
+          tipoAnalisis: (m.tipoAnalisis as TipoAnalisis) || '',
           identificacionMuestra: m.identificacionMuestra,
           planMuestreo: m.planMuestreo,
           condicionesAmbientales: m.condicionesAmbientales,
@@ -1872,6 +1883,7 @@ const RegistroMuestras: React.FC = () => {
       >
         <Fade in={openAnalisisModal}>
           <Box
+          ref={modalFocusRef}
             sx={{
               position: 'absolute',
               top: '50%',
@@ -1886,6 +1898,14 @@ const RegistroMuestras: React.FC = () => {
               overflowY: 'auto',
             }}
           >
+            <Button
+        ref={modalFocusRef}
+        onClick={handleCloseAnalisisModal}
+        sx={{ mb: 2 }}
+        aria-label="Cerrar modal"
+      >
+        Cerrar
+      </Button>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#39A900', mb: 3 }}>
               Gestionar Análisis
             </Typography>
@@ -1909,9 +1929,13 @@ const RegistroMuestras: React.FC = () => {
 </TableHead>
 <TableBody>
   {allAnalisis.map(analisis => (
-    <TableRow key={analisis._id} sx={{ '&:hover': { bgcolor: '#d7f7dd' } }}>
+    <TableRow key={analisis._id || analisis.nombre} sx={{ '&:hover': { bgcolor: '#d7f7dd' } }}>
       <TableCell>{analisis.nombre}</TableCell>
-      <TableCell>{analisis.tipo.charAt(0).toUpperCase() + analisis.tipo.slice(1)}</TableCell>
+      <TableCell>
+  {analisis.tipo
+    ? analisis.tipo.charAt(0).toUpperCase() + analisis.tipo.slice(1)
+    : 'Sin tipo'}
+</TableCell>
       <TableCell>{analisis.unidad}</TableCell>
       <TableCell>${analisis.precio}</TableCell>
       <TableCell>
@@ -2136,8 +2160,8 @@ const RegistroMuestras: React.FC = () => {
                           required
                           sx={{ bgcolor: 'white', borderRadius: 2 }}
                         >
-                          <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
-                          <MenuItem value="Microbiológico">Microbiológico</MenuItem>
+                          <MenuItem value="Fisicoquimico">Fisicoquímico</MenuItem>
+                          <MenuItem value="Microbiologico">Microbiológico</MenuItem>
                         </Select>
                       </FormControl>
                       <FormControlLabel
@@ -2258,4 +2282,10 @@ const RegistroMuestras: React.FC = () => {
   );
 };
 
-export default RegistroMuestras;
+const RegistroMuestrasWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <RegistroMuestras />
+  </ErrorBoundary>
+);
+
+export default RegistroMuestrasWithErrorBoundary;

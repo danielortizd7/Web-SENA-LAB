@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState(null);
+  const [isPerfilManuallyUpdated, setIsPerfilManuallyUpdated] = useState(false);
 
   // Carga inicial desde localStorage
   useEffect(() => {
@@ -34,7 +35,12 @@ export const AuthProvider = ({ children }) => {
 
   // Fetch del perfil del usuario autenticado
   useEffect(() => {
-    if (!auth.token || !auth.user) return;
+    if (!auth.token || !auth.user || !auth.isAuthenticated) return;
+
+    if (isPerfilManuallyUpdated) {
+      console.log("Perfil ya actualizado manualmente, no se hace fetch.");
+      return;
+    }
 
     const userId = auth.user.usuarioId || auth.user._id || auth.user.id;
 
@@ -43,18 +49,23 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    console.log("Haciendo fetch del perfil desde el servidor...");
     axios
       .get(`${import.meta.env.VITE_BACKEND_URL}/api/usuarios/${userId}/perfil`, {
         headers: {
-          Authorization: `Bearer ${auth.token}`
+          Authorization: `Bearer ${auth.token}`,
+          'Cache-Control': 'no-cache' // Evita el caché
         }
       })
-      .then(({ data }) => setPerfil(data))
+      .then(({ data }) => {
+        console.log("Datos del perfil obtenidos del servidor:", data);
+        setPerfil(data);
+      })
       .catch((err) => {
         console.error("Error fetching perfil:", err);
         setPerfil(null);
       });
-  }, [auth.token, auth.user]);
+  }, [auth, isPerfilManuallyUpdated]);
 
   // Función login
   const login = (userData) => {
@@ -72,7 +83,16 @@ export const AuthProvider = ({ children }) => {
       tipoUsuario: userData.rol,
       isAuthenticated: true
     });
-    // El perfil se obtiene automáticamente con el useEffect
+
+    setPerfil(userData);
+    setIsPerfilManuallyUpdated(false);
+  };
+
+  // Función para actualizar el perfil directamente
+  const updatePerfil = (newPerfil) => {
+    console.log("Actualizando perfil manualmente:", newPerfil);
+    setPerfil(newPerfil);
+    setIsPerfilManuallyUpdated(true);
   };
 
   // Función logout
@@ -88,6 +108,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     setPerfil(null);
+    setIsPerfilManuallyUpdated(false);
   };
 
   return (
@@ -97,6 +118,7 @@ export const AuthProvider = ({ children }) => {
         perfil,
         loading,
         login,
+        updatePerfil,
         logout
       }}
     >

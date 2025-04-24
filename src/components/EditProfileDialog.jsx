@@ -9,8 +9,7 @@ import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
 const EditProfileDialog = ({ open, handleClose }) => {
-  const { user, perfil, login } = useContext(AuthContext);
-
+  const { user, perfil, login, updatePerfil } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -23,9 +22,9 @@ const EditProfileDialog = ({ open, handleClose }) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  // 1) Precarga desde perfil cuando se abre el modal
+  // 1) Precarga desde perfil cuando cambia
   useEffect(() => {
-    if (perfil && open) {
+    if (perfil) {
       setFormData({
         nombre: perfil.nombre || '',
         email: perfil.email || '',
@@ -33,9 +32,9 @@ const EditProfileDialog = ({ open, handleClose }) => {
         direccion: perfil.direccion || '',
       });
       setPreviewPhoto(perfil.fotoPerfil || '');
-      setImageFile(null); // reset image file
+      setImageFile(null);
     }
-  }, [perfil, open]);
+  }, [perfil]);
 
   // 2) Limpia al cerrar
   useEffect(() => {
@@ -82,20 +81,45 @@ const EditProfileDialog = ({ open, handleClose }) => {
       fd.append('direccion', formData.direccion);
       if (imageFile) fd.append('fotoPerfil', imageFile);
 
-      const { data } = await axios.patch(url, fd, {
+      // Paso 1: Guardamos los cambios en el servidor
+      await axios.patch(url, fd, {
         headers: {
           Authorization: `Bearer ${user.token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      login({ ...user, ...data });
+      // Paso 2: Pedimos los datos nuevos al servidor
+      const { data } = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+          'Cache-Control': 'no-cache' // Evita el caché
+        }
+      });
+      console.log("Datos obtenidos del servidor después de actualizar:", data);
+
+      // Paso 3: Actualizamos directamente el perfil en el contexto
+      updatePerfil(data);
+
+      // Paso 4: Actualizamos el usuario en localStorage y auth
+      const updatedUser = {
+        ...user,
+        nombre: data.nombre,
+        email: data.email,
+        telefono: data.telefono,
+        direccion: data.direccion,
+        fotoPerfil: data.fotoPerfil
+      };
+      console.log("Usuario actualizado para guardar en localStorage:", updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      login({ ...updatedUser, token: user.token });
+
       setSnackbarMessage('¡Perfil actualizado con éxito!');
       setSnackbarOpen(true);
       handleClose();
 
     } catch (err) {
-      console.error(err);
+      console.error("Error al guardar el perfil:", err);
       alert(err.response?.data?.mensaje || err.message);
     } finally {
       setIsSubmitting(false);
