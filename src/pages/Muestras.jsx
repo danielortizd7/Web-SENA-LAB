@@ -289,13 +289,19 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
-                  <TableCell>
-                    {Array.isArray(selectedMuestra.analisisSeleccionados)
-                      ? selectedMuestra.analisisSeleccionados.join(", ")
-                      : "Ninguno"}
-                  </TableCell>
-                </TableRow>
+  <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
+  <TableCell>
+    {Array.isArray(selectedMuestra.analisisSeleccionados) && selectedMuestra.analisisSeleccionados.length > 0
+      ? selectedMuestra.analisisSeleccionados
+          .map((analisis) =>
+            typeof analisis === "object" && analisis !== null
+              ? analisis.nombre || "Desconocido"
+              : analisis
+          )
+          .join(", ")
+      : "Ninguno"}
+  </TableCell>
+</TableRow>
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Observaciones</TableCell>
                   <TableCell>{selectedMuestra.observaciones || "N/A"}</TableCell>
@@ -339,38 +345,7 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                     </TableRow>
                   </>
                 )}
-                {selectedMuestra.firmas && (
-                  <>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold" }}>Firma del Administrador</TableCell>
-                      <TableCell>
-                        {selectedMuestra.firmas.administrador?.firmaAdministrador ? (
-                          <img
-                            src={selectedMuestra.firmas.administrador.firmaAdministrador}
-                            alt="Firma del Administrador"
-                            style={{ maxWidth: "200px", maxHeight: "100px" }}
-                          />
-                        ) : (
-                          "No disponible"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold" }}>Firma del Cliente</TableCell>
-                      <TableCell>
-                        {selectedMuestra.firmas.cliente?.firmaCliente ? (
-                          <img
-                            src={selectedMuestra.firmas.cliente.firmaCliente}
-                            alt="Firma del Cliente"
-                            style={{ maxWidth: "200px", maxHeight: "100px" }}
-                          />
-                        ) : (
-                          "No disponible"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  </>
-                )}
+              
               </TableBody>
             </Table>
           </TableContainer>
