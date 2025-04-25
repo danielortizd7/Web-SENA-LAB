@@ -419,7 +419,7 @@ const Dashboard = () => {
         <Grid container spacing={2} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={3}>
             <StatCard
-              title="Total de Muestras"
+              title="Muestras Recibidas"
               value={sampleStats.totalAllSamples}
               icon={<AssignmentIcon sx={{ fontSize: 30 }} />}
               color="#2196F3"
@@ -427,7 +427,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={3}>
             <StatCard
-              title="Muestras Recibidas"
+              title="Muestras en Análisis"
               value={sampleStats.totalSamples}
               icon={<AssignmentIcon sx={{ fontSize: 30 }} />}
               color="#39A900"
@@ -435,7 +435,7 @@ const Dashboard = () => {
           </Grid>
           <Grid item xs={12} sm={3}>
             <StatCard
-              title="Muestras en Análisis"
+              title="Muestras por Verificar"
               value={sampleStats.pendingSamples}
               icon={<TrendingUpIcon sx={{ fontSize: 30 }} />}
               color="#FF9800"
