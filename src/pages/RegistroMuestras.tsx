@@ -1338,7 +1338,7 @@ const RegistroMuestras: React.FC = () => {
       <Paper
   sx={{
     padding: 3, // Reducir padding
-    maxWidth: 1200,
+    maxWidth: 1000,
     margin: 'auto',
     marginTop: 3,
     borderRadius: 4,
