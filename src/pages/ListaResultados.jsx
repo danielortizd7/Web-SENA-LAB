@@ -166,18 +166,18 @@ const ListaResultados = () => {
     cargarResultados(value, pagination.limit);
   };
 
-  const handleVerificarResultados = async () => {
+  const handleFinalizarMuestra = async () => {
     try {
       const userData = JSON.parse(localStorage.getItem('user') || '{}');
       if (userData.rol !== 'administrador') {
         setSnackbar({
           open: true,
-          message: 'Solo el administrador puede verificar resultados',
+          message: 'Solo el administrador puede finalizar muestras',
           severity: 'error'
         });
         return;
       }
-  
+
       setVerificando(true);
       const token = localStorage.getItem('token');
       const response = await axios.post(
@@ -190,22 +190,22 @@ const ListaResultados = () => {
           }
         }
       );
-  
+
       if (response.data.success) {
         setDialogoVerificacion(false);
         setSelectedResult(null);
         setSnackbar({
           open: true,
-          message: 'Resultados verificados correctamente',
+          message: 'Muestra finalizada correctamente',
           severity: 'success'
         });
         cargarResultados(); // Recargar la lista
       }
     } catch (error) {
-      console.error('Error al verificar resultados:', error);
+      console.error('Error al finalizar muestra:', error);
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Error al verificar los resultados',
+        message: error.response?.data?.message || 'Error al finalizar la muestra',
         severity: 'error'
       });
     } finally {
@@ -309,10 +309,10 @@ const ListaResultados = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={resultado.verificado ? "Verificado" : "Pendiente"}
-                        color={resultado.verificado ? "success" : "warning"}
+                        label={resultado.verificado ? "Finalizada" : "En analisis"}
+                        color={resultado.verificado ? "success" : "primary"}
                         sx={{
-                          bgcolor: resultado.verificado ? '#39A900' : '#FF9800',
+                          bgcolor: resultado.verificado ? '#39A900' : '#1976D2',
                           color: 'white'
                         }}
                       />
@@ -398,7 +398,7 @@ const ListaResultados = () => {
                             <Typography><strong>Fecha:</strong> {formatearFecha(selectedResult.fechaHoraMuestreo)}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Verificado" : "Pendiente"}</Typography>
+                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Finalizada" : "En analisis"}</Typography>
                             <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista}</Typography>
                           </Grid>
                         </Grid>
@@ -492,7 +492,7 @@ const ListaResultados = () => {
                           '&:hover': { backgroundColor: '#2d8000' }
                         }}
                       >
-                        Verificar Resultados
+                        Finalizar
                       </Button>
                     )}
                     <Button 
@@ -511,10 +511,10 @@ const ListaResultados = () => {
             open={dialogoVerificacion}
             onClose={() => setDialogoVerificacion(false)}
           >
-            <DialogTitle>Verificar Resultados</DialogTitle>
+            <DialogTitle>Finalizar Muestra</DialogTitle>
             <DialogContent>
               <DialogContentText>
-                Por favor, ingrese las observaciones de la verificación:
+                Por favor, ingrese las observaciones para finalizar la muestra:
               </DialogContentText>
               <TextField
                 autoFocus
@@ -537,7 +537,7 @@ const ListaResultados = () => {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleVerificarResultados}
+                onClick={handleFinalizarMuestra}
                 variant="contained"
                 disabled={verificando || !observacionesVerificacion.trim()}
                 sx={{
@@ -545,7 +545,7 @@ const ListaResultados = () => {
                   '&:hover': { backgroundColor: '#2d8000' }
                 }}
               >
-                {verificando ? <CircularProgress size={24} /> : 'Verificar'}
+                {verificando ? <CircularProgress size={24} /> : 'Finalizar'}
               </Button>
             </DialogActions>
           </Dialog>
