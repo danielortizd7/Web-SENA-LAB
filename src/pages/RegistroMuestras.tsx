@@ -1336,16 +1336,16 @@ const RegistroMuestras: React.FC = () => {
   return (
     <Box sx={{ position: 'relative' }}>
       <Paper
-        sx={{
-          padding: 4,
-          maxWidth: 1000, // Reduced width as per previous conversation
-          margin: 'auto',
-          marginTop: 4,
-          borderRadius: 3,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-          background: 'linear-gradient(180deg, #ffffff)',
-        }}
-      >
+  sx={{
+    padding: 3, // Reducir padding
+    maxWidth: 1200,
+    margin: 'auto',
+    marginTop: 3,
+    borderRadius: 4,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.1)', // Sombra más suave
+    bgcolor: '#fafafa', // Fondo más claro
+  }}
+>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: '#39A900', mb: 3 }}>
           {isUpdating ? 'Actualizar Muestra' : 'Registro de Muestra'}
         </Typography>
@@ -1363,7 +1363,7 @@ const RegistroMuestras: React.FC = () => {
 
         <form onSubmit={handleSubmit} autoComplete="off">
           {/* Sección: Validación de Cliente */}
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 3}}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium', color: 'text.primary' }}>
               Validación de Cliente
             </Typography>
@@ -1444,81 +1444,90 @@ const RegistroMuestras: React.FC = () => {
             )}
           </Box>
 
-          <Divider sx={{ my: 4, borderColor: 'grey.300' }} />
+          <Divider sx={{ my: 1, borderColor: 'grey.300' }} />
 
           {/* Sección: Detalles de la Muestra */}
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 3}}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium', color: 'text.primary' }}>
               Detalles de la Muestra
             </Typography>
 
-            {/* Tipo de Agua */}
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Tipo de Agua</InputLabel>
-              <Select
-                name="tipoAgua"
-                value={formData.tipoDeAgua.tipo}
-                onChange={handleChange}
-                label="Tipo de Agua"
-                variant="outlined"
-                sx={{ bgcolor: 'white', borderRadius: 2 }}
-              >
-                {TIPOS_AGUA.map(tipo => (
-                  <MenuItem key={tipo} value={tipo}>
-                    {tipo === 'residual' ? 'Residual' : tipo.charAt(0).toUpperCase() + tipo.slice(1)} ({getTipoAguaCodigo(tipo)})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+  <Grid item xs={12} sm={6}>
+    {/* Tipo de Agua */}
+    <FormControl fullWidth sx={{ mb: 2 }}>
+      <InputLabel>Tipo de Agua</InputLabel>
+      <Select
+        name="tipoAgua"
+        value={formData.tipoDeAgua.tipo}
+        onChange={handleChange}
+        label="Tipo de Agua"
+        variant="outlined"
+        size="small"
+        sx={{ bgcolor: 'white', borderRadius: 2 }}
+      >
+        {TIPOS_AGUA.map(tipo => (
+          <MenuItem key={tipo} value={tipo}>
+            {tipo === 'residual' ? 'Residual' : tipo.charAt(0).toUpperCase() + tipo.slice(1)} ({getTipoAguaCodigo(tipo)})
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Grid>
+  <Grid item xs={12} sm={6}>
+    {/* Tipo de Muestreo */}
+    <FormControl fullWidth sx={{ mb: 2 }}>
+      <InputLabel>Tipo de Muestreo</InputLabel>
+      <Select
+        name="tipoMuestreo"
+        value={formData.tipoMuestreo}
+        onChange={handleChange}
+        label="Tipo de Muestreo"
+        required
+        size="small"
+        sx={{ bgcolor: 'white', borderRadius: 2 }}
+      >
+        {TIPOS_MUESTREO.map(tipo => (
+          <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Grid>
+</Grid>
 
-            {formData.tipoDeAgua.tipo === 'otra' && (
-              <TextField
-                fullWidth
-                label="Descripción del Tipo de Agua"
-                name="descripcion"
-                value={formData.tipoDeAgua.descripcion}
-                onChange={handleChange}
-                required
-                sx={{ mb: 3, bgcolor: 'white', borderRadius: 2 }}
-              />
-            )}
+{formData.tipoDeAgua.tipo === 'otra' && (
+  <TextField
+    fullWidth
+    label="Descripción del Tipo de Agua"
+    name="descripcion"
+    value={formData.tipoDeAgua.descripcion}
+    onChange={handleChange}
+    required
+    size="small"
+    sx={{ mb: 2, bgcolor: 'white', borderRadius: 2 }}
+  />
+)}
 
-            {formData.tipoDeAgua.tipo === 'residual' && (
-              <FormControl fullWidth sx={{ mb: 3 }} error={Boolean(error && error.includes('agua residual'))}>
-                <InputLabel>Tipo de Agua Residual</InputLabel>
-                <Select
-                  name="tipoAguaResidual"
-                  value={formData.tipoDeAgua.subtipo || ''}
-                  onChange={handleChange}
-                  label="Tipo de Agua Residual"
-                  required
-                  sx={{ bgcolor: 'white', borderRadius: 2 }}
-                >
-                  <MenuItem value={SUBTIPOS_RESIDUAL.DOMESTICA}>Doméstica</MenuItem>
-                  <MenuItem value={SUBTIPOS_RESIDUAL.NO_DOMESTICA}>No Doméstica</MenuItem>
-                </Select>
-                {error && error.includes('agua residual') && (
-                  <FormHelperText error>{error}</FormHelperText>
-                )}
-              </FormControl>
-            )}
-
-            {/* Tipo de Muestreo */}
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Tipo de Muestreo</InputLabel>
-              <Select
-                name="tipoMuestreo"
-                value={formData.tipoMuestreo}
-                onChange={handleChange}
-                label="Tipo de Muestreo"
-                required
-                sx={{ bgcolor: 'white', borderRadius: 2 }}
-              >
-                {TIPOS_MUESTREO.map(tipo => (
-                  <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+{formData.tipoDeAgua.tipo === 'residual' && (
+  <FormControl fullWidth sx={{ mb: 2 }} error={Boolean(error && error.includes('agua residual'))}>
+    <InputLabel>Tipo de Agua Residual</InputLabel>
+    <Select
+      name="tipoAguaResidual"
+      value={formData.tipoDeAgua.subtipo || ''}
+      onChange={handleChange}
+      label="Tipo de Agua Residual"
+      required
+      size="small"
+      sx={{ bgcolor: 'white', borderRadius: 2 }}
+    >
+      <MenuItem value={SUBTIPOS_RESIDUAL.DOMESTICA}>Doméstica</MenuItem>
+      <MenuItem value={SUBTIPOS_RESIDUAL.NO_DOMESTICA}>No Doméstica</MenuItem>
+    </Select>
+    {error && error.includes('agua residual') && (
+      <FormHelperText error>{error}</FormHelperText>
+    )}
+  </FormControl>
+)}
 
             {/* Lugar y Fecha de Muestreo */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -1587,38 +1596,10 @@ const RegistroMuestras: React.FC = () => {
               rows={3}
             />
           </Box>
-
-          <Divider sx={{ my: 4, borderColor: 'grey.300' }} />
-
-          {/* Sección: Análisis */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium', color: 'text.primary' }}>
-              Análisis
-            </Typography>
-
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Tipo de Análisis</InputLabel>
-              <Select
-                name="tipoAnalisis"
-                value={formData.tipoAnalisis}
-                onChange={handleChange}
-                label="Tipo de Análisis"
-                required
-                sx={{ bgcolor: 'white', borderRadius: 2 }}
-              >
-                {TIPOS_ANALISIS.map(opt => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {renderAnalisisDisponibles()}
-          </Box>
-
-          <Divider sx={{ my: 4, borderColor: 'grey.300' }} />
+          <Divider sx={{ my: 1, borderColor: 'grey.300' }} />
 
           {/* Sección: Preservación */}
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 2}}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium', color: 'text.primary' }}>
               Preservación de la Muestra
             </Typography>
@@ -1650,6 +1631,35 @@ const RegistroMuestras: React.FC = () => {
               />
             )}
           </Box>
+
+          <Divider sx={{ my: 1, borderColor: 'grey.300' }} />
+
+          {/* Sección: Análisis */}
+          <Box sx={{ mb: 3}}>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium', color: 'text.primary' }}>
+              Análisis
+            </Typography>
+
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Tipo de Análisis</InputLabel>
+              <Select
+                name="tipoAnalisis"
+                value={formData.tipoAnalisis}
+                onChange={handleChange}
+                label="Tipo de Análisis"
+                required
+                sx={{ bgcolor: 'white', borderRadius: 2 }}
+              >
+                {TIPOS_ANALISIS.map(opt => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {renderAnalisisDisponibles()}
+          </Box>
+
+          
 
           {!isRejected && (
   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3, gap: 2 }}>
