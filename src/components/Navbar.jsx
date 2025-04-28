@@ -1,4 +1,3 @@
-// src/components/Navbar.jsx
 import React, { useContext, useState } from "react";
 import {
   AppBar,
@@ -12,7 +11,7 @@ import {
   Divider,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import AutorenewIcon from "@mui/icons-material/Autorenew"; // Ícono giratorio
+import LogoutIcon from "@mui/icons-material/Logout"; // Nuevo ícono de logout
 import AuthContext from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { keyframes } from "@emotion/react"; // Para animaciones
@@ -22,12 +21,6 @@ const pulse = keyframes`
   0% { transform: scale(1); }
   50% { transform: scale(1.03); }
   100% { transform: scale(1); }
-`;
-
-// Animación de rotación para el ícono
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 `;
 
 const Navbar = () => {
@@ -161,11 +154,10 @@ const Navbar = () => {
                   <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                     Cerrar Sesión
                   </Typography>
-                  <AutorenewIcon
+                  <LogoutIcon
                     sx={{
                       color: "inherit", // Hereda el color del MenuItem (cambia a blanco al pasar el mouse)
                       fontSize: "1.2rem", // Tamaño pequeño
-                      animation: `${spin} 2s infinite linear`, // Animación de rotación
                     }}
                   />
                 </MenuItem>

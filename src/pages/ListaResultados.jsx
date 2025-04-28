@@ -23,7 +23,11 @@ import {
   TextField,
   Snackbar,
   Modal,
-  Grid
+  Grid,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import Pagination from '@mui/material/Pagination';
 import { useNavigate } from 'react-router-dom';
@@ -65,6 +69,7 @@ const ListaResultados = () => {
   const [success, setSuccess] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterEstado, setFilterEstado] = useState('todos'); // Estado para el filtro
   const [selectedResult, setSelectedResult] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [observacionesVerificacion, setObservacionesVerificacion] = useState('');
@@ -79,7 +84,7 @@ const ListaResultados = () => {
 
   useEffect(() => {
     cargarResultados();
-  }, []);
+  }, [filterEstado]);
 
   const cargarResultados = async (page = 1, limit = 10) => {
     try {
@@ -104,6 +109,7 @@ const ListaResultados = () => {
         page,
         limit,
         ...(searchTerm.trim() && { search: searchTerm.trim() }),
+        ...(filterEstado !== 'todos' && { verificado: filterEstado === 'finalizada' ? 'true' : 'false' }), // Usar 'verificado' para filtrar
       };
 
       const queryParams = new URLSearchParams(params).toString();
@@ -122,7 +128,14 @@ const ListaResultados = () => {
       console.log("Respuesta del backend (resultados):", response.data);
 
       if (response.data && response.data.data && response.data.data.data && response.data.data.pagination) {
-        setResultados(response.data.data.data); // Array de resultados
+        let filteredResultados = response.data.data.data;
+        // Client-side filtering as a fallback if backend doesn't filter
+        if (filterEstado !== 'todos') {
+          filteredResultados = filteredResultados.filter(resultado =>
+            filterEstado === 'finalizada' ? resultado.verificado : !resultado.verificado
+          );
+        }
+        setResultados(filteredResultados);
         setPagination({
           page: response.data.data.pagination.currentPage,
           limit: response.data.data.pagination.limit,
@@ -161,6 +174,12 @@ const ListaResultados = () => {
     cargarResultados(1, pagination.limit);
   };
 
+  const handleFilterEstadoChange = (event) => {
+    setFilterEstado(event.target.value);
+    setCurrentPage(1);
+    cargarResultados(1, pagination.limit);
+  };
+
   const handlePageChange = (event, value) => {
     setCurrentPage(value);
     cargarResultados(value, pagination.limit);
@@ -191,15 +210,18 @@ const ListaResultados = () => {
         }
       );
 
+      console.log("Respuesta de verificación:", response.data);
+
       if (response.data.success) {
         setDialogoVerificacion(false);
         setSelectedResult(null);
+        setObservacionesVerificacion('');
         setSnackbar({
           open: true,
           message: 'Muestra finalizada correctamente',
           severity: 'success'
         });
-        cargarResultados(); // Recargar la lista
+        cargarResultados();
       }
     } catch (error) {
       console.error('Error al finalizar muestra:', error);
@@ -257,14 +279,33 @@ const ListaResultados = () => {
         Lista de Resultados
       </Typography>
 
-      <TextField
-        fullWidth
-        variant="outlined"
-        label="Buscar por ID de muestra"
-        value={searchTerm}
-        onChange={handleSearchChange}
-        sx={{ mb: 3 }}
-      />
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            label="Buscar por ID de muestra"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            sx={{ height: 56 }}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControl fullWidth>
+            <InputLabel>Filtrar por Estado</InputLabel>
+            <Select
+              value={filterEstado}
+              onChange={handleFilterEstadoChange}
+              label="Filtrar por Estado"
+              sx={{ height: 56 }}
+            >
+              <MenuItem value="todos">Todos</MenuItem>
+              <MenuItem value="finalizada">Finalizada</MenuItem>
+              <MenuItem value="en analisis">En análisis</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
@@ -309,7 +350,7 @@ const ListaResultados = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={resultado.verificado ? "Finalizada" : "En analisis"}
+                        label={resultado.verificado ? "Finalizada" : "En análisis"}
                         color={resultado.verificado ? "success" : "primary"}
                         sx={{
                           bgcolor: resultado.verificado ? '#39A900' : '#1976D2',
@@ -398,7 +439,7 @@ const ListaResultados = () => {
                             <Typography><strong>Fecha:</strong> {formatearFecha(selectedResult.fechaHoraMuestreo)}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Finalizada" : "En analisis"}</Typography>
+                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Finalizada" : "En análisis"}</Typography>
                             <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista}</Typography>
                           </Grid>
                         </Grid>
@@ -421,6 +462,19 @@ const ListaResultados = () => {
                         </Grid>
                       </Paper>
                     </Grid>
+
+                    {selectedResult.verificado && (
+                      <Grid item xs={12}>
+                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+                          <Typography variant="h6" gutterBottom>
+                            Observaciones de Verificación
+                          </Typography>
+                          <Typography>
+                            {selectedResult.observaciones || selectedResult.observacionesVerificacion || 'No hay observaciones disponibles'}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    )}
 
                     {selectedResult.historialCambios?.length > 0 && (
                       <Grid item xs={12}>
