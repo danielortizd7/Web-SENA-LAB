@@ -12,6 +12,8 @@ import {
 import { motion } from "framer-motion";
 import AuthContext from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+// Importa la imagen
+import AqualabLogo from "../assets/Aqualab.gif"; // Ajusta la ruta según la ubicación del archivo
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
@@ -107,11 +109,24 @@ const Login = () => {
             },
           }}
         >
+          {/* Agrega el logo aquí */}
+          <motion.img
+            src={AqualabLogo}
+            alt="Aqualab Logo"
+            style={{
+              width: "190px", // Ajusta el tamaño según necesites
+              marginBottom: "10px", // Espacio entre el logo y el título
+            }}
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 1 }}
+            transition={{ duration: 0.7 }}
+          />
+
           <Typography
             variant="h4"
             fontWeight="bold"
             gutterBottom
-            color="#00324D"  // Azul oscuro para el título
+            color="#00324D"
           >
             Iniciar Sesión
           </Typography>
@@ -148,7 +163,7 @@ const Login = () => {
                 variant="contained"
                 fullWidth
                 sx={{
-                  backgroundColor: "#39A900", // Verde corporativo
+                  backgroundColor: "#39A900",
                   color: "white",
                   fontWeight: "bold",
                   transition: "all 0.3s ease-in-out",
