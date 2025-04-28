@@ -11,6 +11,7 @@ import {
   CircularProgress
 } from "@mui/material";
 import { motion } from "framer-motion";
+import AqualabLogo from "../assets/Aqualab2.gif"; // Importa el logo
 
 const CambiarContrasena = () => {
   const [searchParams] = useSearchParams();
@@ -94,6 +95,18 @@ const CambiarContrasena = () => {
             },
           }}
         >
+          <motion.img
+            src={AqualabLogo}
+            alt="Aqualab Logo"
+            style={{
+              width: "200px", // Tamaño consistente con Login y RecuperarContrasena
+              marginBottom: "1px", // Espacio entre el logo y el título
+            }}
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+          />
+
           <Typography
             variant="h5"
             sx={{ marginBottom: 2, fontWeight: "bold", color: "#39A900" }}

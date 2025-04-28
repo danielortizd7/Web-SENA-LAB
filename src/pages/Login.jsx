@@ -8,22 +8,29 @@ import {
   Paper,
   Alert,
   CircularProgress,
+  IconButton,
+  InputAdornment,
 } from "@mui/material";
 import { motion } from "framer-motion";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 import AuthContext from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-// Importa la imagen
-import AqualabLogo from "../assets/Aqualab.gif"; // Ajusta la ruta según la ubicación del archivo
+import AqualabLogo from "../assets/Aqualab2.gif";
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Estado para visibilidad de contraseña
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
+
+  const handleClickShowPassword = () => {
+    setShowPassword((prev) => !prev);
   };
 
   const handleSubmit = async (e) => {
@@ -59,6 +66,8 @@ const Login = () => {
           token,
           rol: usuario.rol,
         };
+        console.log("Datos del usuario desde el backend:", usuario); // Depuración
+        console.log("usuarioFinal:", usuarioFinal); // Depuración
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(usuarioFinal));
         login(usuarioFinal);
@@ -109,21 +118,20 @@ const Login = () => {
             },
           }}
         >
-          {/* Agrega el logo aquí */}
           <motion.img
             src={AqualabLogo}
             alt="Aqualab Logo"
             style={{
-              width: "190px", // Ajusta el tamaño según necesites
-              marginBottom: "10px", // Espacio entre el logo y el título
+              width: "200px",
+              marginBottom: "1px",
             }}
             initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 1 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           />
 
           <Typography
-            variant="h4"
+            variant="h5"
             fontWeight="bold"
             gutterBottom
             color="#00324D"
@@ -149,10 +157,23 @@ const Login = () => {
             <TextField
               label="Contraseña"
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               onChange={handleChange}
               fullWidth
               required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
             {loading ? (
