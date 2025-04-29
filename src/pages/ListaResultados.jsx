@@ -440,7 +440,7 @@ const ListaResultados = () => {
                           </Grid>
                           <Grid item xs={6}>
                             <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Finalizada" : "En análisis"}</Typography>
-                            <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista}</Typography>
+                            <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista || 'No disponible'}</Typography>
                           </Grid>
                         </Grid>
                       </Paper>
@@ -455,7 +455,7 @@ const ListaResultados = () => {
                           {Object.entries(selectedResult.resultados || {}).map(([key, value]) => (
                             <Grid item xs={6} key={key}>
                               <Typography>
-                                <strong>{key}:</strong> {value.valor} {value.unidad}
+                                <strong>{key}:</strong> {value.valor} {value.unidad || ''}
                               </Typography>
                             </Grid>
                           ))}
@@ -469,8 +469,21 @@ const ListaResultados = () => {
                           <Typography variant="h6" gutterBottom>
                             Observaciones de Verificación
                           </Typography>
+                          <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
+                            Verificado por: {selectedResult.historialCambios?.find(c => c.cambiosRealizados?.verificacion)?.nombre || 'No disponible'}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
+                            Fecha de verificación: {
+                              (() => {
+                                const cambioVerificacion = selectedResult.historialCambios?.find(c => c.cambiosRealizados?.verificacion);
+                                return cambioVerificacion?.fecha?.fecha && cambioVerificacion?.fecha?.hora
+                                  ? `${cambioVerificacion.fecha.fecha} ${cambioVerificacion.fecha.hora}`
+                                  : 'No disponible'
+                              })()
+                            }
+                          </Typography>
                           <Typography>
-                            {selectedResult.observaciones || selectedResult.observacionesVerificacion || 'No hay observaciones disponibles'}
+                            {selectedResult.historialCambios?.find(c => c.cambiosRealizados?.verificacion)?.observaciones || 'No hay observaciones disponibles'}
                           </Typography>
                         </Paper>
                       </Grid>
@@ -499,9 +512,12 @@ const ListaResultados = () => {
                                     Cambio #{selectedResult.historialCambios.length - index}
                                   </Typography>
                                   <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
-                                    Realizado por: {cambio.nombre} | Fecha: {cambio.fecha?.fecha && cambio.fecha?.hora 
+                                    Realizado por: {cambio.nombre || 'No disponible'} | Fecha: {cambio.fecha?.fecha && cambio.fecha?.hora 
                                       ? `${cambio.fecha.fecha} ${cambio.fecha.hora}`
                                       : formatearFecha(cambio.fecha)}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic' }}>
+                                    Observaciones: {cambio.observaciones || 'Sin observaciones'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={12}>
@@ -516,14 +532,27 @@ const ListaResultados = () => {
                                         </TableRow>
                                       </TableHead>
                                       <TableBody>
-                                        {Object.entries(cambio.cambiosRealizados.resultados || {}).map(([param, valores], i) => (
-                                          <TableRow key={i}>
-                                            <TableCell>{param}</TableCell>
-                                            <TableCell>{valores.valorAnterior}</TableCell>
-                                            <TableCell>{valores.valorNuevo}</TableCell>
-                                            <TableCell>{valores.unidad || '-'}</TableCell>
+                                        {cambio.cambiosRealizados?.resultados && Object.keys(cambio.cambiosRealizados.resultados).length > 0 ? (
+                                          Object.entries(cambio.cambiosRealizados.resultados).map(([param, valores], i) => (
+                                            <TableRow key={i}>
+                                              <TableCell>{param}</TableCell>
+                                              <TableCell>{valores.valorAnterior ?? 'No disponible'}</TableCell>
+                                              <TableCell>{valores.valorNuevo ?? 'No disponible'}</TableCell>
+                                              <TableCell>{valores.unidad || '-'}</TableCell>
+                                            </TableRow>
+                                          ))
+                                        ) : cambio.cambiosRealizados?.verificacion && cambio.cambiosRealizados?.estado ? (
+                                          <TableRow>
+                                            <TableCell>Estado</TableCell>
+                                            <TableCell>{cambio.cambiosRealizados.estado.anterior ?? 'No disponible'}</TableCell>
+                                            <TableCell>{cambio.cambiosRealizados.estado.nuevo ?? 'No disponible'}</TableCell>
+                                            <TableCell>-</TableCell>
                                           </TableRow>
-                                        ))}
+                                        ) : (
+                                          <TableRow>
+                                            <TableCell colSpan={4}>No hay cambios registrados</TableCell>
+                                          </TableRow>
+                                        )}
                                       </TableBody>
                                     </Table>
                                   </TableContainer>

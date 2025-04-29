@@ -194,7 +194,7 @@ const getEstadoChipProps = (estado) => {
 /* ======================== MODALES ======================== */
 
 /* Modal de Detalle Completo: se muestran todos los datos */
-const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData }) => {
+const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientData, tipoUsuario }) => {
   const handleViewPDF = async () => {
     if (!selectedMuestra) return;
     try {
@@ -209,14 +209,16 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
       <Box sx={modalStyle}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">Detalles de la Muestra</Typography>
-          <Button
-            variant="contained"
-            startIcon={<PictureAsPdfIcon />}
-            onClick={handleViewPDF}
-            sx={{ backgroundColor: '#39A900', '&:hover': { backgroundColor: '#2d8000' } }}
-          >
-            Ver PDF
-          </Button>
+          {tipoUsuario !== "laboratorista" && (
+            <Button
+              variant="contained"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={handleViewPDF}
+              sx={{ backgroundColor: '#39A900', '&:hover': { backgroundColor: '#2d8000' } }}
+            >
+              Ver PDF
+            </Button>
+          )}
         </Box>
         {selectedMuestra && (
           <TableContainer component={Paper} sx={{ maxWidth: "100%" }}>
@@ -289,19 +291,19 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   </TableCell>
                 </TableRow>
                 <TableRow>
-  <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
-  <TableCell>
-    {Array.isArray(selectedMuestra.analisisSeleccionados) && selectedMuestra.analisisSeleccionados.length > 0
-      ? selectedMuestra.analisisSeleccionados
-          .map((analisis) =>
-            typeof analisis === "object" && analisis !== null
-              ? analisis.nombre || "Desconocido"
-              : analisis
-          )
-          .join(", ")
-      : "Ninguno"}
-  </TableCell>
-</TableRow>
+                  <TableCell sx={{ fontWeight: "bold" }}>Análisis Seleccionados</TableCell>
+                  <TableCell>
+                    {Array.isArray(selectedMuestra.analisisSeleccionados) && selectedMuestra.analisisSeleccionados.length > 0
+                      ? selectedMuestra.analisisSeleccionados
+                          .map((analisis) =>
+                            typeof analisis === "object" && analisis !== null
+                              ? analisis.nombre || "Desconocido"
+                              : analisis
+                          )
+                          .join(", ")
+                      : "Ninguno"}
+                  </TableCell>
+                </TableRow>
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Observaciones</TableCell>
                   <TableCell>{selectedMuestra.observaciones || "N/A"}</TableCell>
@@ -310,7 +312,7 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   <TableCell sx={{ fontWeight: "bold" }}>Estado</TableCell>
                   <TableCell>
                     {(() => {
-                      const estadoProps = getEstadoChipProps(selectedMuestra.estado);
+                      const estadoProps = getEstadoChipProps(selectedMuestra | "No especificado");
                       return (
                         <Chip
                           label={selectedMuestra.estado || "No especificado"}
@@ -345,7 +347,6 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                     </TableRow>
                   </>
                 )}
-              
               </TableBody>
             </Table>
           </TableContainer>
@@ -426,9 +427,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
     }
     return "";
   })();
-
-  // Convierte el string ISO al objeto que espera el backend.
-  const convertedFechaHora = convertISOToFechaHoraObject(editingMuestra.fechaHoraMuestreo);
 
   const handleAnalisisChange = (analisisNombre) => {
     setEditingMuestra((prev) => {
@@ -679,6 +677,7 @@ const Muestras = () => {
   useEffect(() => {
     applyFilters();
   }, [muestras, search, filterDate]);
+
   const fetchMuestras = async (
     page = 1,
     limit = 10,
@@ -722,6 +721,7 @@ const Muestras = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchMuestras(pagination.page, pagination.limit);
   }, []);
@@ -943,21 +943,25 @@ const Muestras = () => {
                       onClick={() => handleViewDetails(muestra)}
                       IconComponent={VisibilityIcon}
                     />
-                    <ActionButton
-                      tooltip="Ver PDF"
-                      onClick={() => handlePreviewPDF(muestra)}
-                      IconComponent={PictureAsPdfIcon}
-                    />
-                    <ActionButton
-                      tooltip="Descargar PDF"
-                      onClick={() => handleDownloadPDF(muestra)}
-                      IconComponent={GetAppIcon}
-                    />
-                    <ActionButton
-                      tooltip="Editar Muestra"
-                      onClick={() => handleEditMuestra(muestra)}
-                      IconComponent={EditIcon}
-                    />
+                    {tipoUsuario !== "laboratorista" && (
+                      <>
+                        <ActionButton
+                          tooltip="Ver PDF"
+                          onClick={() => handlePreviewPDF(muestra)}
+                          IconComponent={PictureAsPdfIcon}
+                        />
+                        <ActionButton
+                          tooltip="Descargar PDF"
+                          onClick={() => handleDownloadPDF(muestra)}
+                          IconComponent={GetAppIcon}
+                        />
+                        <ActionButton
+                          tooltip="Editar Muestra"
+                          onClick={() => handleEditMuestra(muestra)}
+                          IconComponent={EditIcon}
+                        />
+                      </>
+                    )}
                     <ActionButton
                       tooltip="Registrar Resultados"
                       onClick={() => navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestra || muestra._id}`)}
@@ -991,6 +995,7 @@ const Muestras = () => {
         onClose={() => setSelectedMuestra(null)}
         modalStyle={modalStyle}
         hideClientData={hideClientData}
+        tipoUsuario={tipoUsuario}
       />
       <EditMuestraModal
         editingMuestra={editingMuestra}

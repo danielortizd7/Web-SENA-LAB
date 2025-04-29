@@ -31,10 +31,37 @@ const API_URLS = {
   RESULTADOS: `${BASE_URLS.MUESTRAS}/api/ingreso-resultados`
 };
 
+// Umbral para advertencias (5% del rango)
+const WARNING_THRESHOLD = 0.05;
+
+// Rangos predefinidos para los análisis (como respaldo)
+const PREDEFINED_RANGES = {
+  // Análisis Fisicoquímicos
+  'pH': { min: 4.0, max: 10.0 },
+  'Conductividad': { min: 0, max: 1000 },
+  'Color Aparente': { min: 0, max: 50 },
+  'Alcalinidad Total': { min: 0, max: 500 },
+  'Dureza Total': { min: 0, max: 500 },
+  'Dureza Cálcica': { min: 0, max: 400 },
+  'Turbidez': { min: 0, max: 5 },
+  'Sólidos Totales Disueltos': { min: 0, max: 1500 },
+  'Oxígeno Disuelto': { min: 0, max: 15 },
+  'Temperatura': { min: 0, max: 40 },
+  'Cloruros': { min: 0, max: 250 },
+  'Nitratos': { min: 0, max: 50 },
+  'Fosfatos': { min: 0, max: 5 },
+  'Sulfatos': { min: 0, max: 250 },
+  'Cloro Residual': { min: 0, max: 5 },
+  // Análisis Microbiológicos
+  'Coliformes Totales': { min: 0, max: 1000 },
+  'Coliformes Fecales': { min: 0, max: 200 },
+  'Escherichia coli': { min: 0, max: 100 },
+  'Bacterias Aerobias Mesófilas': { min: 0, max: 10000 },
+};
+
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
   
-  // Si la fecha viene en el formato del backend
   if (typeof fecha === 'object' && fecha.fecha && fecha.hora) {
     return `${fecha.fecha} ${fecha.hora}`;
   }
@@ -50,18 +77,91 @@ const RegistrarResultados = () => {
   const [muestraInfo, setMuestraInfo] = useState(null);
   const [historialCambios, setHistorialCambios] = useState([]);
   const [openConfirm, setOpenConfirm] = useState(false);
-
+  
   // Estado para los resultados dinámicos
   const [resultados, setResultados] = useState({
     resultados: {},
     observaciones: ''
   });
+  
+  // Estados para validación
+  const [errors, setErrors] = useState({});
+  const [warnings, setWarnings] = useState({});
 
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'info'
   });
+
+  // Función para parsear el rango si es una cadena
+  const parseRangeString = (rangeString) => {
+    if (typeof rangeString !== 'string') return null;
+    const parts = rangeString.split(' - ');
+    if (parts.length !== 2) return null;
+    const min = parseFloat(parts[0]);
+    const max = parseFloat(parts[1]);
+    if (isNaN(min) || isNaN(max)) return null;
+    return { min, max };
+  };
+
+  // Obtener el rango para un análisis (del backend o predefinido)
+  const getRangeForAnalysis = (analisis) => {
+    // Primero intenta obtener el rango del backend
+    if (analisis.rango) {
+      // Si rango es un objeto con min y max
+      if (typeof analisis.rango === 'object' && 'min' in analisis.rango && 'max' in analisis.rango) {
+        return analisis.rango;
+      }
+      // Si rango es una cadena (por ejemplo, "4.0 - 10.0")
+      const parsedRange = parseRangeString(analisis.rango);
+      if (parsedRange) {
+        return parsedRange;
+      }
+    }
+    // Si no hay rango en el backend, usa los predefinidos
+    return PREDEFINED_RANGES[analisis.nombre] || null;
+  };
+
+  // Validar entrada en tiempo real
+  const validateInput = (analisis, value) => {
+    const range = getRangeForAnalysis(analisis);
+    if (!range) {
+      return { error: false, warning: false, message: '' };
+    }
+
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return {
+        error: true,
+        warning: false,
+        message: 'Por favor, ingrese un valor numérico válido'
+      };
+    }
+
+    const { min, max } = range;
+    const rangeDiff = max - min;
+    const warningMin = min + rangeDiff * WARNING_THRESHOLD;
+    const warningMax = max - rangeDiff * WARNING_THRESHOLD;
+
+    if (numValue < min || numValue > max) {
+      return {
+        error: true,
+        warning: false,
+        message: `El valor debe estar entre ${min} y ${max} ${analisis.unidad || ''}`
+      };
+    }
+
+    if (numValue < warningMin || numValue > warningMax) {
+      return {
+        error: false,
+        warning: true,
+        message: `El valor está cerca del límite permitido (${min} - ${max} ${analisis.unidad || ''})`
+      };
+    }
+
+    return { error: false, warning: false, message: '' };
+  };
 
   useEffect(() => {
     const verificarMuestra = async () => {
@@ -112,7 +212,7 @@ const RegistrarResultados = () => {
               observaciones: resultado.observaciones || ''
             });
           } else {
-            // Solo si no hay resultados previos, inicializar con valores vacíos
+            // Inicializar con valores vacíos
             const resultadosIniciales = {};
             muestraData.analisisSeleccionados.forEach(analisis => {
               resultadosIniciales[analisis.nombre] = {
@@ -128,7 +228,7 @@ const RegistrarResultados = () => {
           }
         } catch (error) {
           console.log('No hay resultados previos para esta muestra');
-          // Solo si hay error al obtener resultados, inicializar con valores vacíos
+          // Inicializar con valores vacíos
           const resultadosIniciales = {};
           muestraData.analisisSeleccionados.forEach(analisis => {
             resultadosIniciales[analisis.nombre] = {
@@ -159,6 +259,16 @@ const RegistrarResultados = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Verificar si hay errores antes de abrir el diálogo
+    const hasErrors = Object.values(errors).some(error => error !== '');
+    if (hasErrors) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor, corrija los errores antes de guardar',
+        severity: 'error'
+      });
+      return;
+    }
     setOpenConfirm(true);
   };
 
@@ -175,7 +285,7 @@ const RegistrarResultados = () => {
       
       const method = resultadoExistente ? 'put' : 'post';
 
-      // Formatear los resultados para que coincidan con los nombres exactos de los análisis
+      // Formatear los resultados
       const resultadosFormateados = {};
       Object.entries(resultados.resultados).forEach(([nombre, datos]) => {
         const analisisEncontrado = muestraInfo.analisisSeleccionados.find(
@@ -183,7 +293,7 @@ const RegistrarResultados = () => {
         );
         if (analisisEncontrado) {
           resultadosFormateados[analisisEncontrado.nombre] = {
-            valor: datos.valor,
+            valor: parseFloat(datos.valor) || 0,
             unidad: datos.unidad || analisisEncontrado.unidad
           };
         }
@@ -214,6 +324,8 @@ const RegistrarResultados = () => {
           message: resultadoExistente ? 'Resultados actualizados correctamente' : 'Resultados registrados correctamente',
           severity: 'success'
         });
+        // Redirigir a la lista de muestras después de guardar
+        setTimeout(() => navigate('/muestras'), 2000);
       }
 
     } catch (error) {
@@ -240,14 +352,30 @@ const RegistrarResultados = () => {
         ...prev,
         resultados: {
           ...prev.resultados,
-          [analisis]: {
-            ...prev.resultados[analisis],
+          [analisis.nombre]: {
+            ...prev.resultados[analisis.nombre],
             [campo]: value
           }
         }
       }));
+
+      // Validar el valor ingresado
+      if (campo === 'valor') {
+        const validation = validateInput(analisis, value);
+        setErrors(prev => ({
+          ...prev,
+          [analisis.nombre]: validation.error ? validation.message : ''
+        }));
+        setWarnings(prev => ({
+          ...prev,
+          [analisis.nombre]: validation.warning ? validation.message : ''
+        }));
+      }
     }
   };
+
+  // Verificar si hay errores para deshabilitar el botón
+  const hasErrors = Object.values(errors).some(error => error !== '');
 
   return (
     <Paper sx={{ p: 4, margin: 'auto', maxWidth: 800, mt: 4 }}>
@@ -272,84 +400,128 @@ const RegistrarResultados = () => {
         </Box>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
-          {muestraInfo?.analisisSeleccionados?.map((analisis) => (
-            <Grid item xs={12} sm={6} key={analisis.nombre}>
+      {loading && <CircularProgress sx={{ display: 'block', margin: '20px auto' }} />}
+
+      {!loading && muestraInfo && (
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            {muestraInfo.analisisSeleccionados?.map((analisis) => {
+              const range = getRangeForAnalysis(analisis);
+              return (
+                <Grid item xs={12} sm={6} key={analisis.nombre}>
+                  <TextField
+                    fullWidth
+                    name={`${analisis.nombre}-valor`}
+                    label={`${analisis.nombre} (${analisis.unidad})`}
+                    type="number"
+                    value={resultados.resultados[analisis.nombre]?.valor || ''}
+                    onChange={handleChange(analisis, 'valor')}
+                    error={!!errors[analisis.nombre]}
+                    helperText={
+                      errors[analisis.nombre] ||
+                      warnings[analisis.nombre] ||
+                      (range
+                        ? `Rango: ${range.min} - ${range.max} | Método: ${analisis.metodo}`
+                        : `Rango no definido | Método: ${analisis.metodo}`)
+                    }
+                    InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': {
+                          borderColor: errors[analisis.nombre]
+                            ? 'red'
+                            : warnings[analisis.nombre]
+                            ? 'orange'
+                            : 'inherit',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: errors[analisis.nombre]
+                            ? 'red'
+                            : warnings[analisis.nombre]
+                            ? 'orange'
+                            : 'inherit',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: errors[analisis.nombre]
+                            ? 'red'
+                            : warnings[analisis.nombre]
+                            ? 'orange'
+                            : '#39A900',
+                        },
+                      },
+                    }}
+                  />
+                </Grid>
+              );
+            })}
+
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                name={`${analisis.nombre}-valor`}
-                label={`${analisis.nombre} (${analisis.unidad})`}
-                value={resultados.resultados[analisis.nombre]?.valor || ''}
-                onChange={handleChange(analisis.nombre, 'valor')}
-                placeholder={`Rango: ${analisis.rango}`}
-                helperText={`Método: ${analisis.metodo}`}
+                multiline
+                rows={4}
+                name="observaciones"
+                label="Observaciones"
+                value={resultados.observaciones}
+                onChange={handleChange(null, 'observaciones')}
               />
             </Grid>
-          ))}
 
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              name="observaciones"
-              label="Observaciones"
-              value={resultados.observaciones}
-              onChange={handleChange(null, 'observaciones')}
-            />
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={() => navigate('/muestras')}
+                >
+                  Volver
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  disabled={loading || hasErrors}
+                  sx={{
+                    backgroundColor: '#39A900',
+                    '&:hover': { backgroundColor: '#2d8000' },
+                  }}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Guardar Cambios'}
+                </Button>
+              </Box>
+            </Grid>
           </Grid>
 
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={() => navigate('/muestras')}
-              >
-                Volver
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Guardar Cambios'}
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-
-        {resultadoExistente && historialCambios.length > 0 && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h6" gutterBottom>
-              Historial de Cambios
-            </Typography>
-            {historialCambios.map((cambio, index) => (
-              <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
-                <Typography variant="subtitle2">
-                  Realizado por: {cambio.nombre}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Fecha: {formatearFecha(cambio.fecha)}
-                </Typography>
-                <Box sx={{ mt: 1 }}>
-                  {cambio.cambiosRealizados.resultados && 
-                    Object.entries(cambio.cambiosRealizados.resultados).map(([param, valores]) => (
-                      <Typography key={param} variant="body2">
-                        {param}: {valores.valorAnterior} → {valores.valorNuevo}
-                      </Typography>
-                    ))}
-                  <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                    Observaciones: {cambio.observaciones}
+          {resultadoExistente && historialCambios.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Historial de Cambios
+              </Typography>
+              {historialCambios.map((cambio, index) => (
+                <Paper key={index} sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
+                  <Typography variant="subtitle2">
+                    Realizado por: {cambio.nombre}
                   </Typography>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-        )}
-      </form>
+                  <Typography variant="body2" color="text.secondary">
+                    Fecha: {formatearFecha(cambio.fecha)}
+                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    {cambio.cambiosRealizados.resultados && 
+                      Object.entries(cambio.cambiosRealizados.resultados).map(([param, valores]) => (
+                        <Typography key={param} variant="body2">
+                          {param}: {valores.valorAnterior} → {valores.valorNuevo}
+                        </Typography>
+                      ))}
+                    <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                      Observaciones: {cambio.observaciones}
+                    </Typography>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </form>
+      )}
 
       <Dialog
         open={openConfirm}
