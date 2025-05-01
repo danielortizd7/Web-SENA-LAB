@@ -7,7 +7,7 @@ import {
   Typography,
   Paper,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import AqualabLogo from "../assets/Aqualab2.gif"; // Importa el logo
@@ -41,7 +41,14 @@ const RecuperarContrasena = () => {
 
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/solicitar-recuperacion`;
-      const response = await axios.post(url, { email });
+      console.log("Enviando solicitud a:", url, "con email:", email); // Para depuración
+      const response = await axios.post(
+        url,
+        { email },
+        {
+          headers: { "Content-Type": "application/json" }, // Asegura el encabezado
+        }
+      );
 
       if (response.status === 200) {
         setMensaje("✅ Si el correo existe, se enviará un enlace de recuperación.");
@@ -49,8 +56,8 @@ const RecuperarContrasena = () => {
         setError("⚠ No se pudo procesar la solicitud.");
       }
     } catch (error) {
-      console.error("Error en la recuperación:", error);
-      setError("❌ Error al conectar con el servidor.");
+      console.error("Error en la recuperación:", error.response?.data, error.message);
+      setError(`❌ Error: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -150,10 +157,7 @@ const RecuperarContrasena = () => {
           </Box>
 
           <Typography variant="body2" sx={{ marginTop: 2 }}>
-            <a
-              href="/login"
-              style={{ color: "#39A900", textDecoration: "none" }}
-            >
+            <a href="/login" style={{ color: "#39A900", textDecoration: "none" }}>
               Volver al inicio de sesión
             </a>
           </Typography>

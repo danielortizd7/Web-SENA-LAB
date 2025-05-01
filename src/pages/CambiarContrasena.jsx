@@ -8,7 +8,7 @@ import {
   Typography,
   Paper,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import AqualabLogo from "../assets/Aqualab2.gif"; // Importa el logo
@@ -46,8 +46,15 @@ const CambiarContrasena = () => {
     }
 
     try {
-      const url = "https://back-usuarios-f.onrender.com/api/usuarios/cambiar-contrasena";
-      const response = await axios.post(url, { token, password });
+      const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/cambiar-contrasena`;
+      console.log("Enviando solicitud a:", url, "con token:", token); // Para depuración
+      const response = await axios.post(
+        url,
+        { token, password },
+        {
+          headers: { "Content-Type": "application/json" }, // Asegura el encabezado
+        }
+      );
 
       if (response.data.success) {
         setMensaje("✅ Contraseña actualizada con éxito. Redirigiendo al login...");
@@ -56,7 +63,8 @@ const CambiarContrasena = () => {
         setError(response.data.message || "⚠ No se pudo actualizar la contraseña.");
       }
     } catch (error) {
-      setError("❌ Error al conectar con el servidor.");
+      console.error("Error en el cambio de contraseña:", error.response?.data, error.message);
+      setError(`❌ Error: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
