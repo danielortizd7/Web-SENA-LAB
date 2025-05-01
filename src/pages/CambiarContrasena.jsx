@@ -46,25 +46,23 @@ const CambiarContrasena = () => {
     }
 
     try {
-      const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/cambiar-contrasena`;
-      console.log("Enviando solicitud a:", url, "con token:", token); // Para depuración
-      const response = await axios.post(
-        url,
-        { token, password },
-        {
-          headers: { "Content-Type": "application/json" }, // Asegura el encabezado
-        }
-      );
+      const url = 'https://backend-sena-lab-1.onrender.com/api/usuarios/cambiar-contrasena';
+      console.log("Enviando solicitud a:", url); // Para depuración
+      
+      const response = await axios.post(url, { 
+        token,
+        nuevaContrasena: password
+      });
 
-      if (response.data.success) {
+      if (response.status === 200) {
         setMensaje("✅ Contraseña actualizada con éxito. Redirigiendo al login...");
         setTimeout(() => navigate("/login"), 3000);
       } else {
-        setError(response.data.message || "⚠ No se pudo actualizar la contraseña.");
+        setError("⚠ No se pudo actualizar la contraseña.");
       }
     } catch (error) {
-      console.error("Error en el cambio de contraseña:", error.response?.data, error.message);
-      setError(`❌ Error: ${error.response?.data?.message || error.message}`);
+      console.error("Error en el cambio de contraseña:", error);
+      setError("❌ Error al actualizar la contraseña. Por favor, intente nuevamente.");
     } finally {
       setLoading(false);
     }
