@@ -33,6 +33,7 @@ const RecuperarContrasena = () => {
       setLoading(false);
       return;
     }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("⚠ Ingresa un correo válido.");
       setLoading(false);
@@ -40,24 +41,21 @@ const RecuperarContrasena = () => {
     }
 
     try {
-      const url = `${import.meta.env.VITE_BACKEND_URL}/api/usuarios/solicitar-recuperacion`;
-      console.log("Enviando solicitud a:", url, "con email:", email); // Para depuración
-      const response = await axios.post(
-        url,
-        { email },
-        {
-          headers: { "Content-Type": "application/json" }, // Asegura el encabezado
-        }
-      );
+      const url = 'https://backend-sena-lab-1.onrender.com/api/usuarios/solicitar-recuperacion';
+      const response = await axios.post(url, { 
+        email 
+      });
 
       if (response.status === 200) {
-        setMensaje("✅ Si el correo existe, se enviará un enlace de recuperación.");
+        setMensaje("Instrucciones Enviadas.");
       } else {
         setError("⚠ No se pudo procesar la solicitud.");
       }
     } catch (error) {
-      console.error("Error en la recuperación:", error.response?.data, error.message);
-      setError(`❌ Error: ${error.response?.data?.message || error.message}`);
+      console.error("Error en la recuperación:", error);
+      
+      // Por seguridad, siempre mostrar el mismo mensaje
+      setMensaje(" Si el correo existe, se enviará un enlace de recuperación.");
     } finally {
       setLoading(false);
     }
