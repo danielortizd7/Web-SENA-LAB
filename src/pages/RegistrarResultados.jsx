@@ -133,8 +133,8 @@ const RegistrarResultados = () => {
     const numValue = parseFloat(value);
     if (isNaN(numValue)) {
       return {
-        error: true,
-        warning: false,
+        error: false, // Cambiado a false para permitir el registro
+        warning: true, // Mostrar advertencia en lugar de error
         message: 'Por favor, ingrese un valor numérico válido'
       };
     }
@@ -146,9 +146,9 @@ const RegistrarResultados = () => {
 
     if (numValue < min || numValue > max) {
       return {
-        error: true,
-        warning: false,
-        message: `El valor debe estar entre ${min} y ${max} ${analisis.unidad || ''}`
+        error: false, // Cambiado a false para permitir el registro
+        warning: true, // Mostrar advertencia en lugar de error
+        message: `El valor está fuera del rango permitido (${min} - ${max} ${analisis.unidad || ''})`
       };
     }
 
