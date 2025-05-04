@@ -23,6 +23,11 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import Button from '@mui/material/Button';
+import logoSena from '../assets/logo-sena.png';
 
 // Registrar los elementos de Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -128,7 +133,7 @@ const SampleCharts = ({ sampleStats }) => {
           <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>
             Distribución de Muestras
           </Typography>
-          <Box sx={{ maxWidth: 300, margin: "0 auto" }}>
+          <Box sx={{ maxWidth: 300, margin: "0 auto" }} id="dashboard-chart-distribucion">
             <Doughnut data={distributionData} options={chartOptions} />
           </Box>
         </Paper>
@@ -145,7 +150,7 @@ const SampleCharts = ({ sampleStats }) => {
           <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>
             Muestras por Tipo de Análisis
           </Typography>
-          <Box sx={{ maxWidth: 300, margin: "0 auto" }}>
+          <Box sx={{ maxWidth: 300, margin: "0 auto" }} id="dashboard-chart-tipo">
             <Doughnut data={analysisTypeData} options={chartOptions} />
           </Box>
         </Paper>
@@ -380,6 +385,145 @@ const Dashboard = () => {
     fetchUsers();
   }, []);
 
+  // --- GENERAR PDF ---
+  const handleGeneratePDF = async () => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const fecha = new Date().toLocaleDateString();
+    const marginX = 50;
+    const contentWidth = 495;
+    let y = 50;
+    // Logo SENA/Aqualab centrado (usando import)
+    const logo = new window.Image();
+    logo.src = logoSena;
+    await new Promise(resolve => { logo.onload = resolve; });
+    doc.addImage(logo, 'PNG', 245, y, 100, 40);
+    y += 55;
+    // Título principal con fondo verde y texto blanco
+    doc.setFillColor('#39A900');
+    doc.roundedRect(marginX, y, contentWidth, 36, 10, 10, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor('#fff');
+    doc.text("INFORME DEL PANEL DE CONTROL", 297.5, y + 25, { align: 'center' });
+    y += 50;
+    doc.setFontSize(12);
+    doc.setTextColor('#888');
+    doc.text(`Generado el: ${fecha}`, 297.5, y, { align: 'center' });
+    y += 20;
+    // Estadísticas Generales - Card moderna
+    doc.setFillColor('#f5f7fa');
+    doc.roundedRect(marginX, y, contentWidth, 120, 14, 14, 'F');
+    doc.setDrawColor('#39A900');
+    doc.setLineWidth(1.5);
+    doc.roundedRect(marginX, y, contentWidth, 120, 14, 14, 'S');
+    // Título sección con fondo
+    doc.setFillColor('#39A900');
+    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
+    doc.setFontSize(15);
+    doc.setTextColor('#fff');
+    doc.text('Estadísticas Generales', marginX + 20, y + 22);
+    // Tabla
+    const tableY = y + 38;
+    const rowHeight = 22;
+    const col1 = marginX + 30, col2 = marginX + contentWidth - 120;
+    const stats = [
+      ['Muestras Recibidas', sampleStats.totalAllSamples],
+      ['Muestras en Análisis', sampleStats.totalSamples],
+      ['Por Verificar', sampleStats.pendingSamples],
+      ['Finalizadas', sampleStats.verifiedSamples],
+    ];
+    doc.setFontSize(12);
+    stats.forEach(([label, value], i) => {
+      const rowY = tableY + i * rowHeight;
+      doc.setFillColor(i % 2 === 0 ? '#e8f5e9' : '#ffffff');
+      doc.roundedRect(marginX + 15, rowY, contentWidth - 30, rowHeight, 6, 6, 'F');
+      doc.setTextColor('#333');
+      doc.setFont(undefined, 'bold');
+      doc.text(String(label), col1, rowY + 15);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor('#39A900');
+      doc.text(String(value), col2, rowY + 15, { align: 'right' });
+    });
+    y += 140;
+    // Gráficos lado a lado, card moderna
+    doc.setFillColor('#f5f7fa');
+    doc.roundedRect(marginX, y, contentWidth, 230, 14, 14, 'F');
+    doc.setDrawColor('#39A900');
+    doc.setLineWidth(1.5);
+    doc.roundedRect(marginX, y, contentWidth, 230, 14, 14, 'S');
+    // Título sección con fondo
+    doc.setFillColor('#39A900');
+    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
+    doc.setFontSize(15);
+    doc.setTextColor('#fff');
+    doc.text('Visualización de Datos', marginX + 20, y + 22);
+    // Captura de gráficos
+    const chart1 = document.getElementById('dashboard-chart-distribucion');
+    const chart2 = document.getElementById('dashboard-chart-tipo');
+    let imgData1 = null, imgData2 = null;
+    if (chart1) {
+      const canvas1 = chart1.querySelector('canvas');
+      if (canvas1) {
+        imgData1 = await html2canvas(canvas1, { backgroundColor: null, scale: 2 }).then(canvas => canvas.toDataURL('image/png'));
+      }
+    }
+    if (chart2) {
+      const canvas2 = chart2.querySelector('canvas');
+      if (canvas2) {
+        imgData2 = await html2canvas(canvas2, { backgroundColor: null, scale: 2 }).then(canvas => canvas.toDataURL('image/png'));
+      }
+    }
+    // Ambos gráficos alineados y del mismo tamaño, centrados
+    const chartY = y + 40;
+    const chartW = 180, chartH = 180;
+    const chartGap = 30;
+    const chart1X = marginX + (contentWidth / 2) - chartW - (chartGap / 2);
+    const chart2X = marginX + (contentWidth / 2) + (chartGap / 2);
+    if (imgData1 && imgData2) {
+      doc.addImage(imgData1, 'PNG', chart1X, chartY, chartW, chartH, undefined, 'FAST');
+      doc.addImage(imgData2, 'PNG', chart2X, chartY, chartW, chartH, undefined, 'FAST');
+    } else if (imgData1) {
+      doc.addImage(imgData1, 'PNG', marginX + (contentWidth - chartW) / 2, chartY, chartW, chartH, undefined, 'FAST');
+    } else if (imgData2) {
+      doc.addImage(imgData2, 'PNG', marginX + (contentWidth - chartW) / 2, chartY, chartW, chartH, undefined, 'FAST');
+    }
+    y += 250;
+    // Usuarios - card moderna
+    doc.setFillColor('#f5f7fa');
+    doc.roundedRect(marginX, y, contentWidth, 90, 14, 14, 'F');
+    doc.setDrawColor('#39A900');
+    doc.setLineWidth(1.5);
+    doc.roundedRect(marginX, y, contentWidth, 90, 14, 14, 'S');
+    // Título sección con fondo
+    doc.setFillColor('#39A900');
+    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
+    doc.setFontSize(15);
+    doc.setTextColor('#fff');
+    doc.text('Usuarios Registrados', marginX + 20, y + 22);
+    const userY = y + 38;
+    const userRows = [
+      ['Total Usuarios', userStats.totalUsers],
+      ['Clientes', userStats.clientCount],
+    ];
+    userRows.forEach(([label, value], i) => {
+      const rowY = userY + i * rowHeight;
+      doc.setFillColor(i % 2 === 0 ? '#e3f2fd' : '#ffffff');
+      doc.roundedRect(marginX + 15, rowY, contentWidth - 30, rowHeight, 6, 6, 'F');
+      doc.setTextColor('#333');
+      doc.setFont(undefined, 'bold');
+      doc.text(String(label), col1, rowY + 15);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor('#1976D2');
+      doc.text(String(value), col2, rowY + 15, { align: 'right' });
+    });
+    // Pie de página moderno y centrado
+    doc.setFontSize(10);
+    doc.setTextColor('#888');
+    doc.text('Generado automáticamente por el sistema Aqualab - SENA', 297.5, 820, { align: 'center' });
+    doc.setDrawColor('#39A900');
+    doc.line(marginX, 825, marginX + contentWidth, 825);
+    doc.save(`informe-dashboard-${fecha.replace(/\//g, '-')}.pdf`);
+  };
+
   if (loadingSamples || loadingUsers) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
@@ -526,6 +670,42 @@ const Dashboard = () => {
               />
             </Grid>
           </Grid>
+        </Paper>
+
+        <Paper
+          elevation={3}
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
+            mt: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={handleGeneratePDF}
+            sx={{
+              mt: 2,
+              bgcolor: '#39A900',
+              '&:hover': { bgcolor: '#2d8600' },
+              borderRadius: 2,
+              fontWeight: 'bold',
+              fontSize: 16,
+              px: 4,
+              py: 1.5,
+              boxShadow: '0 4px 12px rgba(57,169,0,0.12)'
+            }}
+          >
+            Generar Informe PDF
+          </Button>
+          <Typography variant="caption" sx={{ mt: 1, color: '#888' }}>
+            El informe no incluye la sección de muestras en cotización.
+          </Typography>
         </Paper>
       </motion.div>
     </Box>
