@@ -18,6 +18,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import ScienceIcon from "@mui/icons-material/Science";
 import BiotechIcon from "@mui/icons-material/Biotech";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 
 // Logo SENA
 import senaLogo from "../assets/sena-logo.png";
@@ -60,21 +61,28 @@ const Sidebar = () => {
       roles: ["administrador", "super_admin", "laboratorista"],
     },
     {
-      text: "Muestras",
-      icon: <ScienceIcon />,
-      path: "/muestras",
-      roles: [],
-    },
-    {
       text: "Registrar Muestra",
       icon: <BiotechIcon />,
       path: "/registro-muestras",
       roles: ["administrador", "super_admin"],
     },
     {
-      text: "Lista Resultados",
+      text: "Muestras",
+      icon: <ScienceIcon />,
+      path: "/muestras",
+      roles: [],
+      
+    },
+    {
+      text: "Resultados",
       icon: <AssignmentIcon />,
       path: "/lista-resultados",
+      roles: ["administrador", "super_admin"],
+    },
+    {
+      text: "Auditorias",
+      icon: <FactCheckIcon />,
+      path: "/auditorias",
       roles: ["administrador", "super_admin"],
     },
   ];
