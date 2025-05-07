@@ -1,54 +1,80 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
-// ----- URLs para las peticiones -----
-const BASE_URLS = {
-    // Usar URL local para desarrollo
-    MUESTRAS: "https://backend-registro-muestras.onrender.com/api",
-};
+const BASE_URL = "https://backend-registro-muestras.onrender.com/api";
 
 const API_URLS = {
-    MUESTRAS: {
-        // Endpoints para PDF de muestras
-        GENERAR: (idMuestra: string) => `${BASE_URLS.MUESTRAS}/firma-digital/generar-pdf/${idMuestra}`,
+    FIRMA_DIGITAL: {
+        GENERAR_PDF: (idMuestra: string) => `${BASE_URL}/firma-digital/generar-pdf/${idMuestra}`,
     },
     RESULTADOS: {
-        // Endpoints para PDF de resultados
-        GENERAR: (idMuestra: string) => `${BASE_URLS.MUESTRAS}/ingreso-resultados/${idMuestra}/pdf`,
-        DESCARGAR: (idMuestra: string) => `${BASE_URLS.MUESTRAS}/ingreso-resultados/${idMuestra}/pdf/download`,
+        GENERAR: (idMuestra: string) => `${BASE_URL}/ingreso-resultados/${idMuestra}/pdf`,
+        DESCARGAR: (idMuestra: string) => `${BASE_URL}/ingreso-resultados/${idMuestra}/pdf/download`,
     }
 };
 
-/**
- * Obtiene el token de autenticación del localStorage y los headers necesarios
- */
-const getAuthHeaders = () => ({
-    'Accept': 'application/pdf',
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem('token')}`
+// Configuración de axios
+const axiosInstance = axios.create({
+    timeout: 90000, // 90 segundos
+    headers: {
+        'Accept': 'application/pdf',
+        'Content-Type': 'application/json'
+    }
 });
+
+// Interceptor para manejar errores
+axiosInstance.interceptors.response.use(
+    response => response,
+    async (error: AxiosError) => {
+        if (error.response?.status === 401) {
+            // Token expirado o inválido
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return Promise.reject(new Error('Sesión expirada. Por favor, inicie sesión nuevamente.'));
+        }
+        return Promise.reject(error);
+    }
+);
+
+/**
+ * Obtiene el token de autenticación y valida su existencia
+ */
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        throw new Error('No hay token de autenticación');
+    }
+    return {
+        'Authorization': `Bearer ${token}`
+    };
+};
 
 /**
  * Verifica si la respuesta es un PDF válido
  */
 const isValidPDFResponse = (response: any): boolean => {
     const contentType = response.headers['content-type'];
-    // Solo valida que sea PDF y que haya datos
-    return contentType && contentType.includes('application/pdf') && response.data;
+    return contentType?.includes('application/pdf') && response.data;
 };
 
 /**
- * Maneja la visualización de un PDF en una nueva ventana (ventana pre-abierta)
+ * Maneja la visualización de un PDF en una nueva ventana
  */
 const openPDFInNewWindow = (pdfBlob: Blob, preOpenedWindow?: Window | null): void => {
-    const pdfUrl = window.URL.createObjectURL(pdfBlob);
-    const win = preOpenedWindow || window.open('', '_blank');
-    if (win) {
-        win.location.href = pdfUrl;
-        setTimeout(() => {
-            window.URL.revokeObjectURL(pdfUrl);
-        }, 100);
-    } else {
-        // Si el navegador bloqueó la ventana, descarga
+    try {
+        const pdfUrl = window.URL.createObjectURL(pdfBlob);
+        const win = preOpenedWindow || window.open('', '_blank');
+        
+        if (win) {
+            win.location.href = pdfUrl;
+            // Limpiar URL después de un tiempo
+            setTimeout(() => {
+                window.URL.revokeObjectURL(pdfUrl);
+            }, 1000);
+        } else {
+            throw new Error('No se pudo abrir la ventana');
+        }
+    } catch (error) {
+        console.error('Error al abrir PDF:', error);
         downloadPDF(pdfBlob, 'resultados.pdf');
     }
 };
@@ -57,18 +83,47 @@ const openPDFInNewWindow = (pdfBlob: Blob, preOpenedWindow?: Window | null): voi
  * Maneja la descarga de un PDF
  */
 const downloadPDF = (pdfBlob: Blob, filename: string): void => {
-    const downloadUrl = window.URL.createObjectURL(pdfBlob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = filename;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        const downloadUrl = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-    setTimeout(() => {
-        window.URL.revokeObjectURL(downloadUrl);
-    }, 100);
+        setTimeout(() => {
+            window.URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+    } catch (error) {
+        console.error('Error al descargar PDF:', error);
+        throw new Error('No se pudo descargar el PDF');
+    }
+};
+
+/**
+ * Función para reintentar una operación
+ */
+const retryOperation = async <T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+): Promise<T> => {
+    let lastError: Error = new Error('Operación fallida');
+    
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            lastError = error as Error;
+            if (i < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+            }
+        }
+    }
+    
+    throw lastError;
 };
 
 /**
@@ -76,17 +131,19 @@ const downloadPDF = (pdfBlob: Blob, filename: string): void => {
  */
 export const PDFService = {
     /**
-     * Genera y obtiene el PDF de una muestra (sin resultados)
+     * Genera y obtiene el PDF de una muestra
      */
     async generarPDFMuestra(idMuestra: string): Promise<void> {
         try {
             console.log('Generando PDF de muestra:', idMuestra);
-            const response = await axios({
-                url: API_URLS.MUESTRAS.GENERAR(idMuestra),
-                method: 'GET',
-                responseType: 'blob',
-                headers: getAuthHeaders()
-            });
+            const response = await retryOperation(() => 
+                axiosInstance({
+                    url: API_URLS.FIRMA_DIGITAL.GENERAR_PDF(idMuestra),
+                    method: 'GET',
+                    responseType: 'blob',
+                    headers: getAuthHeaders()
+                })
+            );
 
             if (!isValidPDFResponse(response)) {
                 throw new Error('La respuesta del servidor no es un PDF válido');
@@ -98,7 +155,7 @@ export const PDFService = {
             console.error('Error al generar PDF de muestra:', error);
             throw new Error(
                 error.response?.data?.message || 
-                error.response?.statusText || 
+                error.message || 
                 'No se pudo generar el PDF de la muestra'
             );
         }
@@ -110,12 +167,14 @@ export const PDFService = {
     async descargarPDFMuestra(idMuestra: string): Promise<void> {
         try {
             console.log('Descargando PDF de muestra:', idMuestra);
-            const response = await axios({
-                url: API_URLS.MUESTRAS.GENERAR(idMuestra),
-                method: 'GET',
-                responseType: 'blob',
-                headers: getAuthHeaders()
-            });
+            const response = await retryOperation(() => 
+                axiosInstance({
+                    url: API_URLS.FIRMA_DIGITAL.GENERAR_PDF(idMuestra),
+                    method: 'GET',
+                    responseType: 'blob',
+                    headers: getAuthHeaders()
+                })
+            );
 
             if (!isValidPDFResponse(response)) {
                 throw new Error('La respuesta del servidor no es un PDF válido');
@@ -127,7 +186,7 @@ export const PDFService = {
             console.error('Error al descargar PDF de muestra:', error);
             throw new Error(
                 error.response?.data?.message || 
-                error.response?.statusText || 
+                error.message || 
                 'No se pudo descargar el PDF de la muestra'
             );
         }
@@ -139,15 +198,17 @@ export const PDFService = {
     async generarPDFResultados(idMuestra: string): Promise<void> {
         let preOpenedWindow: Window | null = null;
         try {
-            // Abrir la ventana antes de la petición para evitar bloqueo
             preOpenedWindow = window.open('', '_blank');
             console.log('Generando PDF de resultados:', idMuestra);
-            const response = await axios({
-                url: API_URLS.RESULTADOS.GENERAR(idMuestra),
-                method: 'GET',
-                responseType: 'blob',
-                headers: getAuthHeaders()
-            });
+            
+            const response = await retryOperation(() => 
+                axiosInstance({
+                    url: API_URLS.RESULTADOS.GENERAR(idMuestra),
+                    method: 'GET',
+                    responseType: 'blob',
+                    headers: getAuthHeaders()
+                })
+            );
 
             if (!isValidPDFResponse(response)) {
                 throw new Error('La respuesta del servidor no es un PDF válido');
@@ -160,7 +221,7 @@ export const PDFService = {
             console.error('Error al generar PDF de resultados:', error);
             throw new Error(
                 error.response?.data?.message || 
-                error.response?.statusText || 
+                error.message || 
                 'No se pudo generar el PDF de resultados'
             );
         }
@@ -172,12 +233,14 @@ export const PDFService = {
     async descargarPDFResultados(idMuestra: string): Promise<void> {
         try {
             console.log('Descargando PDF de resultados:', idMuestra);
-            const response = await axios({
-                url: API_URLS.RESULTADOS.DESCARGAR(idMuestra),
-                method: 'GET',
-                responseType: 'blob',
-                headers: getAuthHeaders()
-            });
+            const response = await retryOperation(() => 
+                axiosInstance({
+                    url: API_URLS.RESULTADOS.DESCARGAR(idMuestra),
+                    method: 'GET',
+                    responseType: 'blob',
+                    headers: getAuthHeaders()
+                })
+            );
 
             if (!isValidPDFResponse(response)) {
                 throw new Error('La respuesta del servidor no es un PDF válido');
@@ -189,7 +252,7 @@ export const PDFService = {
             console.error('Error al descargar PDF de resultados:', error);
             throw new Error(
                 error.response?.data?.message || 
-                error.response?.statusText || 
+                error.message || 
                 'No se pudo descargar el PDF de resultados'
             );
         }
