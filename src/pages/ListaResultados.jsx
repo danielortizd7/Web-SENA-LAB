@@ -36,11 +36,15 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import DownloadIcon from '@mui/icons-material/Download';
+import GetAppIcon from '@mui/icons-material/GetApp';
+import { PDFService } from '../services/pdfGenerator';
 
 // URLs base actualizadas
 const BASE_URLS = {
   USUARIOS: import.meta.env.VITE_BACKEND_URL || 'https://backend-sena-lab-1-qpzp.onrender.com/api',
-  MUESTRAS: import.meta.env.VITE_BACKEND_MUESTRAS_URL || 'https://backend-registro-muestras.onrender.com'
+  MUESTRAS: import.meta.env.VITE_BACKEND_MUESTRAS_URL || 'https://backend-registro-muestras.onrender.com/api'
 };
 
 // URLs específicas actualizadas
@@ -269,6 +273,55 @@ const ListaResultados = () => {
     }
   };
 
+  // Handlers para PDF
+  const handleVerPDFResultados = async (idMuestra) => {
+    try {
+      await PDFService.generarPDFResultados(idMuestra);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error al generar el PDF de resultados',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleDescargarPDFResultados = async (idMuestra) => {
+    try {
+      await PDFService.descargarPDFResultados(idMuestra);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error al descargar el PDF de resultados',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleViewResultsPDF = async (resultado) => {
+    try {
+      await PDFService.generarPDFResultados(resultado.idMuestra || resultado._id);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error al generar el PDF de resultados: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleDownloadResultsPDF = async (resultado) => {
+    try {
+      await PDFService.descargarPDFResultados(resultado.idMuestra || resultado._id);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error al descargar el PDF de resultados: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ 
@@ -373,6 +426,20 @@ const ListaResultados = () => {
                         >
                           Ver Detalles
                         </Button>
+                        {resultado.verificado && (
+                          <>
+                            <Tooltip title="Ver PDF Resultados">
+                              <IconButton onClick={() => handleViewResultsPDF(resultado)}>
+                                <PictureAsPdfIcon sx={{ color: '#1976D2' }} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Descargar PDF Resultados">
+                              <IconButton onClick={() => handleDownloadResultsPDF(resultado)}>
+                                <GetAppIcon sx={{ color: '#1976D2' }} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

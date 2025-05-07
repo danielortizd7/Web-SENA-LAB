@@ -177,6 +177,13 @@ const Dashboard = () => {
   const [userStats, setUserStats] = useState({
     totalUsers: 0,
     clientCount: 0,
+    clientsByType: {
+      empresas: 0,
+      emprendedor: 0,
+      'persona natural': 0,
+      'institucion educativa': 0,
+      'aprendiz/instructor Sena': 0,
+    },
   });
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [userError, setUserError] = useState(null);
@@ -347,7 +354,13 @@ const Dashboard = () => {
 
         if (users.length === 0) {
           setUserError("No se encontraron usuarios en la respuesta de la API.");
-          setUserStats({ totalUsers: 0, clientCount: 0 });
+          setUserStats({ totalUsers: 0, clientCount: 0, clientsByType: {
+            empresas: 0,
+            emprendedor: 0,
+            'persona natural': 0,
+            'institucion educativa': 0,
+            'aprendiz/instructor Sena': 0,
+          }});
           setLoadingUsers(false);
           return;
         }
@@ -367,9 +380,30 @@ const Dashboard = () => {
           return String(roleValue).toLowerCase() === "cliente";
         }).length;
 
-        console.log("Estadísticas de usuarios:", { totalUsers, clientCount });
+        // Contar clientes por tipo_cliente
+        const clientsByType = {
+          empresas: 0,
+          emprendedor: 0,
+          'persona natural': 0,
+          'institucion educativa': 0,
+          'aprendiz/instructor Sena': 0,
+        };
+        users.forEach(user => {
+          const roleValue = user.rol?.nombre || user.rol?.name || user.rol || "";
+          if (String(roleValue).toLowerCase() === "cliente") {
+            // El tipo_cliente puede estar en user.detalles.tipo_cliente o user.tipo_cliente
+            const tipo = (user.detalles?.tipo_cliente || user.tipo_cliente || "").toLowerCase();
+            if (tipo === "empresas") clientsByType.empresas++;
+            else if (tipo === "emprendedor") clientsByType.emprendedor++;
+            else if (tipo === "persona natural") clientsByType["persona natural"]++;
+            else if (tipo === "institucion educativa") clientsByType["institucion educativa"]++;
+            else if (tipo === "aprendiz/instructor sena") clientsByType["aprendiz/instructor Sena"]++;
+          }
+        });
 
-        setUserStats({ totalUsers, clientCount });
+        console.log("Estadísticas de usuarios:", { totalUsers, clientCount, clientsByType });
+
+        setUserStats({ totalUsers, clientCount, clientsByType });
       } catch (err) {
         console.error("Error al cargar usuarios:", err);
         if (err.response?.status === 401 || err.response?.status === 403) {
@@ -377,7 +411,13 @@ const Dashboard = () => {
         } else {
           setUserError("Error al cargar la información de usuarios: " + (err.response?.data?.message || err.message));
         }
-        setUserStats({ totalUsers: 0, clientCount: 0 });
+        setUserStats({ totalUsers: 0, clientCount: 0, clientsByType: {
+          empresas: 0,
+          emprendedor: 0,
+          'persona natural': 0,
+          'institucion educativa': 0,
+          'aprendiz/instructor Sena': 0,
+        }});
       } finally {
         setLoadingUsers(false);
       }
@@ -549,7 +589,7 @@ const Dashboard = () => {
             textShadow: "1px 1px 2px rgba(0,0,0,0.2)",
           }}
         >
-          Panel de Control
+          PANEL DE CONTROL
         </Typography>
 
         {(sampleError || userError) && (
@@ -644,30 +684,86 @@ const Dashboard = () => {
         <Paper
           elevation={3}
           sx={{
-            p: 2,
-            borderRadius: 2,
-            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
+            p: 3,
+            borderRadius: 4,
+            background: "linear-gradient(120deg, #e3f2fd 0%, #d7f7dd 100%)",
+            boxShadow: '0 6px 24px rgba(57,169,0,0.08)',
+            mb: 4,
           }}
         >
-          <Typography variant="h5" sx={{ mb: 2, color: "#39A900" }}>
-            Usuarios Registrados
+          <Typography variant="h4" sx={{ mb: 3, color: "#1976D2", fontWeight: 'bold', textAlign: 'center', letterSpacing: 1 }}>
+            USUARIOS REGISTRADOS
           </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+          <Grid container spacing={2} justifyContent="center">
+            <Grid item xs={12}>
               <StatCard
                 title="Total Usuarios"
                 value={userStats.totalUsers}
-                icon={<PeopleIcon sx={{ fontSize: 30 }} />}
+                icon={<PeopleIcon sx={{ fontSize: 44 }} />}
                 color="#2196F3"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <StatCard
-                title="Clientes"
-                value={userStats.clientCount}
-                icon={<PersonIcon sx={{ fontSize: 30 }} />}
-                color="#2196F3"
-              />
+            <Grid item xs={12}>
+              <Typography 
+                variant="h5"
+                align="center"
+                sx={{
+                  fontWeight: 'bold',
+                  letterSpacing: 1,
+                  mt: 3,
+                  mb: 2,
+                  color: '#43A047',
+                  textShadow: '0 2px 8px #b2dfdb',
+                  textTransform: 'uppercase',
+                  fontSize: { xs: 20, md: 24 },
+                  borderRadius: 2,
+                  py: 1
+                }}
+              >
+                Clientes por tipo
+              </Typography>
+              <Grid container spacing={2} justifyContent="center">
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <StatCard
+                    title="Empresas"
+                    value={userStats.clientsByType.empresas}
+                    icon={<PeopleIcon sx={{ fontSize: 28 }} />}
+                    color="#1976D2"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <StatCard
+                    title="Emprendedor"
+                    value={userStats.clientsByType.emprendedor}
+                    icon={<PersonIcon sx={{ fontSize: 28 }} />}
+                    color="#00B8D4"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <StatCard
+                    title="Persona natural"
+                    value={userStats.clientsByType['persona natural']}
+                    icon={<PersonIcon sx={{ fontSize: 28 }} />}
+                    color="#43A047"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <StatCard
+                    title="Institución educativa"
+                    value={userStats.clientsByType['institucion educativa']}
+                    icon={<PeopleIcon sx={{ fontSize: 28 }} />}
+                    color="#FF9800"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <StatCard
+                    title="Aprendiz/Instructor Sena"
+                    value={userStats.clientsByType['aprendiz/instructor Sena']}
+                    icon={<PersonIcon sx={{ fontSize: 28 }} />}
+                    color="#8E24AA"
+                  />
+                </Grid>
+              </Grid>
             </Grid>
           </Grid>
         </Paper>
