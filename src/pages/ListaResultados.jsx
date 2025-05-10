@@ -322,6 +322,25 @@ const ListaResultados = () => {
     }
   };
 
+  // Componente reutilizable para iconos de acción con tooltip y efecto
+  const ActionButton = ({ tooltip, onClick, IconComponent, color }) => (
+    <Tooltip title={tooltip} placement="top" arrow>
+      <IconButton
+        onClick={e => {
+          e.stopPropagation();
+          onClick();
+        }}
+        sx={{
+          transition: 'transform 0.2s',
+          '&:hover': { transform: 'scale(1.1)', backgroundColor: 'rgba(117, 117, 117, 0.15)' },
+          color: color || '#757575',
+        }}
+      >
+        <IconComponent />
+      </IconButton>
+    </Tooltip>
+  );
+
   return (
     <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ 
@@ -412,32 +431,27 @@ const ListaResultados = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          variant="contained"
-                          size="small"
+                      <Box sx={{ display: 'flex', gap: 1 }} onClick={e => e.stopPropagation()}>
+                        <ActionButton
+                          tooltip="Ver Detalles"
                           onClick={() => handleVerDetalles(resultado)}
-                          sx={{
-                            bgcolor: '#39A900',
-                            '&:hover': {
-                              bgcolor: '#2d8000',
-                            }
-                          }}
-                        >
-                          Ver Detalles
-                        </Button>
+                          IconComponent={VisibilityIcon}
+                          color="#757575"
+                        />
                         {resultado.verificado && (
                           <>
-                            <Tooltip title="Ver PDF Resultados">
-                              <IconButton onClick={() => handleViewResultsPDF(resultado)}>
-                                <PictureAsPdfIcon sx={{ color: '#1976D2' }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Descargar PDF Resultados">
-                              <IconButton onClick={() => handleDownloadResultsPDF(resultado)}>
-                                <GetAppIcon sx={{ color: '#1976D2' }} />
-                              </IconButton>
-                            </Tooltip>
+                            <ActionButton
+                              tooltip="Ver PDF Resultados"
+                              onClick={() => handleViewResultsPDF(resultado)}
+                              IconComponent={PictureAsPdfIcon}
+                              color="#757575"
+                            />
+                            <ActionButton
+                              tooltip="Descargar PDF Resultados"
+                              onClick={() => handleDownloadResultsPDF(resultado)}
+                              IconComponent={GetAppIcon}
+                              color="#757575"
+                            />
                           </>
                         )}
                       </Box>

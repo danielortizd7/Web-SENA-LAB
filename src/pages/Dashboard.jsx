@@ -23,8 +23,6 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import Button from '@mui/material/Button';
 import logoSena from '../assets/logo-sena.png';
@@ -427,6 +425,11 @@ const Dashboard = () => {
 
   // --- GENERAR PDF ---
   const handleGeneratePDF = async () => {
+    // Importación dinámica de jsPDF y html2canvas
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas')
+    ]);
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
     const fecha = new Date().toLocaleDateString();
     const marginX = 50;
