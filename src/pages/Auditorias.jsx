@@ -9,7 +9,7 @@ const Auditorias = () => {
       </Typography>
       {/* Aquí irá la lógica y componentes de Auditorías, siguiendo la estructura de otras páginas */}
       <Typography variant="body1" color="text.secondary">
-        Módulo de Auditorías listo para implementar funcionalidades.
+        Módulo de Auditorías en produccion.
       </Typography>
     </Paper>
   );
