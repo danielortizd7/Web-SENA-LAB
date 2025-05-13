@@ -30,6 +30,7 @@ import {
   Snackbar,
   Alert,
   Grid,
+  Divider,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import GetAppIcon from "@mui/icons-material/GetApp";
@@ -358,16 +359,36 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
 
 /* ======================== MODAL DE EDICIÓN ======================== */
 /* Se utiliza la función convertISOToFechaHoraObject para transformar el valor del input antes de enviarlo */
+const TIPOS_AGUA = [
+  'potable',
+  'natural',
+  'residual',
+  'otra',
+];
+const TIPOS_AGUA_RESIDUAL = ['Doméstica', 'No Doméstica'];
+const TIPOS_PRESERVACION = ['Refrigeración', 'Congelación', 'Acidificación', 'Otro'];
+const TIPOS_MUESTREO = ['Simple', 'Compuesto'];
+const TIPOS_ANALISIS = ['Fisicoquímico', 'Microbiológico'];
+
 const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyle }) => {
   const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
+  const [error, setError] = useState(null);
 
+  // Cargar análisis según tipo
   const cargarAnalisis = async (tipo) => {
     try {
       const token = localStorage.getItem("token");
+      // Normalizar tipo para endpoint
+      let tipoNormalizado = tipo
+        .toLowerCase()
+        .replace('í', 'i')
+        .replace('ó', 'o')
+        .replace('químico', 'quimico')
+        .replace('microbiológico', 'microbiologico');
       let endpoint = "";
-      if (tipo === "Fisicoquímico") {
+      if (tipoNormalizado === "fisicoquimico") {
         endpoint = API_URLS.ANALISIS_FISICOQUIMICOS;
-      } else if (tipo === "Microbiológico") {
+      } else if (tipoNormalizado === "microbiologico") {
         endpoint = API_URLS.ANALISIS_MICROBIOLOGICOS;
       } else {
         setAnalisisDisponibles([]);
@@ -378,7 +399,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
       });
       setAnalisisDisponibles(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error("Error al cargar análisis:", error);
       setAnalisisDisponibles([]);
     }
   };
@@ -393,7 +413,41 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
 
   if (!editingMuestra) return null;
 
-  // Obtener el valor para el input "datetime-local"
+  // Helpers para campos de tipo de agua
+  const handleTipoAguaChange = (e) => {
+    const value = e.target.value;
+    let descripcion = '';
+    if (value === 'potable') descripcion = 'Agua potable';
+    else if (value === 'natural') descripcion = 'Agua natural';
+    else if (value === 'residual') descripcion = 'Agua residual';
+    setEditingMuestra((prev) => ({
+      ...prev,
+      tipoDeAgua: {
+        ...prev.tipoDeAgua,
+        tipo: value,
+        descripcion: value === 'otra' ? '' : descripcion,
+        subtipo: value === 'residual' ? prev.tipoDeAgua?.subtipo : undefined,
+      },
+    }));
+  };
+  const handleDescripcionAgua = (e) => {
+    setEditingMuestra((prev) => ({
+      ...prev,
+      tipoDeAgua: { ...prev.tipoDeAgua, descripcion: e.target.value },
+    }));
+  };
+  const handleSubtipoResidual = (e) => {
+    setEditingMuestra((prev) => ({
+      ...prev,
+      tipoDeAgua: {
+        ...prev.tipoDeAgua,
+        subtipo: e.target.value,
+        descripcion: `Agua residual ${e.target.value}`,
+      },
+    }));
+  };
+
+  // Fecha input value
   const fechaInputValue = (() => {
     const fh = editingMuestra.fechaHoraMuestreo;
     if (!fh) return "";
@@ -406,7 +460,6 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
         const [dd, MM, yyyy] = fecha.split("/");
         fecha = `${yyyy}-${MM}-${dd}`;
       }
-      // Función para convertir la hora de 12h a 24h:
       const convertTimeTo24 = (timeStr) => {
         if (!timeStr) return "";
         const parts = timeStr.trim().split(" ");
@@ -414,12 +467,8 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
         const [time, modifier] = parts;
         let [hours, minutes] = time.split(":");
         hours = parseInt(hours, 10);
-        if (modifier.toUpperCase() === "PM" && hours !== 12) {
-          hours += 12;
-        }
-        if (modifier.toUpperCase() === "AM" && hours === 12) {
-          hours = 0;
-        }
+        if (modifier.toUpperCase() === "PM" && hours !== 12) hours += 12;
+        if (modifier.toUpperCase() === "AM" && hours === 12) hours = 0;
         return `${hours < 10 ? "0" + hours : hours}:${minutes}`;
       };
       const time24 = convertTimeTo24(fh.hora);
@@ -427,6 +476,24 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
     }
     return "";
   })();
+
+  // Validación básica
+  const validar = () => {
+    if (!editingMuestra.tipoDeAgua?.tipo) return 'El tipo de agua es requerido';
+    if (editingMuestra.tipoDeAgua?.tipo === 'residual' && !editingMuestra.tipoDeAgua?.subtipo) return 'Debe especificar tipo de agua residual';
+    if (editingMuestra.tipoDeAgua?.tipo === 'otra' && !editingMuestra.tipoDeAgua?.descripcion) return 'Descripción del tipo de agua es requerida';
+    if (!editingMuestra.tipoMuestreo) return 'El tipo de muestreo es requerido';
+    if (!editingMuestra.lugarMuestreo) return 'El lugar de muestreo es requerido';
+    if (!editingMuestra.fechaHoraMuestreo) return 'La fecha y hora de muestreo son requeridas';
+    if (!editingMuestra.tipoAnalisis) return 'El tipo de análisis es requerido';
+    if (!editingMuestra.identificacionMuestra) return 'Identificación de la muestra es requerida';
+    if (!editingMuestra.planMuestreo) return 'El plan de muestreo es requerido';
+    if (!editingMuestra.condicionesAmbientales) return 'Condiciones ambientales requeridas';
+    if (!editingMuestra.preservacionMuestra) return 'Preservación de la muestra es requerida';
+    if (editingMuestra.preservacionMuestra === 'Otro' && !editingMuestra.preservacionMuestraOtra) return 'Debe especificar preservación "Otro"';
+    if (!editingMuestra.analisisSeleccionados || editingMuestra.analisisSeleccionados.length === 0) return 'Debe seleccionar al menos un análisis';
+    return null;
+  };
 
   const handleAnalisisChange = (analisisNombre) => {
     setEditingMuestra((prev) => {
@@ -440,170 +507,244 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
     });
   };
 
+  const handleGuardar = () => {
+    const err = validar();
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    onSave();
+  };
+
   return (
     <Modal open={editingMuestra !== null} onClose={() => setEditingMuestra(null)}>
-      <Box sx={modalStyle}>
-        <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+      <Box sx={{ ...modalStyle, width: 700, maxWidth: '98vw' }}>
+        <Typography variant="h5" align="center" sx={{ mb: 2, fontWeight: 'bold', color: '#39A900' }}>
           Editar Muestra
         </Typography>
-        <Box component="form" noValidate autoComplete="off" sx={{ "& .MuiTextField-root": { mb: 2 } }}>
-          {/* Tipo de Análisis */}
-          <Typography variant="subtitle2">Tipo de Análisis</Typography>
-          <Select
-            fullWidth
-            value={editingMuestra.tipoAnalisis || ""}
-            onChange={(e) =>
-              setEditingMuestra({
-                ...editingMuestra,
-                tipoAnalisis: e.target.value,
-                analisisSeleccionados: [],
-              })
-            }
-          >
-            <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
-            <MenuItem value="Microbiológico">Microbiológico</MenuItem>
-          </Select>
-          {/* Tipo de Muestreo */}
-          <Typography variant="subtitle2">Tipo de Muestreo</Typography>
-          <Select
-            fullWidth
-            value={editingMuestra.tipoMuestreo || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, tipoMuestreo: e.target.value })
-            }
-          >
-            <MenuItem value="Simple">Simple</MenuItem>
-            <MenuItem value="Compuesto">Compuesto</MenuItem>
-          </Select>
-          {/* Fecha y Hora de Muestreo */}
-          <TextField
-            fullWidth
-            label="Fecha y Hora de Muestreo"
-            type="datetime-local"
-            InputLabelProps={{ shrink: true }}
-            value={fechaInputValue}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, fechaHoraMuestreo: e.target.value })
-            }
-          />
-          {/* Lugar de Muestreo */}
-          <TextField
-            fullWidth
-            label="Lugar de Muestreo"
-            value={editingMuestra.lugarMuestreo || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, lugarMuestreo: e.target.value })
-            }
-          />
-          {/* Identificación de Muestra */}
-          <TextField
-            fullWidth
-            label="Identificación de Muestra"
-            value={editingMuestra.identificacionMuestra || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, identificacionMuestra: e.target.value })
-            }
-          />
-          {/* Plan de Muestreo */}
-          <TextField
-            fullWidth
-            label="Plan de Muestreo"
-            value={editingMuestra.planMuestreo || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, planMuestreo: e.target.value })
-            }
-          />
-          {/* Condiciones Ambientales */}
-          <TextField
-            fullWidth
-            label="Condiciones Ambientales"
-            multiline
-            rows={3}
-            value={editingMuestra.condicionesAmbientales || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, condicionesAmbientales: e.target.value })
-            }
-          />
-          {/* Preservación de Muestra */}
-          <Typography variant="subtitle2">Preservación de Muestra</Typography>
-          <Select
-            fullWidth
-            value={editingMuestra.preservacionMuestrea || editingMuestra.preservacionMuestra || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, preservacionMuestra: e.target.value })
-            }
-          >
-            <MenuItem value="Refrigeración">Refrigeración</MenuItem>
-            <MenuItem value="Congelación">Congelación</MenuItem>
-            <MenuItem value="Acidificación">Acidificación</MenuItem>
-            <MenuItem value="Otro">Otro</MenuItem>
-          </Select>
-          {editingMuestra.preservacionMuestra === "Otro" && (
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        )}
+        <Box component="form" noValidate autoComplete="off">
+          {/* Sección: Tipo de Agua */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Tipo de Agua</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Select
+                  fullWidth
+                  value={editingMuestra.tipoDeAgua?.tipo || ''}
+                  onChange={handleTipoAguaChange}
+                  displayEmpty
+                >
+                  <MenuItem value="">Seleccione tipo de agua</MenuItem>
+                  {TIPOS_AGUA.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>{tipo.charAt(0).toUpperCase() + tipo.slice(1)}</MenuItem>
+                  ))}
+                </Select>
+              </Grid>
+              {editingMuestra.tipoDeAgua?.tipo === 'residual' && (
+                <Grid item xs={12} sm={6}>
+                  <Select
+                    fullWidth
+                    value={editingMuestra.tipoDeAgua?.subtipo || ''}
+                    onChange={handleSubtipoResidual}
+                    displayEmpty
+                  >
+                    <MenuItem value="">Seleccione subtipo</MenuItem>
+                    {TIPOS_AGUA_RESIDUAL.map((sub) => (
+                      <MenuItem key={sub} value={sub}>{sub}</MenuItem>
+                    ))}
+                  </Select>
+                </Grid>
+              )}
+              {editingMuestra.tipoDeAgua?.tipo === 'otra' && (
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Descripción"
+                    value={editingMuestra.tipoDeAgua?.descripcion || ''}
+                    onChange={handleDescripcionAgua}
+                  />
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Muestreo y Análisis */}
+          <Box sx={{ mb: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Tipo de Muestreo</Typography>
+                <Select
+                  fullWidth
+                  value={editingMuestra.tipoMuestreo || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, tipoMuestreo: e.target.value })}
+                  displayEmpty
+                >
+                  <MenuItem value="">Seleccione tipo de muestreo</MenuItem>
+                  {TIPOS_MUESTREO.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+                  ))}
+                </Select>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Tipo de Análisis</Typography>
+                <Select
+                  fullWidth
+                  value={editingMuestra.tipoAnalisis || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, tipoAnalisis: e.target.value, analisisSeleccionados: [] })}
+                  displayEmpty
+                >
+                  <MenuItem value="">Seleccione tipo de análisis</MenuItem>
+                  {TIPOS_ANALISIS.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+                  ))}
+                </Select>
+              </Grid>
+            </Grid>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Lugar, Fecha, Identificación, Plan */}
+          <Box sx={{ mb: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Lugar de Muestreo"
+                  value={editingMuestra.lugarMuestreo || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, lugarMuestreo: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Fecha y Hora de Muestreo"
+                  type="datetime-local"
+                  InputLabelProps={{ shrink: true }}
+                  value={fechaInputValue}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, fechaHoraMuestreo: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Identificación de Muestra"
+                  value={editingMuestra.identificacionMuestra || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, identificacionMuestra: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Plan de Muestreo"
+                  value={editingMuestra.planMuestreo || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, planMuestreo: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Condiciones Ambientales */}
+          <Box sx={{ mb: 2 }}>
             <TextField
               fullWidth
-              label="Detalle de Preservación"
-              value={editingMuestra.preservacionMuestraOtra || ""}
-              onChange={(e) =>
-                setEditingMuestra({ ...editingMuestra, preservacionMuestraOtra: e.target.value })
-              }
+              label="Condiciones Ambientales"
+              multiline
+              rows={3}
+              value={editingMuestra.condicionesAmbientales || ''}
+              onChange={e => setEditingMuestra({ ...editingMuestra, condicionesAmbientales: e.target.value })}
             />
-          )}
-          {/* Análisis a Realizar */}
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            Análisis a Realizar
-          </Typography>
-          {analisisDisponibles.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              No hay análisis disponibles para este tipo (o aún no se han cargado).
-            </Alert>
-          ) : (
-            <Accordion defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>
-                  {editingMuestra.tipoAnalisis === "Fisicoquímico"
-                    ? "Análisis Fisicoquímicos"
-                    : "Análisis Microbiológicos"}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  {analisisDisponibles.map((analisis) => (
-                    <Grid item xs={12} sm={6} key={analisis.nombre}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={editingMuestra.analisisSeleccionados?.includes(analisis.nombre)}
-                            onChange={() => handleAnalisisChange(analisis.nombre)}
-                          />
-                        }
-                        label={
-                          <span>
-                            {analisis.nombre}
-                            {analisis.unidad && analisis.unidad !== "N/A" && (
-                              <span style={{ color: 'gray' }}> (Unidad: {analisis.unidad})</span>
-                            )}
-                            <span style={{ color: 'green', marginLeft: '8px' }}> - ${analisis.precio}</span>
-                          </span>
-                        }
-                      />
-                    </Grid>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Preservación */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Preservación de la Muestra</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Select
+                  fullWidth
+                  value={editingMuestra.preservacionMuestra || ''}
+                  onChange={e => setEditingMuestra({ ...editingMuestra, preservacionMuestra: e.target.value })}
+                  displayEmpty
+                >
+                  <MenuItem value="">Seleccione preservación</MenuItem>
+                  {TIPOS_PRESERVACION.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
                   ))}
+                </Select>
+              </Grid>
+              {editingMuestra.preservacionMuestra === 'Otro' && (
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Detalle de Preservación"
+                    value={editingMuestra.preservacionMuestraOtra || ''}
+                    onChange={e => setEditingMuestra({ ...editingMuestra, preservacionMuestraOtra: e.target.value })}
+                  />
                 </Grid>
-              </AccordionDetails>
-            </Accordion>
-          )}
-          {/* Observaciones */}
-          <TextField
-            fullWidth
-            label="Observaciones"
-            multiline
-            rows={3}
-            value={editingMuestra.observaciones || ""}
-            onChange={(e) =>
-              setEditingMuestra({ ...editingMuestra, observaciones: e.target.value })
-            }
-          />
-          <Button variant="contained" color="primary" fullWidth onClick={onSave} sx={{ mt: 2 }}>
+              )}
+            </Grid>
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Análisis a Realizar */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Análisis a Realizar</Typography>
+            {analisisDisponibles.length === 0 ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                No hay análisis disponibles para este tipo (o aún no se han cargado).
+              </Alert>
+            ) : (
+              <Accordion defaultExpanded>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography>
+                    {editingMuestra.tipoAnalisis === "Fisicoquímico"
+                      ? "Análisis Fisicoquímicos"
+                      : "Análisis Microbiológicos"}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Grid container spacing={2}>
+                    {analisisDisponibles.map((analisis) => (
+                      <Grid item xs={12} sm={6} key={analisis.nombre}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={editingMuestra.analisisSeleccionados?.includes(analisis.nombre)}
+                              onChange={() => handleAnalisisChange(analisis.nombre)}
+                            />
+                          }
+                          label={
+                            <span>
+                              {analisis.nombre}
+                              {analisis.unidad && analisis.unidad !== "N/A" && (
+                                <span style={{ color: 'gray' }}> (Unidad: {analisis.unidad})</span>
+                              )}
+                              <span style={{ color: 'green', marginLeft: '8px' }}> - ${analisis.precio}</span>
+                            </span>
+                          }
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </AccordionDetails>
+              </Accordion>
+            )}
+          </Box>
+          <Divider sx={{ my: 2 }} />
+          {/* Sección: Observaciones */}
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              label="Observaciones"
+              multiline
+              rows={3}
+              value={editingMuestra.observaciones || ''}
+              onChange={e => setEditingMuestra({ ...editingMuestra, observaciones: e.target.value })}
+            />
+          </Box>
+          <Button variant="contained" color="primary" fullWidth onClick={handleGuardar} sx={{ mt: 2, py: 1.5, fontWeight: 'bold', bgcolor: '#39A900', '&:hover': { bgcolor: '#2d8600' } }}>
             Guardar Cambios
           </Button>
         </Box>
