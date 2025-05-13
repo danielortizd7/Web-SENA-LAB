@@ -16,6 +16,7 @@ import CambiarContrasena from "../pages/CambiarContrasena";
 import RegistrarResultados from "../pages/RegistrarResultados";
 import Unauthorized from "../pages/Unauthorized";
 import ListaResultados from "../pages/ListaResultados";
+import Auditorias from "../pages/Auditorias";
 
 const AppRouter = () => {
   return (
@@ -100,6 +101,17 @@ const AppRouter = () => {
             <PrivateRoute allowedRoles={["laboratorista", "administrador", "super_admin"]}>
               <Layout>
                 <RegistrarResultados />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/auditorias"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <Auditorias />
               </Layout>
             </PrivateRoute>
           }
