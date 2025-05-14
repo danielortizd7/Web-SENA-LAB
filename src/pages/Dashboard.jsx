@@ -68,7 +68,7 @@ const StatCard = ({ title, value, icon, color }) => (
 );
 
 // Componente para los gráficos
-const SampleCharts = ({ sampleStats }) => {
+const SampleCharts = ({ sampleStats, waterTypeStats, userTypeStats }) => {
   // Gráfico de Dona 1: Distribución de Muestras (Recibidas, En Análisis, Finalizadas)
   const distributionData = {
     labels: ["Muestras Recibidas", "Muestras en Análisis", "Finalizadas"],
@@ -102,6 +102,49 @@ const SampleCharts = ({ sampleStats }) => {
     ],
   };
 
+  // Gráfico de Dona 3: Muestras por Tipo de Agua
+  const waterTypeData = {
+    labels: ["Potable", "Natural", "Residual", "Otra"],
+    datasets: [
+      {
+        data: [
+          waterTypeStats.potable,
+          waterTypeStats.natural,
+          waterTypeStats.residual,
+          waterTypeStats.otra,
+        ],
+        backgroundColor: ["#00B8D4", "#43A047", "#FFD600", "#8E24AA"],
+        hoverBackgroundColor: ["#0097A7", "#2E7D32", "#FFC400", "#6A1B9A"],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Gráfico de Dona 4: Usuarios por Tipo
+  const userTypeData = {
+    labels: [
+      "Empresas",
+      "Emprendedor",
+      "Persona natural",
+      "Institución educativa",
+      "Aprendiz/Instructor Sena"
+    ],
+    datasets: [
+      {
+        data: [
+          userTypeStats.empresas,
+          userTypeStats.emprendedor,
+          userTypeStats["persona natural"],
+          userTypeStats["institucion educativa"],
+          userTypeStats["aprendiz/instructor Sena"],
+        ],
+        backgroundColor: ["#1976D2", "#00B8D4", "#43A047", "#FFD600", "#8E24AA"],
+        hoverBackgroundColor: ["#1565C0", "#00838F", "#2E7D32", "#FFC400", "#6A1B9A"],
+        borderWidth: 1,
+      },
+    ],
+  };
+
   const chartOptions = {
     responsive: true,
     plugins: {
@@ -118,42 +161,44 @@ const SampleCharts = ({ sampleStats }) => {
   };
 
   return (
-    <Grid container spacing={2} sx={{ mb: 4 }}>
-      <Grid item xs={12} sm={6}>
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>
-            Distribución de Muestras
-          </Typography>
-          <Box sx={{ maxWidth: 300, margin: "0 auto" }} id="dashboard-chart-distribucion">
-            <Doughnut data={distributionData} options={chartOptions} />
-          </Box>
-        </Paper>
+    <>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Distribución de Muestras</Typography>
+            <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-distribucion">
+              <Doughnut data={distributionData} options={chartOptions} width={300} height={300} />
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Muestras por Tipo de Análisis</Typography>
+            <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-tipo">
+              <Doughnut data={analysisTypeData} options={chartOptions} width={300} height={300} />
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
-      <Grid item xs={12} sm={6}>
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
-          }}
-        >
-          <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>
-            Muestras por Tipo de Análisis
-          </Typography>
-          <Box sx={{ maxWidth: 300, margin: "0 auto" }} id="dashboard-chart-tipo">
-            <Doughnut data={analysisTypeData} options={chartOptions} />
-          </Box>
-        </Paper>
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Muestras por Tipo de Agua</Typography>
+            <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-agua">
+              <Doughnut data={waterTypeData} options={chartOptions} width={300} height={300} />
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Clientes por Tipo</Typography>
+            <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-usuarios">
+              <Doughnut data={userTypeData} options={chartOptions} width={300} height={300} />
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
-    </Grid>
+    </>
   );
 };
 
@@ -167,6 +212,12 @@ const Dashboard = () => {
     quotationSamples: [],
     microbiologicalSamples: 0,
     physicochemicalSamples: 0,
+  });
+  const [waterTypeStats, setWaterTypeStats] = useState({
+    potable: 0,
+    natural: 0,
+    residual: 0,
+    otra: 0,
   });
   const [loadingSamples, setLoadingSamples] = useState(true);
   const [sampleError, setSampleError] = useState(null);
@@ -239,6 +290,17 @@ const Dashboard = () => {
         const physicochemicalSamples = allMuestras.filter(
           (sample) => (sample.tipoAnalisis || "").toLowerCase() === "fisicoquímico"
         ).length;
+
+        // Calcular muestras por tipo de agua
+        const waterTypeStatsCalc = { potable: 0, natural: 0, residual: 0, otra: 0 };
+        allMuestras.forEach((sample) => {
+          const tipo = sample.tipoDeAgua?.tipo?.toLowerCase();
+          if (tipo === "potable") waterTypeStatsCalc.potable++;
+          else if (tipo === "natural") waterTypeStatsCalc.natural++;
+          else if (tipo === "residual") waterTypeStatsCalc.residual++;
+          else if (tipo === "otra") waterTypeStatsCalc.otra++;
+        });
+        setWaterTypeStats(waterTypeStatsCalc);
 
         // Obtener estadísticas desde /api/ingreso-resultados/resultados
         let allSamples = [];
@@ -638,51 +700,9 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        <SampleCharts sampleStats={sampleStats} />
+        <SampleCharts sampleStats={sampleStats} waterTypeStats={waterTypeStats} userTypeStats={userStats.clientsByType} />
 
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            mb: 4,
-            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
-          }}
-        >
-          <Typography variant="h5" sx={{ mb: 2, color: "#39A900" }}>
-            Muestras en Cotización
-          </Typography>
-          {sampleStats.quotationSamples.length === 0 ? (
-            <Alert severity="info">No hay muestras en cotización.</Alert>
-          ) : (
-            <TableContainer sx={{ maxHeight: 300 }}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#f5f7fa" }}>
-                      Muestra #
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#f5f7fa" }}>
-                      Cliente
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: "bold", backgroundColor: "#f5f7fa" }}>
-                      Análisis
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sampleStats.quotationSamples.map((sample) => (
-                    <TableRow key={sample.id_muestra || sample._id}>
-                      <TableCell>{sample.id_muestra || sample._id}</TableCell>
-                      <TableCell>{sample.cliente?.nombre || "N/A"}</TableCell>
-                      <TableCell>{sample.tipoAnalisis || "N/A"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Paper>
+       
 
         <Paper
           elevation={3}
@@ -760,7 +780,7 @@ const Dashboard = () => {
                 </Grid>
                 <Grid item xs={12} sm={6} md={2.4}>
                   <StatCard
-                    title="Aprendiz/Instructor Sena"
+                    title="Aprendiz/Instructor"
                     value={userStats.clientsByType['aprendiz/instructor Sena']}
                     icon={<PersonIcon sx={{ fontSize: 28 }} />}
                     color="#8E24AA"
