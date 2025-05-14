@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
+    const storedPerfilManual = localStorage.getItem("isPerfilManuallyUpdated");
 
     if (storedUser && storedToken) {
       const parsedUser = JSON.parse(storedUser);
@@ -28,6 +29,8 @@ export const AuthProvider = ({ children }) => {
         tipoUsuario: parsedUser.rol,
         isAuthenticated: true
       });
+      // Si el usuario actualizó el perfil manualmente, respetar ese flag
+      setIsPerfilManuallyUpdated(storedPerfilManual === 'true');
     }
 
     setLoading(false);
@@ -76,6 +79,7 @@ export const AuthProvider = ({ children }) => {
 
     localStorage.setItem("token", userData.token);
     localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.removeItem("isPerfilManuallyUpdated"); // Limpiar flag al login
 
     setAuth({
       user: userData,
@@ -93,12 +97,14 @@ export const AuthProvider = ({ children }) => {
     console.log("Actualizando perfil manualmente:", newPerfil);
     setPerfil(newPerfil);
     setIsPerfilManuallyUpdated(true);
+    localStorage.setItem("isPerfilManuallyUpdated", "true");
   };
 
   // Función logout
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("isPerfilManuallyUpdated");
 
     setAuth({
       user: null,
