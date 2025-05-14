@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, memo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { PDFService } from '../services/pdfGenerator';
@@ -754,7 +754,7 @@ const EditMuestraModal = ({ editingMuestra, setEditingMuestra, onSave, modalStyl
 };
 
 /* =================== COMPONENTE PRINCIPAL: Muestras =================== */
-const Muestras = () => {
+const Muestras = memo(() => {
   const [muestras, setMuestras] = useState([]);
   const [filteredMuestras, setFilteredMuestras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1151,6 +1151,6 @@ const Muestras = () => {
       </Snackbar>
     </Paper>
   );
-};
+});
 
 export default Muestras;

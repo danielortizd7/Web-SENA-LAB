@@ -1,5 +1,5 @@
 // src/components/UsersList.jsx
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, memo } from "react";
 import axios from "axios";
 import {
   Table,
@@ -30,7 +30,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { useNavigate } from "react-router-dom";
 import AuthContext from "../../context/AuthContext";
 
-const UsersList = () => {
+const UsersList = memo(() => {
   const { tipoUsuario } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -430,6 +430,6 @@ const UsersList = () => {
       </Snackbar>
     </Paper>
   );
-};
+});
 
 export default UsersList;

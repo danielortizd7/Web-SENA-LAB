@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import {
   Box,
   Typography,
@@ -65,7 +65,7 @@ const formatearFecha = (fecha) => {
   return 'Fecha inválida';
 };
 
-const ListaResultados = () => {
+const ListaResultados = memo(() => {
   const navigate = useNavigate();
   const [resultados, setResultados] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -731,6 +731,6 @@ const ListaResultados = () => {
       </Snackbar>
     </Paper>
   );
-};
+});
 
 export default ListaResultados;
