@@ -4,6 +4,7 @@ import {
   Drawer,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   Toolbar,
@@ -117,47 +118,36 @@ const Sidebar = () => {
         <Divider sx={{ mb: 1 }} />
 
         <List>
-          {menuItems.map((item) => {
-            if (!shouldShowMenuItem(item)) return null;
-            return (
-              <NavLink
+          {menuItems.map((item) => (            <ListItem key={item.text} disablePadding sx={{ m: 1 }}>
+              <ListItemButton
+                component={NavLink}
                 to={item.path}
-                key={item.text}
-                style={({ isActive }) => ({
-                  textDecoration: "none",
-                  color: isActive ? "#00324D" : "#000",
-                })}
+                sx={{
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1,
+                  transition: "all 0.2s ease-in-out",
+                  "&:hover": {
+                    backgroundColor: "#f0f0f0",
+                    transform: "scale(1.02)",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                  },
+                  "&.active": {
+                    backgroundColor: "#E0F2F1",
+                    boxShadow: "inset 3px 0 0 #39A900",
+                  }
+                }}
               >
-                <ListItem
-                  button
-                  sx={{
-                    m: 1,
-                    borderRadius: 2,
-                    px: 2,
-                    py: 1,
-                    transition: "all 0.2s ease-in-out",
-                    "&:hover": {
-                      backgroundColor: "#f0f0f0",
-                      transform: "scale(1.02)",
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                    },
-                    ...(window.location.pathname === item.path && {
-                      backgroundColor: "#E0F2F1",
-                      boxShadow: "inset 3px 0 0 #39A900",
-                    }),
-                  }}
-                >
-                  <ListItemIcon sx={{ color: "inherit" }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{ fontWeight: "bold" }}
-                  />
-                </ListItem>
-              </NavLink>
-            );
-          })}
+                <ListItemIcon sx={{ color: "inherit" }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
         </List>
       </Box>
 

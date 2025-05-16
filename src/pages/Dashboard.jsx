@@ -23,9 +23,12 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import Button from '@mui/material/Button';
-import logoSena from '../assets/logo-sena.png';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import Button from "@mui/material/Button";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import logoSena from "../assets/logo-sena.png";
+import { Chart } from "chart.js/auto";
 
 // Registrar los elementos de Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -69,18 +72,34 @@ const StatCard = ({ title, value, icon, color }) => (
 
 // Componente para los gráficos
 const SampleCharts = ({ sampleStats, waterTypeStats, userTypeStats }) => {
-  // Gráfico de Dona 1: Distribución de Muestras (Recibidas, En Análisis, Finalizadas)
+  // Gráfico de Dona 1: Distribución de Muestras (Recibidas, En Análisis, Por Verificar, Finalizadas)
   const distributionData = {
-    labels: ["Muestras Recibidas", "Muestras en Análisis", "Finalizadas"],
+    labels: [
+      "Muestras Recibidas",
+      "Muestras en Análisis",
+      "Muestras por Verificar",
+      "Finalizadas"
+    ],
     datasets: [
       {
         data: [
-          sampleStats.totalSamples,
-          sampleStats.pendingSamples,
-          sampleStats.verifiedSamples,
+          sampleStats.totalAllSamples, // Recibidas
+          sampleStats.totalSamples,    // En Análisis
+          sampleStats.pendingSamples,  // Por Verificar
+          sampleStats.verifiedSamples  // Finalizadas
         ],
-        backgroundColor: ["#39A900", "#FF9800", "#2E7D32"], // Cambiado #4CAF50 por #2E7D32
-        hoverBackgroundColor: ["#2D8A00", "#F57C00", "#1B5E20"], // Ajustado hover
+        backgroundColor: [
+          "#39A900", // Recibidas
+          "#2196F3", // En Análisis
+          "#FF9800", // Por Verificar
+          "#2E7D32"  // Finalizadas
+        ],
+        hoverBackgroundColor: [
+          "#2D8A00",
+          "#1976D2",
+          "#F57C00",
+          "#1B5E20"
+        ],
         borderWidth: 1,
       },
     ],
@@ -149,7 +168,7 @@ const SampleCharts = ({ sampleStats, waterTypeStats, userTypeStats }) => {
     responsive: true,
     plugins: {
       legend: {
-        position: "top",
+        display: false, // Ocultamos la leyenda nativa
       },
       tooltip: {
         callbacks: {
@@ -160,41 +179,94 @@ const SampleCharts = ({ sampleStats, waterTypeStats, userTypeStats }) => {
     cutout: "60%", // Estilo de dona
   };
 
+  // Utilidad para renderizar especificaciones debajo de cada gráfico en dos columnas y altura fija
+  const renderSpecs = (labels, data, colors) => {
+    // Agrupar de dos en dos
+    const rows = [];
+    for (let i = 0; i < labels.length; i += 2) {
+      rows.push([
+        { label: labels[i], value: data[i], color: colors[i] },
+        labels[i + 1] !== undefined
+          ? { label: labels[i + 1], value: data[i + 1], color: colors[i + 1] }
+          : null,
+      ]);
+    }
+    return (
+      <Box sx={{ mt: 2, width: '100%', minHeight: 90, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        {rows.map((pair, idx) => (
+          <Box key={idx} sx={{ display: 'flex', justifyContent: 'center', width: '100%', mb: 0.5 }}>
+            {pair.map((item, j) =>
+              item ? (
+                <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', minWidth: 160, mx: 2 }}>
+                  <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: item.color, mr: 1, border: '1px solid #ccc' }} />
+                  <Typography variant="body2" sx={{ flex: 1 }}>{item.label}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', color: item.color, ml: 1 }}>{item.value}</Typography>
+                </Box>
+              ) : (
+                <Box key={j} sx={{ minWidth: 160, mx: 2 }} />
+              )
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <>
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Distribución de Muestras</Typography>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)", minHeight: 520, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+            <Typography variant="h6" align="center" sx={{ mb: 2, color: "#39A900", fontWeight: 'bold' }}>Distribución de Muestras</Typography>
             <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-distribucion">
               <Doughnut data={distributionData} options={chartOptions} width={300} height={300} />
             </Box>
+            {renderSpecs(
+              distributionData.labels,
+              distributionData.datasets[0].data,
+              distributionData.datasets[0].backgroundColor
+            )}
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Muestras por Tipo de Análisis</Typography>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)", minHeight: 520, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+            <Typography variant="h6" align="center" sx={{ mb: 2, color: "#39A900", fontWeight: 'bold' }}>Muestras por Tipo de Análisis</Typography>
             <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-tipo">
               <Doughnut data={analysisTypeData} options={chartOptions} width={300} height={300} />
             </Box>
+            {renderSpecs(
+              analysisTypeData.labels,
+              analysisTypeData.datasets[0].data,
+              analysisTypeData.datasets[0].backgroundColor
+            )}
           </Paper>
         </Grid>
       </Grid>
       <Grid container spacing={2} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Muestras por Tipo de Agua</Typography>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)", minHeight: 520, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+            <Typography variant="h6" align="center" sx={{ mb: 2, color: "#39A900", fontWeight: 'bold' }}>Muestras por Tipo de Agua</Typography>
             <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-agua">
               <Doughnut data={waterTypeData} options={chartOptions} width={300} height={300} />
             </Box>
+            {renderSpecs(
+              waterTypeData.labels,
+              waterTypeData.datasets[0].data,
+              waterTypeData.datasets[0].backgroundColor
+            )}
           </Paper>
         </Grid>
         <Grid item xs={12} sm={6}>
-          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#39A900" }}>Clientes por Tipo</Typography>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 2, background: "linear-gradient(45deg, #ffffff, #d7f7dd)", minHeight: 520, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center' }}>
+            <Typography variant="h6" align="center" sx={{ mb: 2, color: "#39A900", fontWeight: 'bold' }}>Clientes por Tipo</Typography>
             <Box sx={{ width: 320, height: 320, mx: "auto", display: 'flex', alignItems: 'center', justifyContent: 'center' }} id="dashboard-chart-usuarios">
               <Doughnut data={userTypeData} options={chartOptions} width={300} height={300} />
             </Box>
+            {renderSpecs(
+              userTypeData.labels,
+              userTypeData.datasets[0].data,
+              userTypeData.datasets[0].backgroundColor
+            )}
           </Paper>
         </Grid>
       </Grid>
@@ -485,148 +557,273 @@ const Dashboard = () => {
     fetchUsers();
   }, []);
 
-  // --- GENERAR PDF ---
-  const handleGeneratePDF = async () => {
-    // Importación dinámica de jsPDF y html2canvas
-    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-      import('jspdf'),
-      import('html2canvas')
-    ]);
+  // --- FUNCIÓN PARA CARGAR IMAGEN Y GENERAR PDF ---
+  const generateDashboardPDF = async () => {
+    // Utilidad para convertir imagen importada a base64
+    const getBase64FromImportedImage = (imgPath) => {
+      return new Promise((resolve, reject) => {
+        const img = new window.Image();
+        img.crossOrigin = "Anonymous";
+        img.src = imgPath;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        };
+        img.onerror = reject;
+      });
+    };
+
+    // Definir los datos de los gráficos igual que en SampleCharts
+    // (Mover esto antes de usar getChartBase64)
+    const distributionData = {
+      labels: [
+        "Muestras Recibidas",
+        "Muestras en Análisis",
+        "Muestras por Verificar",
+        "Finalizadas"
+      ],
+      datasets: [
+        {
+          data: [
+            sampleStats.totalAllSamples,
+            sampleStats.totalSamples,
+            sampleStats.pendingSamples,
+            sampleStats.verifiedSamples
+          ],
+          backgroundColor: ["#39A900", "#2196F3", "#FF9800", "#2E7D32"],
+          borderWidth: 1,
+        },
+      ],
+    };
+    const analysisTypeData = {
+      labels: ["Microbiológicos", "Fisicoquímicos"],
+      datasets: [
+        {
+          data: [sampleStats.microbiologicalSamples, sampleStats.physicochemicalSamples],
+          backgroundColor: ["#2196F3", "#FF6384"],
+          borderWidth: 1,
+        },
+      ],
+    };
+    const waterTypeData = {
+      labels: ["Potable", "Natural", "Residual", "Otra"],
+      datasets: [
+        {
+          data: [waterTypeStats.potable, waterTypeStats.natural, waterTypeStats.residual, waterTypeStats.otra],
+          backgroundColor: ["#00B8D4", "#43A047", "#FFD600", "#8E24AA"],
+          borderWidth: 1,
+        },
+      ],
+    };
+    const userTypeData = {
+      labels: [
+        "Empresas",
+        "Emprendedor",
+        "Persona natural",
+        "Institución educativa",
+        "Aprendiz/Instructor Sena"
+      ],
+      datasets: [
+        {
+          data: [
+            userStats.clientsByType.empresas,
+            userStats.clientsByType.emprendedor,
+            userStats.clientsByType["persona natural"],
+            userStats.clientsByType["institucion educativa"],
+            userStats.clientsByType["aprendiz/instructor Sena"]
+          ],
+          backgroundColor: ["#1976D2", "#00B8D4", "#43A047", "#FFD600", "#8E24AA"],
+          borderWidth: 1,
+        },
+      ],
+    };
+    const chartOptions = {
+      plugins: { legend: { display: false } },
+      cutout: '60%',
+      responsive: false,
+      animation: false,
+    };
+
+    // --- Agregar gráficos de dona al PDF ---
+    // Utilidad para crear un gráfico de Chart.js en un canvas oculto y devolver base64
+    const getChartBase64 = (chartData, chartOptions) => {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 180;
+        canvas.height = 180;
+        // Crear instancia Chart.js manualmente
+        const chart = new Chart(canvas.getContext('2d'), {
+          type: 'doughnut',
+          data: chartData,
+          options: {
+            ...chartOptions,
+            plugins: { ...chartOptions.plugins, legend: { display: false } },
+            responsive: false,
+            animation: false,
+            cutout: '60%',
+          },
+        });
+        setTimeout(() => {
+          resolve(canvas.toDataURL('image/png'));
+          chart.destroy();
+        }, 400); // Espera breve para renderizar
+      });
+    };
+
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-    const fecha = new Date().toLocaleDateString();
-    const marginX = 50;
-    const contentWidth = 495;
-    let y = 50;
-    // Logo SENA/Aqualab centrado (usando import)
-    const logo = new window.Image();
-    logo.src = logoSena;
-    await new Promise(resolve => { logo.onload = resolve; });
-    doc.addImage(logo, 'PNG', 245, y, 100, 40);
-    y += 55;
-    // Título principal con fondo verde y texto blanco
-    doc.setFillColor('#39A900');
-    doc.roundedRect(marginX, y, contentWidth, 36, 10, 10, 'F');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 40;
+
+    // Logo SENA en la parte superior izquierda, tamaño mediano
+    try {
+      const logoBase64 = await getBase64FromImportedImage(logoSena);
+      doc.addImage(logoBase64, "PNG", 40, 10, 70, 70); // x, y, width, height (más arriba)
+      // Línea decorativa de lado a lado debajo del logo
+      doc.setDrawColor(57, 169, 0); // Verde institucional
+      doc.setLineWidth(2);
+      doc.line(30, 85, pageWidth - 30, 85); // Línea de lado a lado
+      y = 60; // Menos espacio después del logo
+    } catch (e) {
+      y = 40;
+    }
+
+    // Título principal más abajo
+    y += 60; // Espacio extra antes del título
     doc.setFontSize(22);
-    doc.setTextColor('#fff');
-    doc.text("INFORME DEL PANEL DE CONTROL", 297.5, y + 25, { align: 'center' });
-    y += 50;
+    doc.setTextColor("#39A900");
+    doc.text("INFORME DE PANEL DE CONTROL", pageWidth / 2, y, { align: "center" });
+    y += 36;
+
+    // Fecha
+    doc.setFontSize(11);
+    doc.setTextColor("#333");
+    doc.text(`Fecha de generación: ${new Date().toLocaleString()}`, pageWidth - 40, y, { align: "right" });
+    y += 18;
+
+    // --- Gráficos de dona centrados ---
+    const [distImg, analImg, aguaImg, userImg] = await Promise.all([
+      getChartBase64(distributionData, chartOptions),
+      getChartBase64(analysisTypeData, chartOptions),
+      getChartBase64(waterTypeData, chartOptions),
+      getChartBase64(userTypeData, chartOptions),
+    ]);
+    const chartW = 120, chartH = 120, chartGapX = 40, chartGapY = 30;
+    // Calcular centrado
+    const totalWidth = (chartW * 2) + chartGapX;
+    const centerX = (pageWidth - totalWidth) / 2;
+    let chartX1 = centerX, chartX2 = centerX + chartW + chartGapX;
+    let chartY = y + 20; // Más espacio después de la fecha
     doc.setFontSize(12);
-    doc.setTextColor('#888');
-    doc.text(`Generado el: ${fecha}`, 297.5, y, { align: 'center' });
-    y += 20;
-    // Estadísticas Generales - Card moderna
-    doc.setFillColor('#f5f7fa');
-    doc.roundedRect(marginX, y, contentWidth, 120, 14, 14, 'F');
-    doc.setDrawColor('#39A900');
-    doc.setLineWidth(1.5);
-    doc.roundedRect(marginX, y, contentWidth, 120, 14, 14, 'S');
-    // Título sección con fondo
-    doc.setFillColor('#39A900');
-    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
+    doc.setTextColor("#1976D2");
+    doc.text("Distribución de Muestras", chartX1 + chartW/2, chartY - 8, { align: "center" });
+    doc.text("Muestras por Tipo de Análisis", chartX2 + chartW/2, chartY - 8, { align: "center" });
+    doc.addImage(distImg, 'PNG', chartX1, chartY, chartW, chartH);
+    doc.addImage(analImg, 'PNG', chartX2, chartY, chartW, chartH);
+    chartY += chartH + chartGapY;
+    doc.setTextColor("#43A047");
+    doc.text("Muestras por Tipo de Agua", chartX1 + chartW/2, chartY - 8, { align: "center" });
+    doc.setTextColor("#8E24AA");
+    doc.text("Clientes por Tipo", chartX2 + chartW/2, chartY - 8, { align: "center" });
+    doc.addImage(aguaImg, 'PNG', chartX1, chartY, chartW, chartH);
+    doc.addImage(userImg, 'PNG', chartX2, chartY, chartW, chartH);
+    y = chartY + chartH + 30; // Más espacio antes de las tablas
+
+    // 1. Distribución de Muestras
     doc.setFontSize(15);
-    doc.setTextColor('#fff');
-    doc.text('Estadísticas Generales', marginX + 20, y + 22);
-    // Tabla
-    const tableY = y + 38;
-    const rowHeight = 22;
-    const col1 = marginX + 30, col2 = marginX + contentWidth - 120;
-    const stats = [
-      ['Muestras Recibidas', sampleStats.totalAllSamples],
-      ['Muestras en Análisis', sampleStats.totalSamples],
-      ['Por Verificar', sampleStats.pendingSamples],
-      ['Finalizadas', sampleStats.verifiedSamples],
-    ];
-    doc.setFontSize(12);
-    stats.forEach(([label, value], i) => {
-      const rowY = tableY + i * rowHeight;
-      doc.setFillColor(i % 2 === 0 ? '#e8f5e9' : '#ffffff');
-      doc.roundedRect(marginX + 15, rowY, contentWidth - 30, rowHeight, 6, 6, 'F');
-      doc.setTextColor('#333');
-      doc.setFont(undefined, 'bold');
-      doc.text(String(label), col1, rowY + 15);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor('#39A900');
-      doc.text(String(value), col2, rowY + 15, { align: 'right' });
+    doc.setTextColor("#1976D2");
+    doc.text("Distribución de Muestras", 40, y);
+    y += 16;
+    autoTable(doc, {
+      startY: y,
+      head: [["Muestras Recibidas", "En Análisis", "Por Verificar", "Finalizadas"]],
+      body: [[
+        sampleStats.totalAllSamples,
+        sampleStats.totalSamples,
+        sampleStats.pendingSamples,
+        sampleStats.verifiedSamples
+      ]],
+      theme: "grid",
+      headStyles: { fillColor: [57,169,0] },
+      styles: { fontSize: 10, cellPadding: 5 },
+      margin: { left: 40, right: 40 },
+      tableWidth: 'auto',
     });
-    y += 140;
-    // Gráficos lado a lado, card moderna
-    doc.setFillColor('#f5f7fa');
-    doc.roundedRect(marginX, y, contentWidth, 230, 14, 14, 'F');
-    doc.setDrawColor('#39A900');
-    doc.setLineWidth(1.5);
-    doc.roundedRect(marginX, y, contentWidth, 230, 14, 14, 'S');
-    // Título sección con fondo
-    doc.setFillColor('#39A900');
-    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
+    y = doc.lastAutoTable.finalY + 18;
+
+    // 2. Muestras por Tipo de Análisis
     doc.setFontSize(15);
-    doc.setTextColor('#fff');
-    doc.text('Visualización de Datos', marginX + 20, y + 22);
-    // Captura de gráficos
-    const chart1 = document.getElementById('dashboard-chart-distribucion');
-    const chart2 = document.getElementById('dashboard-chart-tipo');
-    let imgData1 = null, imgData2 = null;
-    if (chart1) {
-      const canvas1 = chart1.querySelector('canvas');
-      if (canvas1) {
-        imgData1 = await html2canvas(canvas1, { backgroundColor: null, scale: 2 }).then(canvas => canvas.toDataURL('image/png'));
-      }
-    }
-    if (chart2) {
-      const canvas2 = chart2.querySelector('canvas');
-      if (canvas2) {
-        imgData2 = await html2canvas(canvas2, { backgroundColor: null, scale: 2 }).then(canvas => canvas.toDataURL('image/png'));
-      }
-    }
-    // Ambos gráficos alineados y del mismo tamaño, centrados
-    const chartY = y + 40;
-    const chartW = 180, chartH = 180;
-    const chartGap = 30;
-    const chart1X = marginX + (contentWidth / 2) - chartW - (chartGap / 2);
-    const chart2X = marginX + (contentWidth / 2) + (chartGap / 2);
-    if (imgData1 && imgData2) {
-      doc.addImage(imgData1, 'PNG', chart1X, chartY, chartW, chartH, undefined, 'FAST');
-      doc.addImage(imgData2, 'PNG', chart2X, chartY, chartW, chartH, undefined, 'FAST');
-    } else if (imgData1) {
-      doc.addImage(imgData1, 'PNG', marginX + (contentWidth - chartW) / 2, chartY, chartW, chartH, undefined, 'FAST');
-    } else if (imgData2) {
-      doc.addImage(imgData2, 'PNG', marginX + (contentWidth - chartW) / 2, chartY, chartW, chartH, undefined, 'FAST');
-    }
-    y += 250;
-    // Usuarios - card moderna
-    doc.setFillColor('#f5f7fa');
-    doc.roundedRect(marginX, y, contentWidth, 90, 14, 14, 'F');
-    doc.setDrawColor('#39A900');
-    doc.setLineWidth(1.5);
-    doc.roundedRect(marginX, y, contentWidth, 90, 14, 14, 'S');
-    // Título sección con fondo
-    doc.setFillColor('#39A900');
-    doc.roundedRect(marginX, y, contentWidth, 32, 10, 10, 'F');
-    doc.setFontSize(15);
-    doc.setTextColor('#fff');
-    doc.text('Usuarios Registrados', marginX + 20, y + 22);
-    const userY = y + 38;
-    const userRows = [
-      ['Total Usuarios', userStats.totalUsers],
-      ['Clientes', userStats.clientCount],
-    ];
-    userRows.forEach(([label, value], i) => {
-      const rowY = userY + i * rowHeight;
-      doc.setFillColor(i % 2 === 0 ? '#e3f2fd' : '#ffffff');
-      doc.roundedRect(marginX + 15, rowY, contentWidth - 30, rowHeight, 6, 6, 'F');
-      doc.setTextColor('#333');
-      doc.setFont(undefined, 'bold');
-      doc.text(String(label), col1, rowY + 15);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor('#1976D2');
-      doc.text(String(value), col2, rowY + 15, { align: 'right' });
+    doc.setTextColor("#2196F3");
+    doc.text("Muestras por Tipo de Análisis", 40, y);
+    y += 16;
+    autoTable(doc, {
+      startY: y,
+      head: [["Microbiológicos", "Fisicoquímicos"]],
+      body: [[
+        sampleStats.microbiologicalSamples,
+        sampleStats.physicochemicalSamples
+      ]],
+      theme: "grid",
+      headStyles: { fillColor: [33, 150, 243] },
+      styles: { fontSize: 10, cellPadding: 5 },
+      margin: { left: 40, right: 40 },
+      tableWidth: 'auto',
     });
-    // Pie de página moderno y centrado
-    doc.setFontSize(10);
-    doc.setTextColor('#888');
-    doc.text('Generado automáticamente por el sistema Aqualab - SENA', 297.5, 820, { align: 'center' });
-    doc.setDrawColor('#39A900');
-    doc.line(marginX, 825, marginX + contentWidth, 825);
-    doc.save(`informe-dashboard-${fecha.replace(/\//g, '-')}.pdf`);
+    y = doc.lastAutoTable.finalY + 18;
+
+    // 3. Muestras por Tipo de Agua
+    doc.setFontSize(15);
+    doc.setTextColor("#43A047");
+    doc.text("Muestras por Tipo de Agua", 40, y);
+    y += 16;
+    autoTable(doc, {
+      startY: y,
+      head: [["Potable", "Natural", "Residual", "Otra"]],
+      body: [[
+        waterTypeStats.potable,
+        waterTypeStats.natural,
+        waterTypeStats.residual,
+        waterTypeStats.otra
+      ]],
+      theme: "grid",
+      headStyles: { fillColor: [0, 184, 212] },
+      styles: { fontSize: 10, cellPadding: 5 },
+      margin: { left: 40, right: 40 },
+      tableWidth: 'auto',
+    });
+    y = doc.lastAutoTable.finalY + 18;
+
+    // 4. Clientes por Tipo
+    doc.setFontSize(15);
+    doc.setTextColor("#8E24AA");
+    doc.text("Clientes por Tipo", 40, y);
+    y += 16;
+    autoTable(doc, {
+      startY: y,
+      head: [["Empresas", "Emprendedor", "Persona natural", "Institución educativa", "Aprendiz/Instructor Sena"]],
+      body: [[
+        userStats.clientsByType.empresas,
+        userStats.clientsByType.emprendedor,
+        userStats.clientsByType["persona natural"],
+        userStats.clientsByType["institucion educativa"],
+        userStats.clientsByType["aprendiz/instructor Sena"]
+      ]],
+      theme: "grid",
+      headStyles: { fillColor: [142, 36, 170] },
+      styles: { fontSize: 10, cellPadding: 5 },
+      margin: { left: 40, right: 40 },
+      tableWidth: 'auto',
+    });
+    y = doc.lastAutoTable.finalY + 24;
+
+    doc.setFontSize(9);
+    doc.setTextColor("#888");
+    doc.text("Generado automáticamente por SENA-LAB Dashboard", pageWidth / 2, doc.internal.pageSize.getHeight() - 20, { align: "center" });
+
+    doc.save("informe-dashboard-sena-lab.pdf");
   };
 
   if (loadingSamples || loadingUsers) {
@@ -790,43 +987,19 @@ const Dashboard = () => {
             </Grid>
           </Grid>
         </Paper>
-
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            background: "linear-gradient(45deg, #ffffff, #d7f7dd)",
-            mt: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PictureAsPdfIcon />}
-            onClick={handleGeneratePDF}
-            sx={{
-              mt: 2,
-              bgcolor: '#39A900',
-              '&:hover': { bgcolor: '#2d8600' },
-              borderRadius: 2,
-              fontWeight: 'bold',
-              fontSize: 16,
-              px: 4,
-              py: 1.5,
-              boxShadow: '0 4px 12px rgba(57,169,0,0.12)'
-            }}
-          >
-            Generar Informe PDF
-          </Button>
-          <Typography variant="caption" sx={{ mt: 1, color: '#888' }}>
-            El informe no incluye la sección de muestras en cotización.
-          </Typography>
-        </Paper>
       </motion.div>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4, mb: 2 }}>
+        <Button
+          variant="contained"
+          color="success"
+          startIcon={<PictureAsPdfIcon />}
+          size="large"
+          sx={{ borderRadius: 3, fontWeight: "bold", fontSize: 18, px: 4, boxShadow: "0 2px 12px #b2dfdb" }}
+          onClick={generateDashboardPDF}
+        >
+          Generar informe PDF
+        </Button>
+      </Box>
     </Box>
   );
 };
