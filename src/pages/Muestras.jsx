@@ -38,6 +38,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ScienceIcon from '@mui/icons-material/Science';
 import AuthContext from "../context/AuthContext";
 import { muestrasService } from "../services/muestras.service";
 
@@ -983,173 +984,199 @@ const Muestras = memo(() => {
     return <CircularProgress sx={{ display: "block", margin: "20px auto" }} />;
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2, boxShadow: 3 }}>
-      <Typography variant="h4" align="center" sx={{ marginBottom: 2, fontWeight: "bold" }}>
-        Muestras Registradas
-      </Typography>
-      {/* Controles de Filtro y Búsqueda */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={3}>
-          <Select value={filterType} onChange={handleFilterChange} fullWidth>
-            <MenuItem value="todos">Todos</MenuItem>
-            <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
-            <MenuItem value="Microbiológico">Microbiológico</MenuItem>
-          </Select>
-        </Grid>
-        <Grid item xs={12} sm={3}>
-          <TextField
-            type="date"
-            label="Filtrar por Fecha"
-            fullWidth
-            value={filterDate}
-            onChange={handleDateChange}
-            InputLabelProps={{ shrink: true }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <TextField
-            label="Buscar (ID o Cliente)"
-            variant="outlined"
-            fullWidth
-            value={search}
-            onChange={handleSearchChange}
-          />
-        </Grid>
-        <Grid item xs={12} sm={2}>
-          <Button variant="outlined" fullWidth onClick={handleClearFilters}>
-            Limpiar Filtros
-          </Button>
-        </Grid>
-      </Grid>
-      {/* Tabla Resumida */}
-      <TableContainer>
-        <Table>
-          <TableHead sx={{ backgroundColor: "#39A900" }}>
-            <TableRow>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID Muestra</TableCell>
-              {!hideClientData && (
-                <>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
-                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
-                </>
-              )}
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Análisis</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredMuestras.map((muestra) => (
-              <TableRow
-                key={muestra.id_muestra || muestra.id_muestrea || muestra._id}
-                sx={{
-                  transition: "transform 0.2s",
-                  "&:hover": { transform: "scale(1.02)" },
-                  cursor: "pointer",
-                }}
-              >
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {muestra.id_muestrea || muestra.id_muestra || muestra._id}
-                </TableCell>
-                {!hideClientData && (
-                  <>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)',
+        py: 4,
+        px: { xs: 0, md: 2 },
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: 1400, // Aumenta el ancho máximo
+          mx: 'auto',
+          boxShadow: 6,
+          borderRadius: 4,
+          background: 'white',
+          p: { xs: 2, md: 4 },
+          position: 'relative',
+        }}
+      >
+        {/* Encabezado con ícono */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <ScienceIcon sx={{ fontSize: 40, color: '#39A900', mr: 2 }} />
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#39A900', flex: 1 }}>
+            Muestras Registradas
+          </Typography>
+        </Box>
+        {/* Cinta decorativa */}
+        <Box sx={{ height: 6, width: 120, background: 'linear-gradient(90deg, #39A900 60%, #b2dfdb 100%)', borderRadius: 3, mb: 3 }} />
+        {/* Filtros y búsqueda en tarjeta */}
+        <Paper elevation={3} sx={{ mb: 3, p: 2, borderRadius: 3, background: '#f9fbe7' }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={3}>
+              <Select value={filterType} onChange={handleFilterChange} fullWidth sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}>
+                <MenuItem value="todos">Todos</MenuItem>
+                <MenuItem value="Fisicoquímico">Fisicoquímico</MenuItem>
+                <MenuItem value="Microbiológico">Microbiológico</MenuItem>
+              </Select>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                type="date"
+                label="Filtrar por Fecha"
+                fullWidth
+                value={filterDate}
+                onChange={handleDateChange}
+                InputLabelProps={{ shrink: true }}
+                sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField
+                label="Buscar (ID o Cliente)"
+                variant="outlined"
+                fullWidth
+                value={search}
+                onChange={handleSearchChange}
+                sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={2}>
+              <Button variant="outlined" fullWidth onClick={handleClearFilters} sx={{ borderColor: '#39A900', color: '#39A900', fontWeight: 'bold', borderRadius: 2, boxShadow: 1, '&:hover': { background: '#e8f5e9', borderColor: '#2d8000' } }}>
+                Limpiar Filtros
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+        {/* Tabla Resumida en tarjeta */}
+        <Paper elevation={2} sx={{ borderRadius: 3, boxShadow: 3, overflow: 'auto', minWidth: 1100 }}>
+          <TableContainer sx={{ minWidth: 1100 }}>
+            <Table>
+              <TableHead sx={{ backgroundColor: "#39A900" }}>
+                <TableRow>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>ID Muestra</TableCell>
+                  {!hideClientData && (
+                    <>
+                      <TableCell sx={{ color: "white", fontWeight: "bold" }}>Cliente</TableCell>
+                      <TableCell sx={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
+                    </>
+                  )}
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Estado</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Fecha</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Lugar de Muestreo</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Tipo de Análisis</TableCell>
+                  <TableCell sx={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredMuestras.map((muestra, idx) => (
+                  <TableRow
+                    key={muestra.id_muestra || muestra.id_muestrea || muestra._id}
+                    sx={{
+                      background: idx % 2 === 0 ? '#f1f8e9' : 'white',
+                      transition: "transform 0.2s",
+                      "&:hover": { transform: "scale(1.01)", background: '#e0f2f1' },
+                      cursor: "pointer",
+                    }}
+                  >
                     <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      {muestra.cliente?.nombre || "N/A"}
+                      {muestra.id_muestrea || muestra.id_muestra || muestra._id}
                     </TableCell>
-                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      {muestra.cliente?.documento || "N/A"}
-                    </TableCell>
-                  </>
-                )}
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  <Chip label={muestra.estado} sx={getEstadoChipProps(muestra.estado).sx} />
-                </TableCell>
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {formatFecha(muestra.fechaHoraMuestreo)}
-                </TableCell>
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  {muestra.lugarMuestreo}
-                </TableCell>
-                <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                  <Typography variant="subtitle1" color="text.primary">
-                    {muestra.tipoAnalisis || "N/A"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: "flex", gap: 1 }} onClick={(e) => e.stopPropagation()}>
-                    <ActionButton
-                      tooltip="Ver Detalles"
-                      onClick={() => handleViewDetails(muestra)}
-                      IconComponent={VisibilityIcon}
-                    />
-                    {tipoUsuario !== "laboratorista" && (
+                    {!hideClientData && (
                       <>
-                        <ActionButton
-                          tooltip="Ver PDF"
-                          onClick={() => handlePreviewPDF(muestra)}
-                          IconComponent={PictureAsPdfIcon}
-                        />
-                        <ActionButton
-                          tooltip="Descargar PDF"
-                          onClick={() => handleDownloadPDF(muestra)}
-                          IconComponent={GetAppIcon}
-                        />
-                        <ActionButton
-                          tooltip="Editar Muestra"
-                          onClick={() => handleEditMuestra(muestra)}
-                          IconComponent={EditIcon}
-                        />
+                        <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                          {muestra.cliente?.nombre || "N/A"}
+                        </TableCell>
+                        <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                          {muestra.cliente?.documento || "N/A"}
+                        </TableCell>
                       </>
                     )}
-                    <ActionButton
-                      tooltip="Registrar Resultados"
-                      onClick={() => navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestra || muestra._id}`)}
-                      IconComponent={AssignmentIcon}
-                    />
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-        <Pagination
-          count={pagination.totalPages}
-          page={pagination.page}
-          onChange={handlePageChange}
-          color="primary"
-          sx={{
-            "& .MuiPaginationItem-root": { color: "#39A900" },
-            "& .Mui-selected": {
-              backgroundColor: "#39A900",
-              color: "white",
-              "&:hover": { backgroundColor: "#2d8000" },
-            },
-          }}
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      <Chip label={muestra.estado} sx={getEstadoChipProps(muestra.estado).sx} />
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      {formatFecha(muestra.fechaHoraMuestreo)}
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      {muestra.lugarMuestreo}
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedMuestra(muestra)}>
+                      <Typography variant="subtitle1" color="text.primary">
+                        {muestra.tipoAnalisis || "N/A"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", gap: 1 }} onClick={(e) => e.stopPropagation()}>
+                        <ActionButton
+                          tooltip="Ver Detalles"
+                          onClick={() => handleViewDetails(muestra)}
+                          IconComponent={VisibilityIcon}
+                        />
+                        {tipoUsuario !== "laboratorista" && (
+                          <>
+                            <ActionButton
+                              tooltip="Ver PDF"
+                              onClick={() => handlePreviewPDF(muestra)}
+                              IconComponent={PictureAsPdfIcon}
+                            />
+                            <ActionButton
+                              tooltip="Descargar PDF"
+                              onClick={() => handleDownloadPDF(muestra)}
+                              IconComponent={GetAppIcon}
+                            />
+                            <ActionButton
+                              tooltip="Editar Muestra"
+                              onClick={() => handleEditMuestra(muestra)}
+                              IconComponent={EditIcon}
+                            />
+                          </>
+                        )}
+                        <ActionButton
+                          tooltip="Registrar Resultados"
+                          onClick={() => navigate(`/registrar-resultados/${muestra.id_muestrea || muestra.id_muestra || muestra._id}`)}
+                          IconComponent={AssignmentIcon}
+                        />
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+        {/* Paginador clásico debajo de la tabla */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Pagination
+            count={pagination.totalPages}
+            page={pagination.page}
+            onChange={handlePageChange}
+            color="primary"
+          />
+        </Box>
+        {/* Modales y Snackbar */}
+        <DetailMuestraModal
+          selectedMuestra={selectedMuestra}
+          onClose={() => setSelectedMuestra(null)}
+          modalStyle={modalStyle}
+          hideClientData={hideClientData}
+          tipoUsuario={tipoUsuario}
         />
+        <EditMuestraModal
+          editingMuestra={editingMuestra}
+          setEditingMuestra={setEditingMuestra}
+          onSave={handleSaveEdit}
+          modalStyle={modalStyle}
+        />
+        <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+          <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
-      <DetailMuestraModal
-        selectedMuestra={selectedMuestra}
-        onClose={() => setSelectedMuestra(null)}
-        modalStyle={modalStyle}
-        hideClientData={hideClientData}
-        tipoUsuario={tipoUsuario}
-      />
-      <EditMuestraModal
-        editingMuestra={editingMuestra}
-        setEditingMuestra={setEditingMuestra}
-        onSave={handleSaveEdit}
-        modalStyle={modalStyle}
-      />
-      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </Paper>
+    </Box>
   );
 });
 

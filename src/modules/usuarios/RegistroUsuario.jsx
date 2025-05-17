@@ -10,10 +10,12 @@ import {
   Select,
   MenuItem,
   Snackbar,
-  Alert
+  Alert,
+  Box
 } from "@mui/material";
 import axios from "axios";
 import AuthContext from "../../context/AuthContext"; // Ajusta la ruta si es necesario
+import EditIcon from '@mui/icons-material/Edit';
 
 const RegistroUsuario = () => {
   const { tipoUsuario } = useContext(AuthContext);
@@ -225,162 +227,209 @@ const RegistroUsuario = () => {
   };
 
   return (
-    <Paper sx={{ padding: 3, maxWidth: 500, margin: "auto", marginTop: 3 }}>
-      <Typography variant="h5" sx={{ marginBottom: 2 }}>
-        Registrar Nuevo Usuario
-      </Typography>
+    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #e8f5e9 0%, #f5f5f5 100%)', py: 6 }}>
+      <Paper elevation={8} sx={{
+        p: { xs: 2, sm: 4 },
+        mt: 4,
+        borderRadius: 5,
+        maxWidth: 480,
+        margin: 'auto',
+        background: 'rgba(255,255,255,0.98)',
+        boxShadow: '0 8px 32px 0 rgba(57,169,0,0.18)',
+        border: '2px solid #39A90033',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Cinta decorativa superior */}
+        <Box sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: 10,
+          background: 'linear-gradient(90deg, #39A900 0%, #8bc34a 100%)',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }} />
+        {/* Encabezado atractivo */}
+        <Box display="flex" alignItems="center" mb={3} gap={2} mt={1}>
+          <Box sx={{ background: '#39A900', borderRadius: '50%', p: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 3 }}>
+            <EditIcon sx={{ color: 'white', fontSize: 36 }} />
+          </Box>
+          <Typography variant="h5" fontWeight={700} color="#39A900" letterSpacing={1}>
+            Registrar Nuevo Usuario
+          </Typography>
+        </Box>
 
-      <form onSubmit={registrarUsuario}>
-        <Select
-          value={usuario.tipo}
-          name="tipo"
-          onChange={manejarCambio}
-          displayEmpty
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        >
-          <MenuItem value="" disabled>
-            Selecciona un tipo de usuario
-          </MenuItem>
-          {allowedOptions.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
+        <form onSubmit={registrarUsuario}>
+          <Select
+            value={usuario.tipo}
+            name="tipo"
+            onChange={manejarCambio}
+            displayEmpty
+            fullWidth
+            required
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+          >
+            <MenuItem value="" disabled>
+              Selecciona un tipo de usuario
             </MenuItem>
-          ))}
-        </Select>
+            {allowedOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
 
-        <TextField
-          label="Nombre Completo"
-          name="nombre"
-          value={usuario.nombre}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
-        <TextField
-          label="Documento"
-          name="documento"
-          value={usuario.documento}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
-        <TextField
-          label="Teléfono"
-          name="telefono"
-          value={usuario.telefono}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
-        <TextField
-          label="Dirección"
-          name="direccion"
-          value={usuario.direccion}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
-        <TextField
-          label="Correo Electrónico"
-          name="email"
-          type="email"
-          value={usuario.email}
-          onChange={manejarCambio}
-          fullWidth
-          required
-          sx={{ marginBottom: 2 }}
-        />
-
-        {/* Mostrar campo de contraseña solo para tipos que no sean cliente */}
-        {usuario.tipo !== "cliente" && (
           <TextField
-            label="Contraseña"
-            name="password"
-            type="password"
-            value={usuario.password}
+            label="Nombre Completo"
+            name="nombre"
+            value={usuario.nombre}
             onChange={manejarCambio}
             fullWidth
             required
-            sx={{ marginBottom: 2 }}
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
           />
-        )}
+          <TextField
+            label="Documento"
+            name="documento"
+            value={usuario.documento}
+            onChange={manejarCambio}
+            fullWidth
+            required
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+          />
+          <TextField
+            label="Teléfono"
+            name="telefono"
+            value={usuario.telefono}
+            onChange={manejarCambio}
+            fullWidth
+            required
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+          />
+          <TextField
+            label="Dirección"
+            name="direccion"
+            value={usuario.direccion}
+            onChange={manejarCambio}
+            fullWidth
+            required
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+          />
+          <TextField
+            label="Correo Electrónico"
+            name="email"
+            type="email"
+            value={usuario.email}
+            onChange={manejarCambio}
+            fullWidth
+            required
+            sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+          />
 
-        {/* Campos específicos para clientes */}
-        {usuario.tipo === "cliente" && (
-          <>
-            <Select
-              value={usuario.tipo_cliente}
-              name="tipo_cliente"
-              onChange={manejarCambio}
-              displayEmpty
-              fullWidth
-              required
-              sx={{ marginBottom: 2 }}
-            >
-              <MenuItem value="" disabled>
-                Selecciona un tipo de cliente
-              </MenuItem>
-              <MenuItem value="empresas">empresas</MenuItem>
-              <MenuItem value="emprendedor">emprendedor</MenuItem>
-              <MenuItem value="persona natural">persona natural</MenuItem>
-              <MenuItem value="institucion educativa">institucion educativa</MenuItem>
-              <MenuItem value="aprendiz/instructor Sena">aprendiz/instructor Sena</MenuItem>
-            </Select>
+          {/* Mostrar campo de contraseña solo para tipos que no sean cliente */}
+          {usuario.tipo !== "cliente" && (
             <TextField
-              label="Razón Social"
-              name="razonSocial"
-              value={usuario.razonSocial}
+              label="Contraseña"
+              name="password"
+              type="password"
+              value={usuario.password}
               onChange={manejarCambio}
               fullWidth
               required
-              sx={{ marginBottom: 2 }}
+              sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
             />
-          </>
-        )}
+          )}
 
-        {usuario.tipo === "laboratorista" && (
-          <TextField
-            label="Especialidad"
-            name="especialidad"
-            value={usuario.especialidad}
-            onChange={manejarCambio}
+          {/* Campos específicos para clientes */}
+          {usuario.tipo === "cliente" && (
+            <>
+              <Select
+                value={usuario.tipo_cliente}
+                name="tipo_cliente"
+                onChange={manejarCambio}
+                displayEmpty
+                fullWidth
+                required
+                sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+              >
+                <MenuItem value="" disabled>
+                  Selecciona un tipo de cliente
+                </MenuItem>
+                <MenuItem value="empresas">empresas</MenuItem>
+                <MenuItem value="emprendedor">emprendedor</MenuItem>
+                <MenuItem value="persona natural">persona natural</MenuItem>
+                <MenuItem value="institucion educativa">institucion educativa</MenuItem>
+                <MenuItem value="aprendiz/instructor Sena">aprendiz/instructor Sena</MenuItem>
+              </Select>
+              <TextField
+                label="Razón Social"
+                name="razonSocial"
+                value={usuario.razonSocial}
+                onChange={manejarCambio}
+                fullWidth
+                required
+                sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+              />
+            </>
+          )}
+
+          {usuario.tipo === "laboratorista" && (
+            <TextField
+              label="Especialidad"
+              name="especialidad"
+              value={usuario.especialidad}
+              onChange={manejarCambio}
+              fullWidth
+              sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+            />
+          )}
+          {usuario.tipo === "super_admin" && (
+            <TextField
+              label="Código de Seguridad"
+              name="codigoSeguridad"
+              value={usuario.codigoSeguridad}
+              onChange={manejarCambio}
+              fullWidth
+              sx={{ mb: 2, background: 'white', borderRadius: 2, boxShadow: 1 }}
+            />
+          )}
+          {usuario.tipo === "administrador" && (
+            <Typography sx={{ mb: 2 }}>
+              Nivel de acceso: 1
+            </Typography>
+          )}
+
+          <Button
+            type="submit"
+            variant="contained"
             fullWidth
-            sx={{ marginBottom: 2 }}
-          />
-        )}
-        {usuario.tipo === "super_admin" && (
-          <TextField
-            label="Código de Seguridad"
-            name="codigoSeguridad"
-            value={usuario.codigoSeguridad}
-            onChange={manejarCambio}
-            fullWidth
-            sx={{ marginBottom: 2 }}
-          />
-        )}
-        {usuario.tipo === "administrador" && (
-          <Typography sx={{ marginBottom: 2 }}>
-            Nivel de acceso: 1
-          </Typography>
-        )}
+            disabled={cargando}
+            sx={{
+              backgroundColor: '#39A900',
+              fontWeight: 700,
+              fontSize: 16,
+              py: 1.2,
+              borderRadius: 2,
+              mt: 1,
+              boxShadow: 2,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              '&:hover': { backgroundColor: '#2e7d32' }
+            }}
+          >
+            {cargando ? <CircularProgress size={24} /> : "Registrar Usuario"}
+          </Button>
+        </form>
 
-        <Button type="submit" variant="contained" color="primary" fullWidth disabled={cargando}>
-          {cargando ? <CircularProgress size={24} /> : "Registrar Usuario"}
-        </Button>
-      </form>
-
-      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%" }}>
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-    </Paper>
+        <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+          <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%', borderRadius: 2, fontWeight: 600 }}>
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
+      </Paper>
+    </Box>
   );
 };
 

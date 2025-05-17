@@ -231,62 +231,85 @@ const UsersList = memo(() => {
     return ["cliente", "laboratorista", "administrador", "super_admin"];
   };
 
+  // Paleta de colores personalizada
+  const primaryColor = "#39A900";
+  const secondaryColor = "#F5F5F5";
+  const accentColor = "#1A1A1A";
+
   return (
-    <Paper style={{ padding: 16, marginTop: 16, boxShadow: "0px 3px 6px rgba(0,0,0,0.16)" }}>
-      <Select
-        value={filterType}
-        onChange={handleFilterChange}
-        fullWidth
-        style={{ marginBottom: 16 }}
-      >
-        <MenuItem value="todos">Todos</MenuItem>
-        {getFilterOptions().map((rol) => (
-          <MenuItem key={rol} value={rol}>
-            {rol.charAt(0).toUpperCase() + rol.slice(1)}
-          </MenuItem>
-        ))}
-      </Select>
+    <Paper elevation={4} sx={{ p: 3, mt: 4, borderRadius: 4, background: secondaryColor, boxShadow: "0 6px 24px 0 rgba(57,169,0,0.10)" }}>
+      {/* Encabezado atractivo */}
+      <Box display="flex" alignItems="center" mb={3} gap={2}>
+        <Box sx={{ background: primaryColor, borderRadius: "50%", p: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <EditIcon sx={{ color: "white", fontSize: 32 }} />
+        </Box>
+        <Typography variant="h4" fontWeight={700} color={primaryColor} letterSpacing={1}>
+          Gestión de Usuarios
+        </Typography>
+      </Box>
 
-      <TextField
-        label="Buscar usuario (nombre o documento)"
-        variant="outlined"
-        fullWidth
-        style={{ marginBottom: 16 }}
-        onChange={handleSearchChange}
-      />
+      {/* Filtros y búsqueda */}
+      <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={2} mb={3}>
+        <Select
+          value={filterType}
+          onChange={handleFilterChange}
+          fullWidth
+          variant="outlined"
+          sx={{ minWidth: 180, background: "white", borderRadius: 2, boxShadow: 1 }}
+        >
+          <MenuItem value="todos">Todos</MenuItem>
+          {getFilterOptions().map((rol) => (
+            <MenuItem key={rol} value={rol}>
+              {rol.charAt(0).toUpperCase() + rol.slice(1)}
+            </MenuItem>
+          ))}
+        </Select>
+        <TextField
+          label="Buscar usuario (nombre o documento)"
+          variant="outlined"
+          fullWidth
+          sx={{ background: "white", borderRadius: 2, boxShadow: 1 }}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <EditIcon sx={{ color: primaryColor, mr: 1 }} />
+            ),
+          }}
+        />
+      </Box>
 
-      <TableContainer>
+      {/* Tabla de usuarios */}
+      <TableContainer sx={{ borderRadius: 3, boxShadow: 2, background: "white" }}>
         <Table>
-          <TableHead style={{ backgroundColor: "#39A900" }}>
-            <TableRow>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Nombre</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Documento</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Teléfono</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Dirección</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Email</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Rol</TableCell>
-              <TableCell style={{ color: "white", fontWeight: "bold" }}>Activo</TableCell>
+          <TableHead>
+            <TableRow sx={{ background: primaryColor }}>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Nombre</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Documento</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Teléfono</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Dirección</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Email</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Rol</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Activo</TableCell>
               {tipoUsuario !== "laboratorista" && (
-                <TableCell style={{ color: "white", fontWeight: "bold" }}>Acciones</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold", fontSize: 16 }}>Acciones</TableCell>
               )}
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredUsers
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((user) => (
+              .map((user, idx) => (
                 <TableRow
                   key={user._id}
                   onClick={() => handleRowClick(user)}
-                  style={{
-                    transition: "transform 0.2s",
+                  sx={{
+                    background: idx % 2 === 0 ? secondaryColor : "#fff",
+                    transition: "box-shadow 0.2s, transform 0.2s",
                     cursor: "pointer",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = "scale(1.02)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = "scale(1)";
+                    '&:hover': {
+                      boxShadow: `0 2px 12px 0 ${primaryColor}33`,
+                      transform: "scale(1.01)",
+                    },
                   }}
                 >
                   <TableCell>{user.nombre}</TableCell>
@@ -295,45 +318,54 @@ const UsersList = memo(() => {
                   <TableCell>{user.direccion}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{getRoleName(user)}</TableCell>
-                  <TableCell>{user.activo ? "Sí" : "No"}</TableCell>
+                  <TableCell>
+                    <Typography fontWeight={600} color={user.activo ? primaryColor : "error"}>
+                      {user.activo ? "Sí" : "No"}
+                    </Typography>
+                  </TableCell>
                   {tipoUsuario !== "laboratorista" && (
                     <TableCell>
-                      {tipoUsuario === "super_admin" && (
-                        <>
-                          <Switch
-                            checked={user.activo}
-                            onChange={() =>
-                              handleToggleActivo(user._id, !user.activo)
-                            }
-                            color="primary"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          {getRoleName(user).toLowerCase() === "administrador" && (
+                      <Box display="flex" alignItems="center" gap={1}>
+                        {tipoUsuario === "super_admin" && (
+                          <>
+                            <Switch
+                              checked={user.activo}
+                              onChange={() => handleToggleActivo(user._id, !user.activo)}
+                              color="success"
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                '& .MuiSwitch-thumb': { backgroundColor: user.activo ? primaryColor : "#ccc" },
+                              }}
+                            />
+                            {getRoleName(user).toLowerCase() === "administrador" && (
+                              <IconButton
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditClick(user);
+                                }}
+                                sx={{ background: "#e3f2fd", borderRadius: 2 }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            )}
+                          </>
+                        )}
+                        {tipoUsuario === "administrador" &&
+                          getRoleName(user).toLowerCase() !== "administrador" &&
+                          getRoleName(user).toLowerCase() !== "super_admin" && (
                             <IconButton
                               color="primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditClick(user);
                               }}
+                              sx={{ background: "#e8f5e9", borderRadius: 2 }}
                             >
                               <EditIcon />
                             </IconButton>
                           )}
-                        </>
-                      )}
-                      {tipoUsuario === "administrador" &&
-                        getRoleName(user).toLowerCase() !== "administrador" &&
-                        getRoleName(user).toLowerCase() !== "super_admin" && (
-                          <IconButton
-                            color="primary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditClick(user);
-                            }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        )}
+                      </Box>
                     </TableCell>
                   )}
                 </TableRow>
@@ -342,6 +374,7 @@ const UsersList = memo(() => {
         </Table>
       </TableContainer>
 
+      {/* Paginación (estilo clásico) */}
       {filteredUsers.length > rowsPerPage && (
         <Box style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
           <Pagination
@@ -349,82 +382,75 @@ const UsersList = memo(() => {
             page={page + 1}
             onChange={(event, value) => setPage(value - 1)}
             color="primary"
-            style={{
-              color: "#39A900",
-            }}
+            style={{ color: primaryColor }}
           />
         </Box>
       )}
 
-      <Dialog open={openEdit} onClose={handleCloseEdit}>
-        <DialogTitle>Editar Usuario</DialogTitle>
+      {/* Diálogo de edición */}
+      <Dialog open={openEdit} onClose={handleCloseEdit} PaperProps={{ sx: { borderRadius: 4, minWidth: 350 } }}>
+        <DialogTitle sx={{ color: primaryColor, fontWeight: 700, textAlign: "center" }}>Editar Usuario</DialogTitle>
         <DialogContent>
-          {["nombre", "documento", "telefono", "direccion", "email"].map((field) => (
-            <TextField
-              key={field}
-              fullWidth
-              margin="dense"
-              label={field}
-              value={editUser?.[field] || ""}
-              onChange={(e) =>
-                setEditUser({ ...editUser, [field]: e.target.value })
-              }
-            />
-          ))}
-          {getRoleName(editUser) && (
-            <TextField
-              fullWidth
-              margin="dense"
-              label="Rol"
-              value={getRoleName(editUser)}
-              InputProps={{ readOnly: true }}
-            />
-          )}
+          <Box display="flex" flexDirection="column" gap={2}>
+            {["nombre", "documento", "telefono", "direccion", "email"].map((field) => (
+              <TextField
+                key={field}
+                fullWidth
+                margin="dense"
+                label={field.charAt(0).toUpperCase() + field.slice(1)}
+                value={editUser?.[field] || ""}
+                onChange={(e) => setEditUser({ ...editUser, [field]: e.target.value })}
+                variant="outlined"
+                sx={{ borderRadius: 2, background: "#f9f9f9" }}
+              />
+            ))}
+            {getRoleName(editUser) && (
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Rol"
+                value={getRoleName(editUser)}
+                InputProps={{ readOnly: true }}
+                variant="outlined"
+                sx={{ borderRadius: 2, background: "#f9f9f9" }}
+              />
+            )}
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEdit}>Cancelar</Button>
-          <Button onClick={handleEditSubmit} variant="contained" color="primary">
+        <DialogActions sx={{ justifyContent: "center", pb: 2 }}>
+          <Button onClick={handleCloseEdit} sx={{ color: accentColor, fontWeight: 600 }}>Cancelar</Button>
+          <Button onClick={handleEditSubmit} variant="contained" sx={{ background: primaryColor, fontWeight: 700, px: 4 }}>
             Guardar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openDetail} onClose={handleCloseDetail}>
-        <DialogTitle>Detalle del Usuario</DialogTitle>
+      {/* Diálogo de detalle */}
+      <Dialog open={openDetail} onClose={handleCloseDetail} PaperProps={{ sx: { borderRadius: 4, minWidth: 350 } }}>
+        <DialogTitle sx={{ color: primaryColor, fontWeight: 700, textAlign: "center" }}>Detalle del Usuario</DialogTitle>
         <DialogContent dividers>
-          <Box style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16 }}>
-            <Typography variant="h6" align="center">
+          <Box sx={{ border: `1px solid ${primaryColor}33`, borderRadius: 3, p: 2, background: "#f9f9f9" }}>
+            <Typography variant="h6" align="center" color={primaryColor} fontWeight={700}>
               {detailUser?.nombre}
             </Typography>
-            <Box style={{ marginTop: 8 }}>
-              <Typography variant="body1">
-                <strong>Documento:</strong> {detailUser?.documento}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Teléfono:</strong> {detailUser?.telefono}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Dirección:</strong> {detailUser?.direccion}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Email:</strong> {detailUser?.email}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Rol:</strong> {getRoleName(detailUser)}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}
-              </Typography>
+            <Box mt={2} display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={1.5}>
+              <Typography variant="body2"><strong>Documento:</strong> {detailUser?.documento}</Typography>
+              <Typography variant="body2"><strong>Teléfono:</strong> {detailUser?.telefono}</Typography>
+              <Typography variant="body2"><strong>Dirección:</strong> {detailUser?.direccion}</Typography>
+              <Typography variant="body2"><strong>Email:</strong> {detailUser?.email}</Typography>
+              <Typography variant="body2"><strong>Rol:</strong> {getRoleName(detailUser)}</Typography>
+              <Typography variant="body2"><strong>Activo:</strong> {detailUser?.activo ? "Sí" : "No"}</Typography>
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDetail}>Cerrar</Button>
+        <DialogActions sx={{ justifyContent: "center", pb: 2 }}>
+          <Button onClick={handleCloseDetail} sx={{ color: accentColor, fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} style={{ width: "100%" }}>
+      {/* Snackbar de notificaciones */}
+      <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: "100%", borderRadius: 2, fontWeight: 600 }}>
           {snackbarMessage}
         </Alert>
       </Snackbar>
