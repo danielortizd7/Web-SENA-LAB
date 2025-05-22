@@ -9,6 +9,16 @@ const API_URLS = {
     RESULTADOS: {
         GENERAR: (idMuestra: string) => `${BASE_URL}/ingreso-resultados/${idMuestra}/pdf`,
         DESCARGAR: (idMuestra: string) => `${BASE_URL}/ingreso-resultados/${idMuestra}/pdf/download`,
+    },
+    AUDITORIA: {
+        EXPORTAR_EXCEL: `${BASE_URL}/auditoria/exportar-excel`,
+        EXPORTAR_EXCEL_VISUALIZAR: `${BASE_URL}/auditoria/exportar-excel-visualizar`,
+        SEMANALES: `${BASE_URL}/auditoria/semanales`,
+        MENSUALES: `${BASE_URL}/auditoria/mensuales`,
+        DATOS: `${BASE_URL}/auditoria/datos`,
+        HISTORIAL_PARAMETRO: `${BASE_URL}/auditoria/historial-parametro`,
+        MUESTRA_DETALLE: `${BASE_URL}/auditoria/muestra-detalle`,
+        ESTADISTICAS_ANALISIS: `${BASE_URL}/auditoria/estadisticas-analisis`,
     }
 };
 
@@ -99,6 +109,51 @@ const downloadPDF = (pdfBlob: Blob, filename: string): void => {
     } catch (error) {
         console.error('Error al descargar PDF:', error);
         throw new Error('No se pudo descargar el PDF');
+    }
+};
+
+/**
+ * Maneja la visualización de un Excel en una nueva ventana
+ */
+const openExcelInNewWindow = (excelBlob: Blob, preOpenedWindow?: Window | null): void => {
+    try {
+        const excelUrl = window.URL.createObjectURL(excelBlob);
+        const win = preOpenedWindow || window.open('', '_blank');
+        
+        if (win) {
+            win.location.href = excelUrl;
+            setTimeout(() => {
+                window.URL.revokeObjectURL(excelUrl);
+            }, 1000);
+        } else {
+            throw new Error('No se pudo abrir la ventana');
+        }
+    } catch (error) {
+        console.error('Error al abrir Excel:', error);
+        downloadExcel(excelBlob, 'auditoria.xlsx');
+    }
+};
+
+/**
+ * Maneja la descarga de un Excel
+ */
+const downloadExcel = (excelBlob: Blob, filename: string): void => {
+    try {
+        const downloadUrl = window.URL.createObjectURL(excelBlob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(() => {
+            window.URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+    } catch (error) {
+        console.error('Error al descargar Excel:', error);
+        throw new Error('No se pudo descargar el Excel');
     }
 };
 
@@ -257,4 +312,163 @@ export const PDFService = {
             );
         }
     },
+};
+
+/**
+ * Servicio para manejar la generación y exportación de datos de auditoría
+ */
+export const excelGenerator = {
+    async obtenerDatosAuditoria() {
+        try {
+            const response = await axiosInstance({
+                url: API_URLS.AUDITORIA.DATOS,
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudieron obtener los datos de auditoría'
+            );
+        }
+    },
+
+    async obtenerHistorialParametro(parametroId: string, fechaInicio?: string, fechaFin?: string) {
+        try {
+            const response = await axiosInstance({
+                url: `${API_URLS.AUDITORIA.HISTORIAL_PARAMETRO}/${parametroId}`,
+                method: 'GET',
+                params: { fechaInicio, fechaFin },
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudo obtener el historial del parámetro'
+            );
+        }
+    },
+
+    async obtenerMuestraDetalle(muestraId: string) {
+        try {
+            const response = await axiosInstance({
+                url: `${API_URLS.AUDITORIA.MUESTRA_DETALLE}/${muestraId}`,
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudo obtener el detalle de la muestra'
+            );
+        }
+    },
+
+    async generarExcelAuditoria(tipo: 'download' | 'view' = 'download', periodo: string = 'general', fechaInicio?: string, fechaFin?: string) {
+        let preOpenedWindow: Window | null = null;
+        try {
+            let url = API_URLS.AUDITORIA.EXPORTAR_EXCEL;
+            
+            if (tipo === 'view') {
+                url = API_URLS.AUDITORIA.EXPORTAR_EXCEL_VISUALIZAR;
+                preOpenedWindow = window.open('', '_blank');
+            }
+            
+            if (fechaInicio && fechaFin) {
+                url += `?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+            }
+
+            const response = await retryOperation(() => 
+                axiosInstance({
+                    url,
+                    method: 'GET',
+                    responseType: 'blob',
+                    headers: {
+                        ...getAuthHeaders(),
+                        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    }
+                })
+            );
+
+            if (!response.data) {
+                throw new Error('No se recibió el archivo Excel');
+            }
+
+            const excelBlob = new Blob([response.data], { 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+
+            if (tipo === 'view') {
+                openExcelInNewWindow(excelBlob, preOpenedWindow);
+            } else {
+                downloadExcel(excelBlob, `auditoria_${periodo}.xlsx`);
+            }
+        } catch (error: any) {
+            if (preOpenedWindow) preOpenedWindow.close();
+            console.error('Error al generar Excel de auditoría:', error);
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudo generar el Excel de auditoría'
+            );
+        }
+    },
+
+    async obtenerAuditoriasSemanales(fechaInicio: string, fechaFin: string) {
+        try {
+            const response = await axiosInstance({
+                url: `${API_URLS.AUDITORIA.SEMANALES}?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`,
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudieron obtener las auditorías semanales'
+            );
+        }
+    },
+
+    async obtenerAuditoriasMensuales(fechaInicio: string, fechaFin: string) {
+        try {
+            const response = await axiosInstance({
+                url: `${API_URLS.AUDITORIA.MENSUALES}?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`,
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudieron obtener las auditorías mensuales'
+            );
+        }
+    },
+
+    async obtenerEstadisticasAnalisis() {
+        try {
+            const response = await axiosInstance({
+                url: API_URLS.AUDITORIA.ESTADISTICAS_ANALISIS,
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Error al obtener estadísticas:', error);
+            throw new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'No se pudieron obtener las estadísticas de análisis'
+            );
+        }
+    }
 };

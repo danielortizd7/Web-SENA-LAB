@@ -248,35 +248,42 @@ const UsersList = memo(() => {
         </Typography>
       </Box>
 
-      {/* Filtros y búsqueda */}
-      <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={2} mb={3}>
-        <Select
-          value={filterType}
-          onChange={handleFilterChange}
-          fullWidth
-          variant="outlined"
-          sx={{ minWidth: 180, background: "white", borderRadius: 2, boxShadow: 1 }}
-        >
-          <MenuItem value="todos">Todos</MenuItem>
-          {getFilterOptions().map((rol) => (
-            <MenuItem key={rol} value={rol}>
-              {rol.charAt(0).toUpperCase() + rol.slice(1)}
-            </MenuItem>
-          ))}
-        </Select>
-        <TextField
-          label="Buscar usuario (nombre o documento)"
-          variant="outlined"
-          fullWidth
-          sx={{ background: "white", borderRadius: 2, boxShadow: 1 }}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-              <EditIcon sx={{ color: primaryColor, mr: 1 }} />
-            ),
-          }}
-        />
-      </Box>
+      {/* Filtros y búsqueda en tarjeta, igual que en Muestras */}
+      <Paper elevation={3} sx={{ mb: 3, p: 2, borderRadius: 3, background: '#f9fbe7' }}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={2} alignItems="center">
+          <Select
+            value={filterType}
+            onChange={handleFilterChange}
+            fullWidth
+            variant="outlined"
+            sx={{ minWidth: 180, background: "white", borderRadius: 2, boxShadow: 1 }}
+            displayEmpty
+          >
+            <MenuItem value="todos">Todos</MenuItem>
+            {getFilterOptions().map((rol) => (
+              <MenuItem key={rol} value={rol}>
+                {rol.charAt(0).toUpperCase() + rol.slice(1)}
+              </MenuItem>
+            ))}
+          </Select>
+          <TextField
+            label="Buscar usuario (nombre o documento)"
+            variant="outlined"
+            fullWidth
+            sx={{ background: "white", borderRadius: 2, boxShadow: 1 }}
+            value={search}
+            onChange={handleSearchChange}
+            InputProps={{
+              startAdornment: (
+                <EditIcon sx={{ color: primaryColor, mr: 1 }} />
+              ),
+            }}
+          />
+          <Button variant="outlined" fullWidth onClick={() => { setFilterType('todos'); setSearch(''); }} sx={{ borderColor: primaryColor, color: primaryColor, fontWeight: 'bold', borderRadius: 2, boxShadow: 1, '&:hover': { background: '#e8f5e9', borderColor: '#2d8000' } }}>
+            Limpiar Filtros
+          </Button>
+        </Box>
+      </Paper>
 
       {/* Tabla de usuarios */}
       <TableContainer sx={{ borderRadius: 3, boxShadow: 2, background: "white" }}>

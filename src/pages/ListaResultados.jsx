@@ -74,6 +74,7 @@ const ListaResultados = memo(() => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('todos'); // Estado para el filtro
+  const [filterDate, setFilterDate] = useState(null); // Nuevo estado para el filtro de fecha
   const [selectedResult, setSelectedResult] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [observacionesVerificacion, setObservacionesVerificacion] = useState('');
@@ -114,6 +115,7 @@ const ListaResultados = memo(() => {
         limit,
         ...(searchTerm.trim() && { search: searchTerm.trim() }),
         ...(filterEstado !== 'todos' && { verificado: filterEstado === 'finalizada' ? 'true' : 'false' }), // Usar 'verificado' para filtrar
+        ...(filterDate && { fecha: filterDate }), // Agregar filtro de fecha si está presente
       };
 
       const queryParams = new URLSearchParams(params).toString();
@@ -332,8 +334,8 @@ const ListaResultados = memo(() => {
         }}
         sx={{
           transition: 'transform 0.2s',
-          '&:hover': { transform: 'scale(1.1)', backgroundColor: 'rgba(117, 117, 117, 0.15)' },
-          color: color || '#757575',
+          '&:hover': { transform: 'scale(1.1)', backgroundColor: 'rgba(57, 169, 0, 0.2)' },
+          color: color || '#39A900',
         }}
       >
         <IconComponent />
@@ -341,56 +343,89 @@ const ListaResultados = memo(() => {
     </Tooltip>
   );
 
+  // Agregar estilos para la tabla en ListaResultados.jsx
+  const tableStyles = {
+    width: '100%',
+    borderCollapse: 'collapse',
+  };
+
+  const rowStyles = {
+    '&:nth-of-type(odd)': {
+      backgroundColor: '#f1f8e9', // Color verde claro para filas impares
+    },
+    '&:nth-of-type(even)': {
+      backgroundColor: 'white', // Color blanco para filas pares
+    },
+    '&:hover': {
+      transform: 'scale(1.01)',
+      backgroundColor: '#e0f7fa', // Color azul claro al pasar el mouse
+      transition: 'transform 0.2s',
+    },
+  };
+
   return (
-    <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper' }}>
+    <Paper sx={{ p: 4, margin: 'auto', maxWidth: 1200, mt: 4, bgcolor: 'background.paper', boxShadow: 6, borderRadius: 3 }}>
       <Typography variant="h4" align="center" gutterBottom sx={{ 
-        color: '#333',
+        color: '#39A900',
         fontWeight: 'bold',
         mb: 3
       }}>
         Lista de Resultados
       </Typography>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            label="Buscar por ID de muestra"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            sx={{ height: 56 }}
-          />
-        </Grid>
-        <Grid item xs={6}>
-          <FormControl fullWidth>
-            <InputLabel>Filtrar por Estado</InputLabel>
+      {/* Filtros y búsqueda en tarjeta, igual que en Muestras */}
+      <Paper elevation={3} sx={{ mb: 3, p: 2, borderRadius: 3, background: '#f9fbe7' }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={3}>
             <Select
               value={filterEstado}
               onChange={handleFilterEstadoChange}
-              label="Filtrar por Estado"
-              sx={{ height: 56 }}
+              fullWidth
+              sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}
+              displayEmpty
             >
               <MenuItem value="todos">Todos</MenuItem>
               <MenuItem value="finalizada">Finalizada</MenuItem>
               <MenuItem value="en analisis">En análisis</MenuItem>
             </Select>
-          </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              type="date"
+              label="Filtrar por Fecha"
+              fullWidth
+              value={filterDate || ''}
+              onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); cargarResultados(1, pagination.limit); }}
+              InputLabelProps={{ shrink: true }}
+              sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Buscar por ID de muestra"
+              variant="outlined"
+              fullWidth
+              value={searchTerm}
+              onChange={handleSearchChange}
+              sx={{ background: 'white', borderRadius: 2, boxShadow: 1 }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <Button variant="outlined" fullWidth onClick={() => { setFilterEstado('todos'); setFilterDate(''); setSearchTerm(''); cargarResultados(1, pagination.limit); }} sx={{ borderColor: '#39A900', color: '#39A900', fontWeight: 'bold', borderRadius: 2, boxShadow: 1, '&:hover': { background: '#e8f5e9', borderColor: '#2d8000' } }}>
+              Limpiar Filtros
+            </Button>
+          </Grid>
         </Grid>
-      </Grid>
+      </Paper>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: '#39A900' }} />
         </Box>
       ) : (
         <>
-          <TableContainer component={Paper} sx={{ 
-            boxShadow: 3,
-            borderRadius: 2,
-            overflow: 'hidden'
-          }}>
-            <Table>
+          <TableContainer component={Paper} sx={{ maxWidth: '1800%' }}>
+            <Table sx={tableStyles}>
               <TableHead sx={{ bgcolor: '#39A900' }}>
                 <TableRow>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ID Muestra</TableCell>
@@ -404,14 +439,7 @@ const ListaResultados = memo(() => {
                 {resultados.map((resultado) => (
                   <TableRow 
                     key={resultado._id}
-                    sx={{
-                      transition: 'background-color 0.3s',
-                      '&:hover': {
-                        bgcolor: 'rgba(57, 169, 0, 0.04)',
-                        transform: 'scale(1.01)',
-                      },
-                      cursor: 'pointer'
-                    }}
+                    sx={rowStyles}
                   >
                     <TableCell>{resultado.idMuestra}</TableCell>
                     <TableCell>{resultado.cliente?.nombre || 'Sin nombre'}</TableCell>
@@ -426,7 +454,11 @@ const ListaResultados = memo(() => {
                         color={resultado.verificado ? "success" : "primary"}
                         sx={{
                           bgcolor: resultado.verificado ? '#39A900' : '#1976D2',
-                          color: 'white'
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: 15,
+                          px: 2,
+                          boxShadow: resultado.verificado ? '0 2px 8px 0 rgba(57,169,0,0.10)' : '0 2px 8px 0 rgba(25,118,210,0.10)'
                         }}
                       />
                     </TableCell>
@@ -436,7 +468,7 @@ const ListaResultados = memo(() => {
                           tooltip="Ver Detalles"
                           onClick={() => handleVerDetalles(resultado)}
                           IconComponent={VisibilityIcon}
-                          color="#757575"
+                          color="#39A900"
                         />
                         {resultado.verificado && (
                           <>
@@ -444,13 +476,13 @@ const ListaResultados = memo(() => {
                               tooltip="Ver PDF Resultados"
                               onClick={() => handleViewResultsPDF(resultado)}
                               IconComponent={PictureAsPdfIcon}
-                              color="#757575"
+                              color="#39A900"
                             />
                             <ActionButton
                               tooltip="Descargar PDF Resultados"
                               onClick={() => handleDownloadResultsPDF(resultado)}
                               IconComponent={GetAppIcon}
-                              color="#757575"
+                              color="#39A900"
                             />
                           </>
                         )}
@@ -500,17 +532,18 @@ const ListaResultados = memo(() => {
               p: 4,
               borderRadius: 2,
               maxHeight: '90vh',
-              overflowY: 'auto'
+              overflowY: 'auto',
+              border: '2px solid #39A900'
             }}>
               {selectedResult && (
                 <>
-                  <Typography variant="h5" gutterBottom sx={{ color: '#39A900', textAlign: 'center' }}>
+                  <Typography variant="h5" gutterBottom sx={{ color: '#39A900', textAlign: 'center', fontWeight: 'bold' }}>
                     Detalles del Resultado
                   </Typography>
                   <Grid container spacing={3}>
                     <Grid item xs={12}>
-                      <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                        <Typography variant="h6" gutterBottom>
+                      <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderLeft: '5px solid #39A900' }}>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#39A900', fontWeight: 'bold' }}>
                           Información General
                         </Typography>
                         <Grid container spacing={2}>
@@ -520,7 +553,7 @@ const ListaResultados = memo(() => {
                             <Typography><strong>Fecha:</strong> {formatearFecha(selectedResult.fechaHoraMuestreo)}</Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography><strong>Estado:</strong> {selectedResult.verificado ? "Finalizada" : "En análisis"}</Typography>
+                            <Typography><strong>Estado:</strong> <span style={{ color: selectedResult.verificado ? '#39A900' : '#1976D2', fontWeight: 'bold' }}>{selectedResult.verificado ? "Finalizada" : "En análisis"}</span></Typography>
                             <Typography><strong>Laboratorista:</strong> {selectedResult.nombreLaboratorista || 'No disponible'}</Typography>
                           </Grid>
                         </Grid>
@@ -528,8 +561,8 @@ const ListaResultados = memo(() => {
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                        <Typography variant="h6" gutterBottom>
+                      <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderLeft: '5px solid #39A900' }}>
+                        <Typography variant="h6" gutterBottom sx={{ color: '#39A900', fontWeight: 'bold' }}>
                           Resultados de Análisis
                         </Typography>
                         <Grid container spacing={2}>
@@ -546,8 +579,8 @@ const ListaResultados = memo(() => {
 
                     {selectedResult.verificado && (
                       <Grid item xs={12}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                          <Typography variant="h6" gutterBottom>
+                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderLeft: '5px solid #39A900' }}>
+                          <Typography variant="h6" gutterBottom sx={{ color: '#39A900', fontWeight: 'bold' }}>
                             Observaciones de Verificación
                           </Typography>
                           <Typography variant="body2" sx={{ mb: 1, color: '#666' }}>
@@ -572,8 +605,8 @@ const ListaResultados = memo(() => {
 
                     {selectedResult.historialCambios?.length > 0 && (
                       <Grid item xs={12}>
-                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-                          <Typography variant="h6" gutterBottom sx={{ color: '#39A900' }}>
+                        <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderLeft: '5px solid #39A900' }}>
+                          <Typography variant="h6" gutterBottom sx={{ color: '#39A900', fontWeight: 'bold' }}>
                             Historial de Cambios
                           </Typography>
                           {selectedResult.historialCambios.map((cambio, index) => (
@@ -653,7 +686,9 @@ const ListaResultados = memo(() => {
                         onClick={() => setDialogoVerificacion(true)}
                         sx={{
                           backgroundColor: '#39A900',
-                          '&:hover': { backgroundColor: '#2d8000' }
+                          '&:hover': { backgroundColor: '#2d8000' },
+                          fontWeight: 'bold',
+                          px: 3
                         }}
                       >
                         Finalizar
@@ -662,6 +697,7 @@ const ListaResultados = memo(() => {
                     <Button 
                       variant="outlined"
                       onClick={() => setSelectedResult(null)}
+                      sx={{ borderColor: '#39A900', color: '#39A900', fontWeight: 'bold', px: 3, '&:hover': { borderColor: '#2d8000', color: '#2d8000' } }}
                     >
                       Cerrar
                     </Button>
@@ -675,7 +711,7 @@ const ListaResultados = memo(() => {
             open={dialogoVerificacion}
             onClose={() => setDialogoVerificacion(false)}
           >
-            <DialogTitle>Finalizar Muestra</DialogTitle>
+            <DialogTitle sx={{ color: '#39A900', fontWeight: 'bold' }}>Finalizar Muestra</DialogTitle>
             <DialogContent>
               <DialogContentText>
                 Por favor, ingrese las observaciones para finalizar la muestra:
@@ -690,13 +726,14 @@ const ListaResultados = memo(() => {
                 rows={4}
                 value={observacionesVerificacion}
                 onChange={(e) => setObservacionesVerificacion(e.target.value)}
-                sx={{ mt: 2 }}
+                sx={{ mt: 2, '& label.Mui-focused': { color: '#39A900' }, '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#39A900' } }}
               />
             </DialogContent>
             <DialogActions>
               <Button 
                 onClick={() => setDialogoVerificacion(false)}
                 color="inherit"
+                sx={{ fontWeight: 'bold' }}
               >
                 Cancelar
               </Button>
@@ -706,10 +743,11 @@ const ListaResultados = memo(() => {
                 disabled={verificando || !observacionesVerificacion.trim()}
                 sx={{
                   backgroundColor: '#39A900',
-                  '&:hover': { backgroundColor: '#2d8000' }
+                  '&:hover': { backgroundColor: '#2d8000' },
+                  fontWeight: 'bold'
                 }}
               >
-                {verificando ? <CircularProgress size={24} /> : 'Finalizar'}
+                {verificando ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Finalizar'}
               </Button>
             </DialogActions>
           </Dialog>
@@ -724,7 +762,7 @@ const ListaResultados = memo(() => {
         <Alert 
           onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: '100%', bgcolor: snackbar.severity === 'success' ? '#39A900' : undefined, color: snackbar.severity === 'success' ? 'white' : undefined }}
         >
           {snackbar.message}
         </Alert>
