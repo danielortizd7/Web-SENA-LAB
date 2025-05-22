@@ -246,6 +246,29 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                     </TableCell>
                   </TableRow>
                 )}
+                {!hideClientData && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Fecha de Creación</TableCell>
+                    <TableCell>
+                      {selectedMuestra.creadoPor?.fechaCreacion?.fecha || "N/A"}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!hideClientData && (
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>Hora de Creación</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const hora = selectedMuestra.creadoPor?.fechaCreacion?.hora;
+                        if (!hora) return "N/A";
+                        const [hours, minutes, seconds] = hora.split(":");
+                        let hours12 = parseInt(hours, 10) % 12 || 12;
+                        const ampm = parseInt(hours, 10) >= 12 ? "PM" : "AM";
+                        return `${hours12}:${minutes} ${ampm}`;
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                )}
                 <TableRow>
                   <TableCell sx={{ fontWeight: "bold" }}>Tipo de Análisis</TableCell>
                   <TableCell>{selectedMuestra.tipoAnalisis || "N/A"}</TableCell>
@@ -314,11 +337,10 @@ const DetailMuestraModal = ({ selectedMuestra, onClose, modalStyle, hideClientDa
                   <TableCell sx={{ fontWeight: "bold" }}>Estado</TableCell>
                   <TableCell>
                     {(() => {
-                      const estadoProps = getEstadoChipProps(selectedMuestra | "No especificado");
+                      const estadoProps = getEstadoChipProps(selectedMuestra.estado || "No especificado");
                       return (
                         <Chip
                           label={selectedMuestra.estado || "No especificado"}
-                          color={estadoProps.chipColor}
                           sx={estadoProps.sx}
                         />
                       );
@@ -1098,7 +1120,7 @@ const Muestras = memo(() => {
                       <Chip label={muestra.estado} sx={getEstadoChipProps(muestra.estado).sx} />
                     </TableCell>
                     <TableCell onClick={() => setSelectedMuestra(muestra)}>
-                      {formatFecha(muestra.fechaHoraMuestreo)}
+                      {formatFecha(muestra.creadoPor?.fechaCreacion?.fecha)}
                     </TableCell>
                     <TableCell onClick={() => setSelectedMuestra(muestra)}>
                       {muestra.lugarMuestreo}
