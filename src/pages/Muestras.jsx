@@ -820,75 +820,87 @@ const Muestras = memo(() => {
     overflowY: "auto",
   };
 
-  // Aplica los filtros (búsqueda y fecha)
-  const applyFilters = () => {
-    let filtered = [...muestras];
-    if (search.trim() !== "") {
-      filtered = filtered.filter((muestra) =>
-        (muestra.id_muestra?.toLowerCase().includes(search.toLowerCase()) ||
-          muestra.cliente?.nombre?.toLowerCase().includes(search.toLowerCase()))
-      );
-    }
-    if (filterDate !== "") {
-      filtered = filtered.filter((muestra) => {
-        const fechaISO = convertFechaToISO(muestra.fechaHoraMuestreo);
-        return fechaISO === filterDate;
-      });
-    }
-    setFilteredMuestras(filtered);
-  };
-
-  useEffect(() => {
-    applyFilters();
-  }, [muestras, search, filterDate]);
-
+  // Ajustar la función fetchMuestras para manejar correctamente el formato de fecha
   const fetchMuestras = async (
     page = 1,
     limit = 10,
     sortBy = "createdAt",
     sortOrder = "desc",
-    tipo = filterType
+    tipo = filterType,
+    searchQuery = search,
+    dateFilter = filterDate,
+    applyFiltersToAllPages = true // Nuevo parámetro para aplicar filtros a todo el conjunto de datos
   ) => {
     try {
       setLoading(true);
+
+      // Convertir la fecha al formato dd/MM/yyyy si es necesario
+      const formattedDate = dateFilter ? dateFilter.split("-").reverse().join("/") : "";
+
       const response = await muestrasService.obtenerMuestras({
         page,
         limit,
         sortBy,
         sortOrder,
-        tipo
+        tipo: tipo !== "todos" ? tipo : undefined, // Enviar solo si no es "todos"
+        search: searchQuery.trim() || undefined, // Enviar solo si no está vacío
+        date: formattedDate || undefined, // Enviar solo si no está vacío
+        applyFiltersToAllPages // Enviar al backend para aplicar filtros globalmente
       });
-  
+
       if (response.success && response.data) {
-        console.log("Muestras recibidas del backend:", response.data.items); // Agregamos este log
         setMuestras(response.data.items);
-        setFilteredMuestras(response.data.items);
         setPagination({
           page: response.data.page,
           limit: response.data.limit,
           total: response.data.total,
-          totalPages: response.data.totalPages
+          totalPages: response.data.totalPages,
         });
       } else {
-        throw new Error('No se pudieron obtener las muestras');
+        throw new Error("No se pudieron obtener las muestras");
       }
     } catch (error) {
       console.error("Error fetching muestras:", error);
       setSnackbarMessage(
-        "Error al cargar las muestras: " + (error.message || 'Error desconocido')
+        "Error al cargar las muestras: " + (error.message || "Error desconocido")
       );
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
       setMuestras([]);
-      setFilteredMuestras([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Actualizar la lógica de filtros locales para manejar correctamente el formato de fecha
+  const applyFilters = () => {
+    let filtered = [...muestras];
+    if (search.trim() !== "") {
+      filtered = filtered.filter((muestra) =>
+        muestra.id_muestra?.toLowerCase().includes(search.toLowerCase()) ||
+        muestra.cliente?.nombre?.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    if (filterDate !== "") {
+      const formattedDate = filterDate.split("-").reverse().join("/");
+      filtered = filtered.filter((muestra) => {
+        const fechaCreacion = muestra.creadoPor?.fechaCreacion?.fecha;
+        return fechaCreacion === formattedDate;
+      });
+    }
+    if (filterType !== "todos") {
+      filtered = filtered.filter((muestra) => muestra.tipoAnalisis === filterType);
+    }
+    setFilteredMuestras(filtered);
+  };
+
   useEffect(() => {
-    fetchMuestras(pagination.page, pagination.limit);
-  }, []);
+    fetchMuestras(pagination.page, pagination.limit, "createdAt", "desc", filterType, search, filterDate);
+  }, [filterType, search, filterDate, pagination.page]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [muestras]);
 
   const handlePageChange = (event, value) => {
     fetchMuestras(value, pagination.limit, "createdAt", "desc", filterType);
@@ -897,22 +909,26 @@ const Muestras = memo(() => {
   const handleFilterChange = (e) => {
     const newType = e.target.value;
     setFilterType(newType);
-    fetchMuestras(1, pagination.limit, "createdAt", "desc", newType);
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", newType, search, filterDate);
   };
 
   const handleSearchChange = (e) => {
-    setSearch(e.target.value);
+    const query = e.target.value;
+    setSearch(query);
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", filterType, query, filterDate);
   };
 
   const handleDateChange = (e) => {
-    setFilterDate(e.target.value);
+    const date = e.target.value;
+    setFilterDate(date);
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", filterType, search, date);
   };
 
   const handleClearFilters = () => {
     setFilterType("todos");
     setFilterDate("");
     setSearch("");
-    fetchMuestras(1, pagination.limit, "createdAt", "desc", "todos");
+    fetchMuestras(1, pagination.limit, "createdAt", "desc", "todos", "", "");
   };
 
   // Funciones para manejar PDFs

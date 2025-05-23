@@ -48,6 +48,7 @@ import {
   Legend
 } from 'chart.js';
 import axios from 'axios';
+import Pagination from '@mui/material/Pagination';
 
 ChartJS.register(
   CategoryScale,
@@ -113,6 +114,13 @@ const ExcelGenerator = () => {
   const [estadisticasAnalisis, setEstadisticasAnalisis] = useState([]);
   const [loadingAnalisis, setLoadingAnalisis] = useState(false);
   const [errorAnalisis, setErrorAnalisis] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
   useEffect(() => {
     loadInitialData();
@@ -163,7 +171,7 @@ const ExcelGenerator = () => {
       setAnalisisDisponibles([]);
     }
   };
-  const loadInitialData = async () => {
+  const loadInitialData = async (page = 1, limit = 10) => {
     setInitialLoading(true);
     setError(null);
     try {
@@ -178,11 +186,19 @@ const ExcelGenerator = () => {
       console.log('Muestras procesadas:', muestrasData);
       
       setAuditData({
-        muestras: muestrasData,
+        muestras: muestrasData.slice((page - 1) * limit, page * limit), // Mostrar solo 10 elementos por página
         parametros: response.data?.parametros || [],
         historial: response.data?.historial || []
       });
       setFilteredData(muestrasData);
+
+      // Actualizar paginación
+      setPagination({
+        page,
+        limit,
+        total: response.data?.pagination?.total || muestrasData.length,
+        totalPages: Math.ceil(muestrasData.length / limit),
+      });
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Error al cargar los datos iniciales');
@@ -425,6 +441,31 @@ const ExcelGenerator = () => {
     }
   }, [selectedTab, selectedParameter, fechaInicio, fechaFin]);
 
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    loadInitialData(value, pagination.limit); // Asegurar que se respete el límite de 10 elementos por página
+  };
+
+  // Estilos de tabla
+  const tableStyles = {
+    width: '100%',
+    borderCollapse: 'collapse',
+  };
+
+  const rowStyles = {
+    '&:nth-of-type(odd)': {
+      backgroundColor: '#f1f8e9',
+    },
+    '&:nth-of-type(even)': {
+      backgroundColor: 'white',
+    },
+    '&:hover': {
+      transform: 'scale(1.01)',
+      backgroundColor: '#e0f7fa',
+      transition: 'transform 0.2s',
+    },
+  };
+
   return (
     <div>
       {initialLoading ? (
@@ -529,14 +570,14 @@ const ExcelGenerator = () => {
           <Grid item xs={12}>
             {selectedTab === 0 && (
               <TableContainer component={Paper}>
-                <Table>
+                <Table sx={tableStyles}>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>ID Muestra</TableCell>
-                      <TableCell>Cliente</TableCell>
-                      <TableCell>Fecha Ingreso</TableCell>
-                      <TableCell>Estado</TableCell>
-                      <TableCell>Parámetros</TableCell>
+                    <TableRow sx={{ backgroundColor: '#39A900' }}> {/* Fondo verde */}
+                      <TableCell sx={{ fontWeight: 'bold', color: 'white' }}>ID Muestra</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: 'white' }}>Cliente</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: 'white' }}>Fecha Ingreso</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: 'white' }}>Estado</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: 'white' }}>Parámetros</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -548,7 +589,7 @@ const ExcelGenerator = () => {
                       </TableRow>
                     ) : (
                       (filteredData || []).map((muestra) => (
-                        <TableRow key={muestra.id}>
+                        <TableRow key={muestra.id} sx={rowStyles}>
                           <TableCell>{muestra.id}</TableCell>
                           <TableCell>{muestra.cliente}</TableCell>
                           <TableCell>{muestra.fechaIngreso}</TableCell>
@@ -794,6 +835,18 @@ const ExcelGenerator = () => {
                 </Grid>
               </Grid>
             )}
+          </Grid>
+
+          {/* Paginación */}
+          <Grid item xs={12}>
+            <Box display="flex" justifyContent="center" mt={2}>
+              <Pagination
+                count={pagination.totalPages}
+                page={currentPage}
+                onChange={handlePageChange}
+                color="primary"
+              />
+            </Box>
           </Grid>
         </Grid>
       )}
