@@ -91,8 +91,6 @@ const getEstadoChipProps = (estado) => {
 const ExcelGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
   const [selectedParameter, setSelectedParameter] = useState('');
   const [selectedTab, setSelectedTab] = useState(0);
   const [auditData, setAuditData] = useState({
@@ -104,6 +102,7 @@ const ExcelGenerator = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [analisisDisponibles, setAnalisisDisponibles] = useState([]);
   const [filterState, setFilterState] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Nuevo estado para búsqueda por ID o cliente
   const [estadisticas, setEstadisticas] = useState({
     totalMuestras: 0,
     muestrasFinalizadas: 0,
@@ -213,60 +212,37 @@ const ExcelGenerator = () => {
     setSelectedParameter(parameter);
     filterData(parameter, filterState);
   };
-  const filterData = (parameter, estado) => {
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+    filterData(event.target.value, filterState);
+  };
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFilterState('');
+    filterData('', '');
+  };
+  const filterData = (searchTerm, estado) => {
     let filtered = auditData.muestras || [];
-    console.log('Iniciando filtrado con:', { parameter, estado, totalMuestras: filtered.length });
-    
-    if (parameter) {
+
+    if (searchTerm) {
+      const normalizedSearchTerm = searchTerm.toLowerCase();
       filtered = filtered.filter(muestra => {
-        // Intentar obtener los parámetros de todas las posibles ubicaciones
-        const parametros = [
-          ...(muestra.parametros || []),
-          ...(muestra.analisisSeleccionados || []),
-          ...(muestra.analisis || [])
-        ];
-        
-        console.log(`Muestra ${muestra.id}, parámetros:`, parametros);
-        
-        return parametros.some(param => {
-          if (!param) return false;
-          if (typeof param === 'string') return param.toLowerCase() === parameter.toLowerCase();
-          if (param.nombre) return param.nombre.toLowerCase() === parameter.toLowerCase();
-          if (param.parametro) return param.parametro.toLowerCase() === parameter.toLowerCase();
-          return false;
-        });
+        const idMatch = muestra.id && muestra.id.toString().toLowerCase().includes(normalizedSearchTerm);
+        const clienteMatch = muestra.cliente && muestra.cliente.toLowerCase().includes(normalizedSearchTerm);
+        return idMatch || clienteMatch;
       });
     }
-    
+
     if (estado) {
       filtered = filtered.filter(muestra => muestra.estado === estado);
     }
-
-    if (fechaInicio) {
-      filtered = filtered.filter(muestra => {
-        const fechaMuestra = new Date(muestra.fechaIngreso || muestra.fechaHoraMuestreo);
-        return fechaMuestra >= new Date(fechaInicio);
-      });
-    }
-
-    if (fechaFin) {
-      filtered = filtered.filter(muestra => {
-        const fechaMuestra = new Date(muestra.fechaIngreso || muestra.fechaHoraMuestreo);
-        return fechaMuestra <= new Date(fechaFin);
-      });
-    }
-
-    console.log('Resultados del filtrado:', {
-      totalFiltradas: filtered.length,
-      primerasMuestras: filtered.slice(0, 3)
-    });
 
     setFilteredData(filtered);
   };
 
   useEffect(() => {
     filterData(selectedParameter, filterState);
-  }, [selectedParameter, filterState, fechaInicio, fechaFin, auditData]);
+  }, [selectedParameter, filterState, auditData]);
 
   const handleTabChange = (event, newValue) => {
     setSelectedTab(newValue);
@@ -275,7 +251,7 @@ const ExcelGenerator = () => {
     setLoading(true);
     setError(null);
     try {
-      await excelGenerator.generarExcelAuditoria('download', periodo, fechaInicio, fechaFin);
+      await excelGenerator.generarExcelAuditoria('download', periodo, '', '');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -287,7 +263,7 @@ const ExcelGenerator = () => {
     setLoading(true);
     setError(null);
     try {
-      await excelGenerator.generarExcelAuditoria('view', periodo, fechaInicio, fechaFin);
+      await excelGenerator.generarExcelAuditoria('view', periodo, '', '');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -418,8 +394,6 @@ const ExcelGenerator = () => {
             'Content-Type': 'application/json'
           },
           params: {
-            fechaInicio,
-            fechaFin,
             parametro: selectedParameter
           }
         }
@@ -439,7 +413,7 @@ const ExcelGenerator = () => {
     if (selectedTab === 1 && selectedParameter) {
       obtenerEstadisticasAnalisis();
     }
-  }, [selectedTab, selectedParameter, fechaInicio, fechaFin]);
+  }, [selectedTab, selectedParameter]);
 
   const handlePageChange = (event, value) => {
     setCurrentPage(value);
@@ -478,26 +452,13 @@ const ExcelGenerator = () => {
             <Card>
               <CardContent>
                 <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={12} md={3}>
                     <TextField
                       fullWidth
-                      type="date"
-                      label="Fecha Inicio"
-                      value={fechaInicio}
-                      onChange={(e) => setFechaInicio(e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={2}>
-                    <TextField
-                      fullWidth
-                      type="date"
-                      label="Fecha Fin"
-                      value={fechaFin}
-                      onChange={(e) => setFechaFin(e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      size="small"
+                      label="Buscar por ID o Cliente"
+                      variant="outlined"
+                      value={searchTerm}
+                      onChange={handleSearchChange}
                     />
                   </Grid>
                   <Grid item xs={12} md={3}>
@@ -534,12 +495,12 @@ const ExcelGenerator = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={12} md={3}>
                     <Button
                       fullWidth
                       variant="contained"
-                      startIcon={<RefreshIcon />}
-                      onClick={loadInitialData}
+                      color="secondary"
+                      onClick={handleClearFilters}
                       size="medium"
                       sx={{
                         bgcolor: '#39A900',
@@ -547,7 +508,7 @@ const ExcelGenerator = () => {
                         '&:hover': { bgcolor: '#2d8600', transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
                       }}
                     >
-                      Actualizar
+                      Limpiar Filtros
                     </Button>
                   </Grid>
                 </Grid>
