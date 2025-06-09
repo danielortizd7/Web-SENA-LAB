@@ -295,6 +295,34 @@ const TIPOS_ANALISIS_ENUM = {
   MICROBIOLOGICO: 'Microbiológico',
 } as const;
 
+// Función de validación exportada para testing
+export const validarMuestra = (data: any) => {
+  const errores: Record<string, string> = {};
+  if (!data.documento) errores.documento = 'El documento es requerido';
+  if (!data.tipoDeAgua.tipo) errores.tipoDeAgua = 'El tipo de agua es requerido';
+  if (data.tipoDeAgua.tipo === 'residual' && !data.tipoDeAgua.subtipo) {
+    errores.tipoAguaResidual = 'Debe especificar tipo de agua residual';
+  }
+  if (data.tipoDeAgua.tipo === 'otra' && !data.tipoDeAgua.descripcion) {
+    errores.descripcion = 'Descripción del tipo de agua es requerida';
+  }
+  if (!data.tipoMuestreo) errores.tipoMuestreo = 'El tipo de muestreo es requerido';
+  if (!data.lugarMuestreo) errores.lugarMuestreo = 'El lugar de muestreo es requerido';
+  if (!data.fechaHoraMuestreo) errores.fechaHoraMuestreo = 'La fecha y hora de muestreo son requeridas';
+  if (!data.tipoAnalisis) errores.tipoAnalisis = 'El tipo de análisis es requerido';
+  if (!data.identificacionMuestra) errores.identificacionMuestra = 'Identificación de la muestra es requerida';
+  if (!data.planMuestreo) errores.planMuestreo = 'El plan de muestreo es requerido';
+  if (!data.condicionesAmbientales) errores.condicionesAmbientales = 'Condiciones ambientales requeridas';
+  if (!data.preservacionMuestra) errores.preservacionMuestra = 'Preservación de la muestra es requerida';
+  if (data.preservacionMuestra === 'Otro' && !data.preservacionMuestraOtra) {
+    errores.preservacionMuestraOtra = 'Debe especificar preservación "Otro"';
+  }
+  if (!data.analisisSeleccionados?.length) {
+    errores.analisisSeleccionados = 'Debe seleccionar al menos un análisis';
+  }
+  return errores;
+};
+
 const RegistroMuestras: React.FC = () => {
   const navigate = useNavigate();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
